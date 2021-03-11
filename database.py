@@ -10,12 +10,13 @@ import json
 import hashlib
 import logging
 import traceback
-from typing import Union, Optional
+from typing import Union, Optional, Type, TypeVar
 from collections.abc import Collection
 from pyexiftool import ExifTool
 from tqdm import tqdm
 
 BLOCK_SIZE = 65536
+PF = TypeVar('PF', bound='PhotoFile')
 
 
 @dataclasses.dataclass
@@ -29,7 +30,7 @@ class PhotoFile:
     priority: int = 10  # Photo priority (lower is preferred)
 
     @classmethod
-    def from_file(cls, source_path, priority: int = 10) -> 'PhotoFile':
+    def from_file(cls: Type[PF], source_path: Union[str, Path], priority: int = 10) -> PF:
         photo_hash: str = file_checksum(source_path)
         dt = get_media_datetime(source_path)
         timestamp = datetime_str_to_object(dt).timestamp()
@@ -141,6 +142,9 @@ class DatabaseException(PhotoManagerBaseException):
     pass
 
 
+DB = TypeVar('DB', bound='Database')
+
+
 class Database:
     def __init__(self):
         self.db: dict = {'photo_db': {}, 'command_history': {}}
@@ -149,7 +153,7 @@ class Database:
         self.timestamp_to_uids: dict[float, dict[str, None]] = {}
 
     @classmethod
-    def from_file(cls, path: Union[str, Path]) -> 'Database':
+    def from_file(cls: Type[DB], path: Union[str, Path]) -> DB:
         """Loads a Database from a path"""
         db = cls()
         if os.path.exists(path):
