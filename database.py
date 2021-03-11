@@ -244,7 +244,7 @@ class Database:
         :return the number of photos imported"""
         logger = logging.getLogger()
         num_added_photos = num_merged_photos = num_skipped_photos = num_error_photos = 0
-        for current_file in tqdm(files, smoothing=0.1):
+        for current_file in tqdm(files):
             if logger.isEnabledFor(logging.DEBUG):
                 tqdm.write(f"Importing {current_file}")
             try:
@@ -302,7 +302,7 @@ class Database:
         directory = Path(directory).expanduser().resolve()
         num_transferred_photos = num_added_photos = num_missed_photos = num_stored_photos = 0
         logger = logging.getLogger()
-        for uid, photos in tqdm(self.photo_db.items(), smoothing=0.1):
+        for uid, photos in tqdm(self.photo_db.items()):
             highest_priority = min(photo.priority for photo in photos)
             stored_checksums = set()
             photos_marked_as_stored = [photo for photo in photos if photo.store_path]
@@ -336,8 +336,10 @@ class Database:
                 )
                 abs_store_path = directory / rel_store_path
                 if abs_store_path.exists():
-                    # a stored photo should have a store_path set for at least one alternate photo
-                    tqdm.write(f"Unexpected photo already present: {abs_store_path}")
+                    if logger.isEnabledFor(logging.DEBUG):
+                        tqdm.write(f"Photo already present: {abs_store_path}")
+                    photo.store_path = rel_store_path
+                    stored_checksums.add(photo.checksum)
                     num_stored_photos += 1
                 elif os.path.exists(photo.source_path):
                     if logger.isEnabledFor(logging.DEBUG):
