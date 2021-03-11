@@ -363,33 +363,32 @@ class Database:
         """Check the files stored in directory against checksums in the database
 
         :return the number of errors found"""
-        num_correct_photos = num_incorrect_photos = num_skipped_photos = num_missing_photos = 0
+        num_correct_photos = num_incorrect_photos = num_missing_photos = 0
         directory = Path(directory).expanduser().resolve()
         subdirectory = Path(subdirectory)
         if subdirectory.is_absolute():
             raise DatabaseException("Absolute subdirectory not supported")
         abs_subdirectory = directory / subdirectory
-        for uid, photos in tqdm(self.photo_db.items(), smoothing=0.1):
+        stored_photos = []
+        for photos in self.photo_db.values():
             for photo in photos:
-                if not photo.store_path:
-                    continue
                 abs_store_path = directory / photo.store_path
-                if not abs_store_path.is_relative_to(abs_subdirectory):
-                    num_skipped_photos += 1
-                elif not abs_store_path.exists():
-                    tqdm.write(f"Missing photo: {abs_store_path}")
-                    num_missing_photos += 1
-                elif file_checksum(abs_store_path) == photo.checksum:
-                    num_correct_photos += 1
-                else:
-                    tqdm.write(f"Incorrect checksum: {abs_store_path}")
-                    num_incorrect_photos += 1
+                if photo.store_path and abs_store_path.is_relative_to(abs_subdirectory):
+                    stored_photos.append(photo)
+        for photo in tqdm(stored_photos):
+            abs_store_path = directory / photo.store_path
+            if not abs_store_path.exists():
+                tqdm.write(f"Missing photo: {abs_store_path}")
+                num_missing_photos += 1
+            elif file_checksum(abs_store_path) == photo.checksum:
+                num_correct_photos += 1
+            else:
+                tqdm.write(f"Incorrect checksum: {abs_store_path}")
+                num_incorrect_photos += 1
 
         print(f"Checked {num_correct_photos+num_incorrect_photos+num_missing_photos} items")
         if num_incorrect_photos or num_missing_photos:
             print(f"Found {num_incorrect_photos} incorrect and {num_missing_photos} missing items")
         else:
             print("No errors found")
-        if num_skipped_photos:
-            print(f"Skipped {num_skipped_photos} items")
         return num_incorrect_photos + num_missing_photos
