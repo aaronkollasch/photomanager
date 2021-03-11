@@ -10,6 +10,8 @@ import json
 import hashlib
 import logging
 import traceback
+from typing import Union, Optional
+from collections.abc import Collection
 from pyexiftool import ExifTool
 from tqdm import tqdm
 
@@ -43,11 +45,11 @@ class PhotoFile:
         )
 
 
-def pf_from_dict(d: dict):
+def pf_from_dict(d: dict) -> PhotoFile:
     return PhotoFile(**d)
 
 
-def pf_to_dict(pf: PhotoFile):
+def pf_to_dict(pf: PhotoFile) -> dict:
     return dataclasses.asdict(pf)
 
 
@@ -59,7 +61,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-def file_checksum(path) -> str:
+def file_checksum(path: Union[str, Path]) -> str:
     sha256 = hashlib.sha256()
     with open(path, 'rb') as f:
         while block := f.read(BLOCK_SIZE):
@@ -67,7 +69,7 @@ def file_checksum(path) -> str:
     return sha256.hexdigest()
 
 
-def datetime_str_to_object(ts_str):
+def datetime_str_to_object(ts_str: str) -> datetime:
     """Parses a datetime string into a datetime object"""
     if '.' in ts_str:
         for fmt in ('%Y:%m:%d %H:%M:%S.%f%z', '%Y:%m:%d %H:%M:%S.%f'):
@@ -84,13 +86,13 @@ def datetime_str_to_object(ts_str):
     raise ValueError(f"Could not parse datetime str: {repr(ts_str)}")
 
 
-def datetime_is_valid(timestamp):
+def datetime_is_valid(timestamp: str) -> bool:
     if timestamp and isinstance(timestamp, str) and not timestamp.startswith('0000'):
         return True
     return False
 
 
-def get_media_datetime(path) -> str:
+def get_media_datetime(path: Union[str, Path]) -> str:
     """Gets the best known datetime string for a file"""
     exiftool = ExifTool()
     metadata = exiftool.get_metadata(path)
@@ -116,7 +118,7 @@ def get_media_datetime(path) -> str:
 unit_list = list(zip(['bytes', 'kB', 'MB', 'GB', 'TB', 'PB'], [0, 0, 1, 2, 2, 2]))
 
 
-def sizeof_fmt(num):
+def sizeof_fmt(num: int) -> str:
     """Human friendly file size
     https://stackoverflow.com/questions/1094841/get-human-readable-version-of-file-size"""
     if num > 1:
@@ -131,23 +133,31 @@ def sizeof_fmt(num):
         return '1 byte'
 
 
+class PhotoManagerBaseException(Exception):
+    pass
+
+
+class DatabaseException(PhotoManagerBaseException):
+    pass
+
+
 class Database:
     def __init__(self):
         self.db: dict = {'photo_db': {}, 'command_history': {}}
-        self.photo_db: dict = self.db['photo_db']  # uid: [PhotoFiles]
-        self.hash_to_uid: dict = {}
-        self.timestamp_to_uids: dict = {}
+        self.photo_db: dict[str, list[PhotoFile]] = self.db['photo_db']
+        self.hash_to_uid: dict[str, str] = {}
+        self.timestamp_to_uids: dict[float, dict[str, None]] = {}
 
-    @staticmethod
-    def from_file(path):
+    @classmethod
+    def from_file(cls, path: Union[str, Path]) -> 'Database':
         """Loads a Database from a path"""
-        db = Database()
+        db = cls()
         if os.path.exists(path):
             with open(path) as f:
                 db.db = json.load(f)
-                db.photo_db = db.db['photo_db']
-            for uid in db.photo_db.keys():
-                db.photo_db[uid] = [pf_from_dict(d) for d in db.photo_db[uid]]
+                photo_db = db.db['photo_db']
+                for uid in photo_db.keys():
+                    db.photo_db[uid] = [pf_from_dict(d) for d in photo_db[uid]]
             for uid, photos in db.photo_db.items():
                 for photo in photos:
                     db.hash_to_uid[photo.checksum] = uid
@@ -157,7 +167,7 @@ class Database:
                         db.timestamp_to_uids[photo.timestamp] = {uid: None}
         return db
 
-    def to_file(self, path):
+    def to_file(self, path: Union[str, Path]) -> None:
         """Saves the db to path and moves an existing database at that path to a different location"""
         path = Path(path)
         if path.is_file():
@@ -170,7 +180,7 @@ class Database:
         with open(path, 'w') as f:
             json.dump(self.db, fp=f, cls=EnhancedJSONEncoder)
 
-    def find_photo(self, photo: PhotoFile):
+    def find_photo(self, photo: PhotoFile) -> Optional[str]:
         """Finds a photo in the database and returns its uid
 
         Matches first by file checksum, then by timestamp+filename (case-insensitive).
@@ -194,7 +204,7 @@ class Database:
         else:
             return None
 
-    def add_photo(self, photo: PhotoFile, uid: str):
+    def add_photo(self, photo: PhotoFile, uid: str) -> Optional[str]:
         """Adds a photo into the database with specified uid (can be None)
 
         Skips and returns None if the photo checksum is already in the database under a different uid
@@ -224,7 +234,7 @@ class Database:
             self.timestamp_to_uids[photo.timestamp] = {uid: None}
         return uid
 
-    def import_photos(self, files, priority=10):
+    def import_photos(self, files: Collection[Union[str, Path]], priority: int = 10) -> int:
         """Imports photo files into the database with a designated priority
 
         :return the number of photos imported"""
@@ -257,7 +267,7 @@ class Database:
             print(f"Skipped {num_skipped_photos} items and errored on {num_error_photos} items")
         return num_added_photos + num_merged_photos
 
-    def get_chosen_photos(self):
+    def get_chosen_photos(self) -> list[PhotoFile]:
         """Gets all photos this database has stored or would choose to store"""
         chosen_photos = []
         for uid, photos in self.photo_db.items():
@@ -271,7 +281,7 @@ class Database:
             chosen_photos.extend(new_chosen_photos)
         return chosen_photos
 
-    def collect_to_directory(self, directory):
+    def collect_to_directory(self, directory: Union[str, Path]) -> int:
         """Collects photos in the database into a directory
 
         Collects only photos that have a store_path set or that have the highest priority
@@ -345,7 +355,7 @@ class Database:
             print(f"Skipped {num_stored_photos} items already stored and {num_missed_photos} missing items")
         return num_added_photos + num_transferred_photos
 
-    def verify_stored_photos(self, directory, subdirectory=''):
+    def verify_stored_photos(self, directory: Union[str, Path], subdirectory: Union[str, Path] = '') -> int:
         """Check the files stored in directory against checksums in the database
 
         :return the number of errors found"""
