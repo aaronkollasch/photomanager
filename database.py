@@ -159,9 +159,9 @@ class Database:
         if os.path.exists(path):
             with open(path) as f:
                 db.db = json.load(f)
-                photo_db = db.db['photo_db']
-                for uid in photo_db.keys():
-                    db.photo_db[uid] = [pf_from_dict(d) for d in photo_db[uid]]
+                db.photo_db = db.db['photo_db']
+                for uid in db.photo_db.keys():
+                    db.photo_db[uid] = [pf_from_dict(d) for d in db.photo_db[uid]]
             for uid, photos in db.photo_db.items():
                 for photo in photos:
                     db.hash_to_uid[photo.checksum] = uid
