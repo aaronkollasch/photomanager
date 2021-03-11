@@ -28,13 +28,13 @@ class PhotoFile:
     store_path: str = ''  # Relative path where photo is stored, if it is stored
     priority: int = 10  # Photo priority (lower is preferred)
 
-    @staticmethod
-    def from_file(source_path, priority: int = 10):
+    @classmethod
+    def from_file(cls, source_path, priority: int = 10) -> 'PhotoFile':
         photo_hash: str = file_checksum(source_path)
         dt = get_media_datetime(source_path)
         timestamp = datetime_str_to_object(dt).timestamp()
         file_size = os.path.getsize(source_path)
-        return PhotoFile(
+        return cls(
             checksum=photo_hash,
             source_path=str(source_path),
             datetime=dt,
