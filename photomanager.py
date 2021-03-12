@@ -23,17 +23,17 @@ audio_extensions = {
 extensions = photo_extensions | video_extensions | audio_extensions
 
 
-@click.command('import')
+@click.command('import', help='Find and add items to database')
 @click.option('--db', type=click.Path(dir_okay=False), required=True,
               default='./photos.json', help='PhotoManager database path')
 @click.option('--source', type=click.Path(file_okay=False),
-              help='directory to import')
+              help='Directory to import')
 @click.option('--file', type=click.Path(dir_okay=False),
-              help='file to import')
+              help='File to import')
 @click.option('--exclude', multiple=True,
-              help='name patterns to exclude')
+              help='Name patterns to exclude')
 @click.option('--priority', type=int, default=10,
-              help='priority of imported photos (lower is preferred)')
+              help='Priority of imported photos (lower is preferred)')
 @click.option('--debug', default=False, is_flag=True,
               help='Run in debug mode')
 @click.argument('paths', nargs=-1, type=click.Path())
@@ -82,11 +82,11 @@ def _import(db, source, file, exclude, paths, debug=False, priority=10):
     database.to_file(db)
 
 
-@click.command('collect')
+@click.command('collect', help='Collect highest-priority items into storage')
 @click.option('--db', type=click.Path(dir_okay=False), required=True,
               default='./photos.json', help='PhotoManager database path')
 @click.option('--destination', type=click.Path(file_okay=False), required=True,
-              help='photo storage base directory')
+              help='Photo storage base directory')
 @click.option('--debug', default=False, is_flag=True,
               help='Run in debug mode')
 def _collect(db, destination, debug=False):
@@ -98,13 +98,34 @@ def _collect(db, destination, debug=False):
     database.to_file(db)
 
 
-@click.command('verify')
+@click.command('clean', help='Remove lower-priority alternatives of stored items')
 @click.option('--db', type=click.Path(dir_okay=False), required=True,
               default='./photos.json', help='PhotoManager database path')
 @click.option('--destination', type=click.Path(file_okay=False), required=True,
-              help='photo storage base directory')
+              help='Photo storage base directory')
 @click.option('--subdir', type=str, default='',
-              help='verify only items within subdirectory')
+              help='Remove only items within subdirectory')
+@click.option('--debug', default=False, is_flag=True,
+              help='Run in debug mode')
+@click.option('--dry-run', default=False, is_flag=True,
+              help='Perform a dry run that makes no changes')
+def _clean(db, destination, subdir='', debug=False, dry_run=False):
+    if debug:
+        logging.basicConfig(level=logging.DEBUG)
+    database = Database.from_file(db)
+    database.clean_stored_photos(destination, subdirectory=subdir, dry_run=dry_run)
+    database.db['command_history'][datetime.now().strftime('%Y-%m-%d_%H-%M-%S')] = ' '.join(sys.argv)
+    if not dry_run:
+        database.to_file(db)
+
+
+@click.command('verify', help='Verify checksums of stored items')
+@click.option('--db', type=click.Path(dir_okay=False), required=True,
+              default='./photos.json', help='PhotoManager database path')
+@click.option('--destination', type=click.Path(file_okay=False), required=True,
+              help='Photo storage base directory')
+@click.option('--subdir', type=str, default='',
+              help='Verify only items within subdirectory')
 def _verify(db, destination, subdir=''):
     database = Database.from_file(db)
     database.verify_stored_photos(destination, subdirectory=subdir)
@@ -117,6 +138,7 @@ def main():
 
 main.add_command(_import)
 main.add_command(_collect)
+main.add_command(_clean)
 main.add_command(_verify)
 
 

@@ -209,7 +209,7 @@ class Database:
         else:
             return None
 
-    def add_photo(self, photo: PhotoFile, uid: str) -> Optional[str]:
+    def add_photo(self, photo: PhotoFile, uid: Optional[str]) -> Optional[str]:
         """Adds a photo into the database with specified uid (can be None)
 
         Skips and returns None if the photo checksum is already in the database under a different uid
@@ -242,6 +242,8 @@ class Database:
     def import_photos(self, files: Collection[Union[str, PathLike]], priority: int = 10) -> int:
         """Imports photo files into the database with a designated priority
 
+        :param files the photo file paths to import
+        :param priority the imported photos' priority
         :return the number of photos imported"""
         logger = logging.getLogger()
         num_added_photos = num_merged_photos = num_skipped_photos = num_error_photos = 0
@@ -295,6 +297,7 @@ class Database:
         Updates the store_path for photos newly stored. Store_paths are relative to the storage directory.
         Stored photos have permissions set to read-only for all.
 
+        :param directory the photo storage directory
         :return the number of photos collected"""
 
         print("Collecting photos.")
@@ -362,6 +365,56 @@ class Database:
             print(f"Skipped {num_stored_photos} items already stored and {num_missed_photos} missing items")
         return num_added_photos + num_transferred_photos
 
+    def clean_stored_photos(
+            self,
+            directory: Union[str, PathLike],
+            subdirectory: Union[str, PathLike] = '',
+            dry_run: bool = True
+    ) -> int:
+        """Removes lower-priority stored photos if a higher-priority version is stored
+
+        :param directory the photo storage directory
+        :param subdirectory remove only photos within subdirectory
+        :param dry_run if True, do not remove photos
+        :return the number of photos removed"""
+        num_removed_photos = num_missing_photos = total_file_size = 0
+        directory = Path(directory).expanduser().resolve()
+        subdirectory = Path(subdirectory)
+        if subdirectory.is_absolute():
+            raise DatabaseException("Absolute subdirectory not supported")
+        abs_subdirectory = directory / subdirectory
+        photos_to_remove = []
+        for photos in self.photo_db.values():
+            highest_stored_priority = min(
+                photo.priority for photo in photos
+                if photo.store_path and (directory / photo.store_path).exists()
+            )
+            for photo in photos:
+                abs_store_path = directory / photo.store_path
+                if (photo.priority > highest_stored_priority and photo.store_path and
+                        abs_store_path.is_relative_to(abs_subdirectory)):
+                    photos_to_remove.append(photo)
+                    total_file_size += photo.file_size
+        print(f"Identified {len(photos_to_remove)} lower-priority items for removal")
+        print(f"Total file size: {sizeof_fmt(total_file_size)}")
+        logger = logging.getLogger()
+        for photo in tqdm(photos_to_remove):
+            abs_store_path = directory / photo.store_path
+            if abs_store_path.exists():
+                if logger.isEnabledFor(logging.DEBUG):
+                    tqdm.write(f"{'Will remove' if dry_run else 'Removing'}: {abs_store_path}")
+                if not dry_run:
+                    os.remove(abs_store_path)
+                    photo.store_path = ''
+                num_removed_photos += 1
+            else:
+                if logger.isEnabledFor(logging.DEBUG):
+                    tqdm.write(f"Missing photo: {abs_store_path}")
+                num_missing_photos += 1
+        print(f"{'Found' if dry_run else 'Removed'} {num_removed_photos} items "
+              f"and skipped {num_missing_photos} missing items")
+        return num_removed_photos
+
     def verify_stored_photos(
             self,
             directory: Union[str, PathLike],
@@ -369,6 +422,8 @@ class Database:
     ) -> int:
         """Check the files stored in directory against checksums in the database
 
+        :param directory the photo storage directory
+        :param subdirectory verify only photos within subdirectory
         :return the number of errors found"""
         num_correct_photos = num_incorrect_photos = num_missing_photos = 0
         directory = Path(directory).expanduser().resolve()
