@@ -1,4 +1,5 @@
 import os
+from os import PathLike
 import stat
 from math import log
 from uuid import uuid4
@@ -30,7 +31,7 @@ class PhotoFile:
     priority: int = 10  # Photo priority (lower is preferred)
 
     @classmethod
-    def from_file(cls: Type[PF], source_path: Union[str, Path], priority: int = 10) -> PF:
+    def from_file(cls: Type[PF], source_path: Union[str, PathLike], priority: int = 10) -> PF:
         photo_hash: str = file_checksum(source_path)
         dt = get_media_datetime(source_path)
         timestamp = datetime_str_to_object(dt).timestamp()
@@ -62,7 +63,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-def file_checksum(path: Union[str, Path]) -> str:
+def file_checksum(path: Union[str, PathLike]) -> str:
     sha256 = hashlib.sha256()
     with open(path, 'rb') as f:
         while block := f.read(BLOCK_SIZE):
@@ -93,7 +94,7 @@ def datetime_is_valid(timestamp: str) -> bool:
     return False
 
 
-def get_media_datetime(path: Union[str, Path]) -> str:
+def get_media_datetime(path: Union[str, PathLike]) -> str:
     """Gets the best known datetime string for a file"""
     exiftool = ExifTool()
     metadata = exiftool.get_metadata(path)
@@ -153,7 +154,7 @@ class Database:
         self.timestamp_to_uids: dict[float, dict[str, None]] = {}
 
     @classmethod
-    def from_file(cls: Type[DB], path: Union[str, Path]) -> DB:
+    def from_file(cls: Type[DB], path: Union[str, PathLike]) -> DB:
         """Loads a Database from a path"""
         db = cls()
         if os.path.exists(path):
@@ -171,7 +172,7 @@ class Database:
                         db.timestamp_to_uids[photo.timestamp] = {uid: None}
         return db
 
-    def to_file(self, path: Union[str, Path]) -> None:
+    def to_file(self, path: Union[str, PathLike]) -> None:
         """Saves the db to path and moves an existing database at that path to a different location"""
         path = Path(path)
         if path.is_file():
@@ -238,7 +239,7 @@ class Database:
             self.timestamp_to_uids[photo.timestamp] = {uid: None}
         return uid
 
-    def import_photos(self, files: Collection[Union[str, Path]], priority: int = 10) -> int:
+    def import_photos(self, files: Collection[Union[str, PathLike]], priority: int = 10) -> int:
         """Imports photo files into the database with a designated priority
 
         :return the number of photos imported"""
@@ -285,7 +286,7 @@ class Database:
             chosen_photos.extend(new_chosen_photos)
         return chosen_photos
 
-    def collect_to_directory(self, directory: Union[str, Path]) -> int:
+    def collect_to_directory(self, directory: Union[str, PathLike]) -> int:
         """Collects photos in the database into a directory
 
         Collects only photos that have a store_path set or that have the highest priority
@@ -361,7 +362,11 @@ class Database:
             print(f"Skipped {num_stored_photos} items already stored and {num_missed_photos} missing items")
         return num_added_photos + num_transferred_photos
 
-    def verify_stored_photos(self, directory: Union[str, Path], subdirectory: Union[str, Path] = '') -> int:
+    def verify_stored_photos(
+            self,
+            directory: Union[str, PathLike],
+            subdirectory: Union[str, PathLike] = ''
+    ) -> int:
         """Check the files stored in directory against checksums in the database
 
         :return the number of errors found"""
