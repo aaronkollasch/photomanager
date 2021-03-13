@@ -425,7 +425,7 @@ class Database:
         :param directory the photo storage directory
         :param subdirectory verify only photos within subdirectory
         :return the number of errors found"""
-        num_correct_photos = num_incorrect_photos = num_missing_photos = 0
+        num_correct_photos = num_incorrect_photos = num_missing_photos = total_file_size = 0
         directory = Path(directory).expanduser().resolve()
         subdirectory = Path(subdirectory)
         if subdirectory.is_absolute():
@@ -437,6 +437,9 @@ class Database:
                 abs_store_path = directory / photo.store_path
                 if photo.store_path and abs_store_path.is_relative_to(abs_subdirectory):
                     stored_photos.append(photo)
+                    total_file_size += photo.file_size
+        print(f"Verifying {len(stored_photos)} items")
+        print(f"Total file size: {sizeof_fmt(total_file_size)}")
         for photo in tqdm(stored_photos):
             abs_store_path = directory / photo.store_path
             if not abs_store_path.exists():
