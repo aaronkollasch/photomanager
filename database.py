@@ -17,7 +17,7 @@ from pyexiftool import ExifTool
 from tqdm import tqdm
 
 BLOCK_SIZE = 65536
-DEFAULT_HASH_ALGO = 'blake2b-256'
+DEFAULT_HASH_ALGO = 'blake2b-256'  # b2sum -l 256
 PF = TypeVar('PF', bound='PhotoFile')
 
 
