@@ -17,6 +17,7 @@ from pyexiftool import ExifTool
 from tqdm import tqdm
 
 BLOCK_SIZE = 65536
+DEFAULT_HASH_ALGO = 'blake2b-256'
 PF = TypeVar('PF', bound='PhotoFile')
 
 
@@ -31,8 +32,13 @@ class PhotoFile:
     priority: int = 10  # Photo priority (lower is preferred)
 
     @classmethod
-    def from_file(cls: Type[PF], source_path: Union[str, PathLike], priority: int = 10) -> PF:
-        photo_hash: str = file_checksum(source_path)
+    def from_file(
+            cls: Type[PF],
+            source_path: Union[str, PathLike],
+            algorithm: str = DEFAULT_HASH_ALGO,
+            priority: int = 10
+    ) -> PF:
+        photo_hash: str = file_checksum(source_path, algorithm)
         dt = get_media_datetime(source_path)
         timestamp = datetime_str_to_object(dt).timestamp()
         file_size = os.path.getsize(source_path)
@@ -63,12 +69,17 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-def file_checksum(path: Union[str, PathLike]) -> str:
-    sha256 = hashlib.sha256()
+def file_checksum(path: Union[str, PathLike], algorithm: str = DEFAULT_HASH_ALGO) -> str:
+    if algorithm == 'sha256':
+        hash_obj = hashlib.sha256()
+    elif algorithm == 'blake2b-256':
+        hash_obj = hashlib.blake2b(digest_size=32)
+    else:
+        raise PhotoManagerException(f"Hash algorithm not supported: {algorithm}")
     with open(path, 'rb') as f:
         while block := f.read(BLOCK_SIZE):
-            sha256.update(block)
-    return sha256.hexdigest()
+            hash_obj.update(block)
+    return hash_obj.hexdigest()
 
 
 def datetime_str_to_object(ts_str: str) -> datetime:
@@ -143,15 +154,20 @@ class DatabaseException(PhotoManagerBaseException):
     pass
 
 
+class PhotoManagerException(PhotoManagerBaseException):
+    pass
+
+
 DB = TypeVar('DB', bound='Database')
 
 
 class Database:
     def __init__(self):
-        self.db: dict = {'photo_db': {}, 'command_history': {}}
+        self.db: dict = {'photo_db': {}, 'command_history': {}, 'hash_algorithm': DEFAULT_HASH_ALGO}
         self.photo_db: dict[str, list[PhotoFile]] = self.db['photo_db']
         self.hash_to_uid: dict[str, str] = {}
         self.timestamp_to_uids: dict[float, dict[str, None]] = {}
+        self.hash_algorithm = DEFAULT_HASH_ALGO
 
     @classmethod
     def from_file(cls: Type[DB], path: Union[str, PathLike]) -> DB:
@@ -163,6 +179,8 @@ class Database:
                 db.photo_db = db.db['photo_db']
                 for uid in db.photo_db.keys():
                     db.photo_db[uid] = [pf_from_dict(d) for d in db.photo_db[uid]]
+                db.db.setdefault('hash_algorithm', 'sha256')  # legacy dbs do not specify algo and use sha256
+                db.hash_algorithm = db.db['hash_algorithm']
             for uid, photos in db.photo_db.items():
                 for photo in photos:
                     db.hash_to_uid[photo.checksum] = uid
@@ -253,7 +271,7 @@ class Database:
             if logger.isEnabledFor(logging.DEBUG):
                 tqdm.write(f"Importing {current_file}")
             try:
-                pf = PhotoFile.from_file(current_file, priority=priority)
+                pf = PhotoFile.from_file(current_file, algorithm=self.db['hash_algorithm'], priority=priority)
                 uid = self.find_photo(photo=pf)
                 result = self.add_photo(photo=pf, uid=uid)
 
@@ -447,7 +465,7 @@ class Database:
             if not abs_store_path.exists():
                 tqdm.write(f"Missing photo: {abs_store_path}")
                 num_missing_photos += 1
-            elif file_checksum(abs_store_path) == photo.checksum:
+            elif file_checksum(abs_store_path, self.db['hash_algorithm']) == photo.checksum:
                 num_correct_photos += 1
             else:
                 tqdm.write(f"Incorrect checksum: {abs_store_path}")
@@ -477,3 +495,51 @@ class Database:
         print(f"Total stored items: {num_stored_photos}")
         print(f"Total file size:    {sizeof_fmt(total_file_size)}")
         return num_uids, num_photos, num_stored_photos, total_file_size
+
+    def make_hash_map(self, new_algo: str, hash_map: Optional[dict[str, str]] = None) -> dict[str, str]:
+        """Make a map of file checksums in order to migrate hashing algorithms"""
+        if hash_map is None:
+            hash_map = {}
+        old_algo = self.db['hash_algorithm']
+        print(f"Converting {old_algo} to {new_algo}")
+        num_correct_photos = num_incorrect_photos = num_missing_photos = num_skipped_photos = 0
+        all_photos = [photo for photos in self.photo_db.values() for photo in photos]
+        for photo in tqdm(all_photos):
+            if photo.checksum in hash_map:
+                num_skipped_photos += 1
+            elif os.path.exists(photo.source_path):
+                if photo.checksum == file_checksum(photo.source_path, old_algo):
+                    hash_map[photo.checksum] = file_checksum(photo.source_path, new_algo)
+                    num_correct_photos += 1
+                else:  # incorrect hash; assume correct hash is not available
+                    tqdm.write(f"Incorrect checksum: {photo.source_path}")
+                    hash_map[photo.checksum] = f"{photo.checksum}:{old_algo}"
+                    num_incorrect_photos += 1
+            else:
+                num_missing_photos += 1
+
+        print(f"Mapped {num_correct_photos} items")
+        if num_skipped_photos:
+            print(f"Skipped {num_skipped_photos} items")
+        if num_incorrect_photos or num_missing_photos:
+            print(f"Found {num_incorrect_photos} incorrect and {num_missing_photos} missing items")
+        return hash_map
+
+    def map_hashes(self, new_algo: str, hash_map: dict[str, str], map_all: bool = False) -> Optional[int]:
+        num_correct_photos = num_skipped_photos = 0
+        all_photos = [photo for photos in self.photo_db.values() for photo in photos]
+        if map_all and (num_skipped_photos := sum(photo.checksum not in hash_map for photo in all_photos)):
+            print(f"Not all items will be mapped: {num_skipped_photos}")
+            return None
+        for photo in tqdm(all_photos):
+            if photo.checksum in hash_map:
+                photo.checksum = hash_map[photo.checksum]
+                num_correct_photos += 1
+            else:
+                num_skipped_photos += 1
+        self.hash_algorithm = new_algo
+        self.db['hash_algorithm'] = new_algo
+        print(f"Mapped {num_correct_photos} items")
+        if num_skipped_photos:
+            print(f"Skipped {num_skipped_photos} items")
+        return num_skipped_photos
