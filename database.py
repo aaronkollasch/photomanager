@@ -226,10 +226,12 @@ class Database:
                    for pf in self.photo_db[self.hash_to_uid[photo.checksum]]):
                 return None
         if uid is None:
-            uid = uuid4().hex
-        if uid in self.photo_db:
-            self.photo_db[uid].append(photo)
-            self.photo_db[uid].sort(key=lambda pf: pf.priority)
+            uid = self.hash_to_uid.get(photo.checksum, uuid4().hex)
+        photos = self.photo_db.get(uid, None)
+        if photos is not None:
+            if photo.source_path not in (p.source_path for p in photos):
+                photos.append(photo)
+                photos.sort(key=lambda pf: pf.priority)
         else:
             self.photo_db[uid] = [photo]
         self.hash_to_uid[photo.checksum] = uid
