@@ -497,7 +497,15 @@ class Database:
         return num_uids, num_photos, num_stored_photos, total_file_size
 
     def make_hash_map(self, new_algo: str, hash_map: Optional[dict[str, str]] = None) -> dict[str, str]:
-        """Make a map of file checksums in order to migrate hashing algorithms"""
+        """Make a map of file checksums in order to migrate hashing algorithms
+
+        Checks source file hashes using the old algorithm to make sure the new hashes are correct.
+        If the source has an incorrect hash, does not map checksum and instead denotes the hash by
+        appending ':{algorithm}'
+
+        :param new_algo the new algorithm to use
+        :param hash_map the map from old hashes to new hashes; will be updated with new mappings
+        :return the hash map"""
         if hash_map is None:
             hash_map = {}
         old_algo = self.db['hash_algorithm']
@@ -526,7 +534,17 @@ class Database:
         return hash_map
 
     def map_hashes(self, new_algo: str, hash_map: dict[str, str], map_all: bool = False) -> Optional[int]:
+        """Map the database's checksums to a new algorithm
+
+        If a checksum cannot be mapped, it is appended by ':{algorithm}'
+        to denote that it was made with a different algorithm
+
+        :param new_algo the hashing algorithm used to make hash_map
+        :param hash_map the map from old hashes to new hashes
+        :param map_all set to True to make sure that all hashes can be mapped
+        :return the number of hashes not mapped"""
         num_correct_photos = num_skipped_photos = 0
+        old_algo = self.db['hash_algorithm']
         all_photos = [photo for photos in self.photo_db.values() for photo in photos]
         if map_all and (num_skipped_photos := sum(photo.checksum not in hash_map for photo in all_photos)):
             print(f"Not all items will be mapped: {num_skipped_photos}")
@@ -536,6 +554,7 @@ class Database:
                 photo.checksum = hash_map[photo.checksum]
                 num_correct_photos += 1
             else:
+                photo.checksum = f"{photo.checksum}:{old_algo}"
                 num_skipped_photos += 1
         self.hash_algorithm = new_algo
         self.db['hash_algorithm'] = new_algo
