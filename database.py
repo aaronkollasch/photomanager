@@ -457,3 +457,21 @@ class Database:
         else:
             print("No errors found")
         return num_incorrect_photos + num_missing_photos
+
+    def get_stats(self) -> tuple[int, int, int, int]:
+        """Get database item statistics
+
+        :return num_uids, num_photos, num_stored_photos, total_file_size"""
+        num_uids = num_photos = num_stored_photos = total_file_size = 0
+        for photos in self.photo_db.values():
+            num_uids += 1
+            for photo in photos:
+                num_photos += 1
+                if photo.store_path:
+                    num_stored_photos += 1
+                    total_file_size += photo.file_size
+        print(f"Total items:        {num_photos}")
+        print(f"Total unique items: {num_uids}")
+        print(f"Total stored items: {num_stored_photos}")
+        print(f"Total file size:    {sizeof_fmt(total_file_size)}")
+        return num_uids, num_photos, num_stored_photos, total_file_size

@@ -131,6 +131,13 @@ def _verify(db, destination, subdir=''):
     database.verify_stored_photos(destination, subdirectory=subdir)
 
 
+@click.command('stats', help='Get database statistics')
+@click.option('--db', type=click.Path(dir_okay=False), required=True,
+              default='./photos.json', help='PhotoManager database path')
+def _stats(db):
+    database = Database.from_file(db)
+    database.get_stats()
+
 @click.group()
 def main():
     pass
@@ -140,6 +147,7 @@ main.add_command(_import)
 main.add_command(_collect)
 main.add_command(_clean)
 main.add_command(_verify)
+main.add_command(_stats)
 
 
 if __name__ == "__main__":
