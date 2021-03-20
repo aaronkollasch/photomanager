@@ -33,11 +33,13 @@ extensions = photo_extensions | video_extensions | audio_extensions
 @click.option('--exclude', multiple=True,
               help='Name patterns to exclude')
 @click.option('--priority', type=int, default=10,
-              help='Priority of imported photos (lower is preferred)')
+              help='Priority of imported photos (lower is preferred, default=10)')
+@click.option('--storage-type', type=str, default='HDD',
+              help='Class of storage medium (HDD or SSD)')
 @click.option('--debug', default=False, is_flag=True,
               help='Run in debug mode')
 @click.argument('paths', nargs=-1, type=click.Path())
-def _import(db, source, file, exclude, paths, debug=False, priority=10):
+def _import(db, source, file, exclude, paths, debug=False, priority=10, storage_type='HDD'):
     if not source and not file and not paths:
         print("Nothing to import")
         sys.exit(1)
@@ -77,7 +79,8 @@ def _import(db, source, file, exclude, paths, debug=False, priority=10):
     if skipped_extensions:
         print(f"Skipped extensions: {skipped_extensions}")
 
-    database.import_photos(files=filtered_files, priority=priority)
+    with ExifTool():
+        database.import_photos(files=filtered_files, priority=priority, storage_type=storage_type)
     database.db['command_history'][datetime.now().strftime('%Y-%m-%d_%H-%M-%S')] = ' '.join(sys.argv)
     database.to_file(db)
 
@@ -138,6 +141,7 @@ def _stats(db):
     database = Database.from_file(db)
     database.get_stats()
 
+
 @click.group()
 def main():
     pass
@@ -151,5 +155,4 @@ main.add_command(_stats)
 
 
 if __name__ == "__main__":
-    with ExifTool() as et:
-        main()
+    main()

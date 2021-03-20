@@ -113,6 +113,38 @@ fsencode = _fscodec()
 del _fscodec
 
 
+def datetime_is_valid(timestamp: str) -> bool:
+    if timestamp and isinstance(timestamp, str) and not timestamp.startswith('0000'):
+        return True
+    return False
+
+
+datetime_tags = [
+    'Composite:SubSecDateTimeOriginal', 'QuickTime:CreationDate', 'DateTimeOriginal', 'SubSecTimeOriginal',
+    'OffsetTimeOriginal', 'CreateDate', 'File:FileModifyDate'
+]
+
+
+def best_datetime(metadata):
+    timestamp = metadata.get('Composite:SubSecDateTimeOriginal', '')
+    if timestamp and datetime_is_valid(timestamp):
+        return timestamp
+    timestamp = metadata.get('QuickTime:CreationDate', '')
+    if timestamp and datetime_is_valid(timestamp):
+        return timestamp
+    if 'EXIF:DateTimeOriginal' in metadata and datetime_is_valid(metadata['EXIF:DateTimeOriginal']):
+        subsec = metadata.get('EXIF:SubSecTimeOriginal', '')
+        offset = metadata.get('EXIF:OffsetTimeOriginal', '')
+        return f"{metadata['EXIF:DateTimeOriginal']}{'.' if subsec else ''}{subsec}{offset}"
+    for tag in metadata.keys():
+        if 'DateTimeOriginal' in tag and datetime_is_valid(metadata[tag]):
+            return metadata[tag]
+    for tag in metadata.keys():
+        if 'CreateDate' in tag and datetime_is_valid(metadata[tag]):
+            return metadata[tag]
+    return metadata['File:FileModifyDate']
+
+
 class Singleton(type):
     """Metaclass to use the singleton [anti-]pattern"""
     instance = None
@@ -334,3 +366,13 @@ class ExifTool(object, metaclass=Singleton):
         ``None`` if this tag was not found in the file.
         """
         return self.get_tag_batch(tag, [filename])[0]
+
+    def get_best_datetime_batch(self, filenames):
+        data = self.get_tags_batch(datetime_tags, filenames)
+        result = []
+        for d in data:
+            result.append(best_datetime(d))
+        return result
+
+    def get_best_datetime(self, filename):
+        return self.get_best_datetime_batch([filename])[0]

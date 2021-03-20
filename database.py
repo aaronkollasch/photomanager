@@ -11,9 +11,14 @@ import json
 import hashlib
 import logging
 import traceback
+import asyncio
+from asyncio import subprocess
+from subprocess import Popen, DEVNULL
+import time
 from typing import Union, Optional, Type, TypeVar
 from collections.abc import Collection
 from pyexiftool import ExifTool
+from pyexiftool_async import AsyncExifTool
 from tqdm import tqdm
 
 BLOCK_SIZE = 65536
@@ -40,6 +45,35 @@ class PhotoFile:
     ) -> PF:
         photo_hash: str = file_checksum(source_path, algorithm)
         dt = get_media_datetime(source_path)
+        timestamp = datetime_str_to_object(dt).timestamp()
+        file_size = os.path.getsize(source_path)
+        return cls(
+            checksum=photo_hash,
+            source_path=str(source_path),
+            datetime=dt,
+            timestamp=timestamp,
+            file_size=file_size,
+            store_path='',
+            priority=priority,
+        )
+
+    @classmethod
+    def from_file_cached(
+            cls: Type[PF],
+            source_path: str,
+            checksum_cache: dict[str, str],
+            datetime_cache: dict[str, str],
+            algorithm: str = DEFAULT_HASH_ALGO,
+            priority: int = 10,
+    ) -> PF:
+        photo_hash: str = (
+            checksum_cache[source_path] if source_path in checksum_cache
+            else file_checksum(source_path, algorithm)
+        )
+        dt = (
+            datetime_cache[source_path] if source_path in datetime_cache
+            else get_media_datetime(source_path)
+        )
         timestamp = datetime_str_to_object(dt).timestamp()
         file_size = os.path.getsize(source_path)
         return cls(
@@ -82,6 +116,115 @@ def file_checksum(path: Union[str, PathLike], algorithm: str = DEFAULT_HASH_ALGO
     return hash_obj.hexdigest()
 
 
+class AsyncFileHasher:
+    def __init__(
+            self, algorithm: str = DEFAULT_HASH_ALGO,
+            num_workers: int = os.cpu_count(), batch_size: int = 20, use_async: bool = True
+    ):
+        self.algorithm = algorithm
+        if self.algorithm == 'blake2b-256':
+            self.command = ('b2sum', '-l', '256')
+        elif self.algorithm == 'sha256sum':
+            self.command = ('sha256sum',)
+        else:
+            raise PhotoManagerException(f"Hash algorithm not supported: {algorithm}")
+        self.use_async = use_async and self.cmd_available(self.command)
+        self.num_workers = num_workers
+        self.batch_size = batch_size
+        self.queue = None
+        self.workers = []
+        self.output_dict = {}
+        self.pbar = None
+
+    @staticmethod
+    def cmd_available(cmd):
+        try:
+            p = Popen(cmd, stdout=DEVNULL)
+            p.terminate()
+            return True
+        except FileNotFoundError:
+            return False
+
+    def terminate(self):
+        for task in self.workers:
+            task.cancel()
+        if self.pbar:
+            self.pbar.close()
+
+    async def worker(self):
+        while True:
+            params = await self.queue.get()
+            process = await subprocess.create_subprocess_exec(
+                *self.command,
+                *params,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL)
+            stdout, stderr = await process.communicate()
+            for line in stdout.decode('utf-8').splitlines(keepends=False):
+                if line.strip():
+                    checksum, path = line.split(maxsplit=1)
+                    self.output_dict[path] = checksum
+            self.pbar.update(n=len(params))
+            self.queue.task_done()
+
+    async def execute_queue(self, all_params):
+        self.output_dict = {}
+        self.queue = asyncio.Queue()
+        self.workers = []
+        self.pbar = tqdm(total=sum(len(params) for params in all_params))
+
+        # Create worker tasks to process the queue concurrently.
+        for i in range(self.num_workers):
+            task = asyncio.create_task(self.worker())
+            self.workers.append(task)
+
+        for params in all_params:
+            await self.queue.put(params)
+
+        # Wait until the queue is fully processed.
+        started_at = time.monotonic()
+        await self.queue.join()
+        total_time = time.monotonic() - started_at
+
+        # Cancel our worker tasks.
+        for task in self.workers:
+            task.cancel()
+        # Wait until all worker tasks are cancelled.
+        await asyncio.gather(*self.workers, return_exceptions=True)
+        self.workers = []
+        self.queue = None
+        self.pbar.close()
+        self.pbar = None
+
+        print(f'{self.num_workers} subprocesses worked in parallel for {total_time:.2f} seconds')
+        return self.output_dict
+
+    @staticmethod
+    def make_chunks(it, size, init=()):
+        chunk = list(init)
+        for item in it:
+            chunk.append(item)
+            if len(chunk) == size:
+                yield chunk
+                chunk = list(init)
+        if chunk:
+            yield chunk
+
+    @staticmethod
+    def encode(it):
+        for item in it:
+            yield item.encode()
+
+    def check_files(self, file_paths):
+        if self.use_async:
+            all_params = list(self.make_chunks(self.encode(file_paths), self.batch_size))
+            return asyncio.run(self.execute_queue(all_params))
+        else:
+            for path in tqdm(file_paths):
+                self.output_dict[path] = file_checksum(path, self.algorithm)
+            return self.output_dict
+
+
 def datetime_str_to_object(ts_str: str) -> datetime:
     """Parses a datetime string into a datetime object"""
     if '.' in ts_str:
@@ -99,33 +242,9 @@ def datetime_str_to_object(ts_str: str) -> datetime:
     raise ValueError(f"Could not parse datetime str: {repr(ts_str)}")
 
 
-def datetime_is_valid(timestamp: str) -> bool:
-    if timestamp and isinstance(timestamp, str) and not timestamp.startswith('0000'):
-        return True
-    return False
-
-
 def get_media_datetime(path: Union[str, PathLike]) -> str:
     """Gets the best known datetime string for a file"""
-    exiftool = ExifTool()
-    metadata = exiftool.get_metadata(path)
-    timestamp = metadata.get('Composite:SubSecDateTimeOriginal', '')
-    if timestamp and datetime_is_valid(timestamp):
-        return timestamp
-    timestamp = metadata.get('QuickTime:CreationDate', '')
-    if timestamp and datetime_is_valid(timestamp):
-        return timestamp
-    if 'EXIF:DateTimeOriginal' in metadata and datetime_is_valid(metadata['EXIF:DateTimeOriginal']):
-        subsec = metadata.get('EXIF:SubSecTimeOriginal', '')
-        offset = metadata.get('EXIF:OffsetTimeOriginal', '')
-        return f"{metadata['EXIF:DateTimeOriginal']}{'.' if subsec else ''}{subsec}{offset}"
-    for tag in metadata.keys():
-        if 'DateTimeOriginal' in tag and datetime_is_valid(metadata[tag]):
-            return metadata[tag]
-    for tag in metadata.keys():
-        if 'CreateDate' in tag and datetime_is_valid(metadata[tag]):
-            return metadata[tag]
-    return metadata['File:FileModifyDate']
+    return ExifTool().get_best_datetime(path)
 
 
 unit_list = list(zip(['bytes', 'kB', 'MB', 'GB', 'TB', 'PB'], [0, 0, 1, 2, 2, 2]))
@@ -259,29 +378,49 @@ class Database:
             self.timestamp_to_uids[photo.timestamp] = {uid: None}
         return uid
 
-    def import_photos(self, files: Collection[Union[str, PathLike]], priority: int = 10) -> int:
+    def import_photos(
+            self,
+            files: Collection[Union[str, PathLike]],
+            priority: int = 10,
+            storage_type: str = 'HDD'
+    ) -> int:
         """Imports photo files into the database with a designated priority
 
-        :param files the photo file paths to import
-        :param priority the imported photos' priority
-        :return the number of photos imported"""
+        :param files: the photo file paths to import
+        :param priority: the imported photos' priority
+        :param storage_type: the type of media importing from (uses more async if SSD)
+        :return: the number of photos imported"""
         logger = logging.getLogger()
         num_added_photos = num_merged_photos = num_skipped_photos = num_error_photos = 0
+        if storage_type == 'SSD':
+            async_hashes = True
+            async_exif = os.cpu_count()
+        else:
+            async_hashes = False  # concurrent reads of sequential files can lead to thrashing
+            async_exif = 4  # exiftool is partially CPU-bound and benefits from async
+        print("Collecting media hashes")
+        checksum_cache = AsyncFileHasher(use_async=async_hashes).check_files(files)
+        print("Collecting media dates and times")
+        datetime_cache = AsyncExifTool(num_workers=async_exif).get_best_datetime_batch(files)
         for current_file in tqdm(files):
             if logger.isEnabledFor(logging.DEBUG):
                 tqdm.write(f"Importing {current_file}")
             try:
-                pf = PhotoFile.from_file(current_file, algorithm=self.db['hash_algorithm'], priority=priority)
+                pf = PhotoFile.from_file_cached(
+                    current_file,
+                    checksum_cache=checksum_cache,
+                    datetime_cache=datetime_cache,
+                    algorithm=self.hash_algorithm, priority=priority
+                )
                 uid = self.find_photo(photo=pf)
                 result = self.add_photo(photo=pf, uid=uid)
 
-                if result is not None:
-                    if uid is None:
-                        num_added_photos += 1
-                    else:
-                        num_merged_photos += 1
-                else:
+                if result is None:
                     num_skipped_photos += 1
+                elif uid is None:
+                    num_added_photos += 1
+                else:
+                    num_merged_photos += 1
             except Exception as e:
                 print(f"Error importing {current_file}")
                 tb_str = traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
@@ -389,7 +528,7 @@ class Database:
             self,
             directory: Union[str, PathLike],
             subdirectory: Union[str, PathLike] = '',
-            dry_run: bool = True
+            dry_run: bool = False
     ) -> int:
         """Removes lower-priority stored photos if a higher-priority version is stored
 
@@ -465,7 +604,7 @@ class Database:
             if not abs_store_path.exists():
                 tqdm.write(f"Missing photo: {abs_store_path}")
                 num_missing_photos += 1
-            elif file_checksum(abs_store_path, self.db['hash_algorithm']) == photo.checksum:
+            elif file_checksum(abs_store_path, self.hash_algorithm) == photo.checksum:
                 num_correct_photos += 1
             else:
                 tqdm.write(f"Incorrect checksum: {abs_store_path}")
@@ -508,7 +647,7 @@ class Database:
         :return the hash map"""
         if hash_map is None:
             hash_map = {}
-        old_algo = self.db['hash_algorithm']
+        old_algo = self.hash_algorithm
         print(f"Converting {old_algo} to {new_algo}")
         num_correct_photos = num_incorrect_photos = num_missing_photos = num_skipped_photos = 0
         all_photos = [photo for photos in self.photo_db.values() for photo in photos]
@@ -519,7 +658,7 @@ class Database:
                 if photo.checksum == file_checksum(photo.source_path, old_algo):
                     hash_map[photo.checksum] = file_checksum(photo.source_path, new_algo)
                     num_correct_photos += 1
-                else:  # incorrect hash; assume correct hash is not available
+                else:
                     tqdm.write(f"Incorrect checksum: {photo.source_path}")
                     hash_map[photo.checksum] = f"{photo.checksum}:{old_algo}"
                     num_incorrect_photos += 1
@@ -544,7 +683,7 @@ class Database:
         :param map_all set to True to make sure that all hashes can be mapped
         :return the number of hashes not mapped"""
         num_correct_photos = num_skipped_photos = 0
-        old_algo = self.db['hash_algorithm']
+        old_algo = self.hash_algorithm
         all_photos = [photo for photos in self.photo_db.values() for photo in photos]
         if map_all and (num_skipped_photos := sum(photo.checksum not in hash_map for photo in all_photos)):
             print(f"Not all items will be mapped: {num_skipped_photos}")
@@ -556,8 +695,7 @@ class Database:
             else:
                 photo.checksum = f"{photo.checksum}:{old_algo}"
                 num_skipped_photos += 1
-        self.hash_algorithm = new_algo
-        self.db['hash_algorithm'] = new_algo
+        self.hash_algorithm = self.db['hash_algorithm'] = new_algo
         print(f"Mapped {num_correct_photos} items")
         if num_skipped_photos:
             print(f"Skipped {num_skipped_photos} items")
