@@ -700,3 +700,54 @@ class Database:
         if num_skipped_photos:
             print(f"Skipped {num_skipped_photos} items")
         return num_skipped_photos
+
+    def update_stored_filename_hashes(
+            self,
+            directory: Union[str, PathLike],
+            verify: bool = True,
+            dry_run: bool = False,
+    ) -> dict:
+        """Updates filenames to match checksums
+        Run after mapping hashes to new algorithm.
+        Skips files whose filename checksum matches the stored checksum
+
+        :param directory: the photo storage directory
+        :param verify: if True, verify that file checksums match
+        :param dry_run: if True, perform a dry run and do not move photos
+        :return: the number of missing or incorrect files not moved"""
+        num_correct_photos = num_skipped_photos = num_incorrect_photos = num_missing_photos = 0
+        directory = Path(directory).expanduser().resolve()
+        stored_photos = [photo for photos in self.photo_db.values() for photo in photos if photo.store_path]
+        total_file_size = sum(photo.file_size for photo in stored_photos)
+        print(f"Updating {len(stored_photos)} filename hashes")
+        print(f"Total file size: {sizeof_fmt(total_file_size)}")
+        logger = logging.getLogger()
+        file_map = {}
+        for photo in tqdm(stored_photos):
+            abs_store_path = directory / photo.store_path
+            new_store_path = f"{photo.store_path[:32]}{photo.checksum[:7]}{photo.store_path[39:]}"
+            new_abs_store_path = directory / new_store_path
+            if new_abs_store_path.exists():
+                num_skipped_photos += 1
+            elif not abs_store_path.exists():
+                tqdm.write(f"Missing photo: {abs_store_path}")
+                num_missing_photos += 1
+            elif photo.store_path[32:39] == photo.checksum[:7]:
+                num_skipped_photos += 1
+            elif not verify or file_checksum(abs_store_path, self.hash_algorithm) == photo.checksum:
+                if logger.isEnabledFor(logging.DEBUG):
+                    tqdm.write(f"{'Will move' if dry_run else 'Moving'} {abs_store_path} to {new_abs_store_path}")
+                file_map[str(abs_store_path)] = str(new_abs_store_path)
+                if not dry_run:
+                    os.rename(abs_store_path, new_abs_store_path)
+                    photo.store_path = new_store_path
+                num_correct_photos += 1
+            else:
+                tqdm.write(f"Incorrect checksum: {abs_store_path}")
+                num_incorrect_photos += 1
+        print(f"{'Would move' if dry_run else 'Moved'} {num_correct_photos} items")
+        if num_skipped_photos:
+            print(f"Skipped {num_skipped_photos} items")
+        if num_incorrect_photos or num_missing_photos:
+            print(f"Found {num_incorrect_photos} incorrect and {num_missing_photos} missing items")
+        return file_map
