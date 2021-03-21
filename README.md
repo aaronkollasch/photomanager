@@ -5,7 +5,7 @@ inspired by [elodie](https://github.com/jmathai/elodie).
 
 Imports photos into a database and collects them to a specified directory.
 Verifies stored photos based on their checksum.
-Database is stored in a non-proprietary JSON format.
+Database is stored in a non-proprietary, human-readable JSON format.
 Will not modify any photos.  
 
 Photos are organized by the best available date
@@ -14,9 +14,95 @@ They can be prioritized so that only the best available version
 will be collected. Alternate and derived versions of photos
 are identified by matching filenames and timestamps.
 
+## Installation
+### Clone the repository
+```shell
+git clone https://github.com/aaronkollasch/photomanager.git
+cd photomanager
+pip install -r requirements.txt
+```
+
+### Install ExifTool
+```shell
+# macOS
+brew install exiftool
+
+# Debian / Ubuntu
+apt install libimage-exiftool-perl
+
+# Fedora / Redhat
+dnf install perl-Image-ExifTool
+```
+Or download from [https://exiftool.org](https://exiftool.org/)
+
+### Requirements
+- Python 3.9
+- click
+- tqdm
+- [ExifTool](https://exiftool.org/)
 
 ## Usage
+### Import photos into the database
+```shell
+./photomanager.py import --debug --db db.json /path/to/directory /path/to/photo.jpg
 ```
+PhotoManager will search for media files in any supplied directories
+and also import single files supplied directly as arguments.
+Repeat with as many sources as desired.
+
+For lower-quality versions of source photos such as downstream edits
+or previews, provide a lower priority such as `--priority 30`
+(default is 10). These will be collected if the original (high-priority)
+copy is unavailable. Alternate versions are matched using their
+timestamp and filename.
+
+Old versions of the database are given unique names and not overwritten.
+Command history is stored within the database.
+
+### Collect files into a storage folder
+Now that PhotoManager knows what photos you want to store,
+collect them into a storage folder:
+```shell
+./photomanager.py collect --debug --db db.json --destination /path/to/destination
+```
+This will copy the highest-priority versions of photos
+not already stored into the destination folder and
+give them consistent paths based on their 
+timestamps, checksums, and original names.
+
+```
+├── 2015
+│   ├── 01-Jan
+│   │   ├── 2015-01-04_10-22-03-a927bc3-IMG_0392.JPG
+│   │   └── 2015-01-31_19-20-13-ce028af-IMG_0782.JPG
+│   └── 02-Feb
+│       └── 2015-02-30_02-40-43-9637179-AWK_0060.jpg
+├── 2016
+│   ├── 05-May
+│   │   ├── 2018-05-24_00-31-08-bf3ed29-IMG_8213.JPG
+│   │   └── 2018-05-29_20-13-16-39a4187-IMG_8591.MOV
+├── 2017
+│   ├── 12-Dec
+│   │   ├── 2017-12-25_20-32-41-589c151-DSC_8705.JPG
+│   │   └── 2017-12-25_20-32-41-4bb6987-DSC_8705.NEF
+```
+
+Paths to stored photos are saved in the database as relative to `destination`,
+so the library is portable, and the same database can be shared across
+library copies, e.g. those created with `rsync`.
+
+Importing and collection can be repeated 
+as new sources of photos are found and collected.
+
+### Verify stored photos against bit rot or modification
+```shell
+./photomanager.py verify --db db.json --destination /path/to/destination
+```
+
+## Usage instructions
+Use the `--help` argument to see instructions for each command
+```shell
+./photomanager.py --help                                                                                                                                            1   main 
 Usage: photomanager.py [OPTIONS] COMMAND [ARGS]...
 
 Options:
@@ -29,7 +115,6 @@ Commands:
   stats    Get database statistics
   verify   Verify checksums of stored items
 ```
-
 ### Import photos
 ```
 Usage: photomanager.py import [OPTIONS] [PATHS]...
@@ -90,9 +175,3 @@ Options:
   --dry-run                Perform a dry run that makes no changes
   --help                   Show this message and exit.
 ```
-
-## Requirements
-- Python 3.9
-- click  
-- tqdm
-- [ExifTool](https://exiftool.org/)
