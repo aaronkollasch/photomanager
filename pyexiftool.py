@@ -62,10 +62,7 @@ import json
 import warnings
 import codecs
 
-try:        # Py3k compatibility
-    basestring
-except NameError:
-    basestring = (bytes, str)
+basestring = (bytes, str)
 
 executable = "exiftool"
 """The name of the executable to run.
@@ -83,6 +80,7 @@ sentinel = b"{ready}"
 # some cases.
 block_size = 4096
 
+
 # This code has been adapted from Lib/os.py in the Python source tree
 # (sha1 265e36e277f3)
 def _fscodec():
@@ -96,7 +94,7 @@ def _fscodec():
         else:
             errors = "surrogateescape"
 
-    def fsencode(filename):
+    def do_fsencode(filename):
         """
         Encode filename to the filesystem encoding with 'surrogateescape' error
         handler, return bytes unchanged. On Windows, use 'strict' error handler if
@@ -107,7 +105,8 @@ def _fscodec():
         else:
             return filename.encode(encoding, errors)
 
-    return fsencode
+    return do_fsencode
+
 
 fsencode = _fscodec()
 del _fscodec
@@ -120,8 +119,8 @@ def datetime_is_valid(timestamp: str) -> bool:
 
 
 datetime_tags = [
-    'Composite:SubSecDateTimeOriginal', 'QuickTime:CreationDate', 'DateTimeOriginal', 'SubSecTimeOriginal',
-    'OffsetTimeOriginal', 'CreateDate', 'File:FileModifyDate'
+    'Composite:SubSecDateTimeOriginal', 'QuickTime:CreationDate', 'DateTimeOriginal', 'CreateDate',
+    'EXIF:SubSecTimeOriginal', 'EXIF:OffsetTimeOriginal', 'File:FileModifyDate'
 ]
 
 
@@ -197,6 +196,7 @@ class ExifTool(object, metaclass=Singleton):
         else:
             self.executable = executable_
         self.running = False
+        self._process = None
 
     def start(self):
         """Start an ``exiftool`` process in batch mode for this instance.
