@@ -119,8 +119,8 @@ def datetime_is_valid(timestamp: str) -> bool:
 
 
 datetime_tags = [
-    'Composite:SubSecDateTimeOriginal', 'QuickTime:CreationDate', 'DateTimeOriginal', 'CreateDate',
-    'EXIF:SubSecTimeOriginal', 'EXIF:OffsetTimeOriginal', 'File:FileModifyDate'
+    'Composite:SubSecDateTimeOriginal', 'QuickTime:CreationDate', 'DateTimeOriginal', 'CreateDate', 'CreationDate',
+    'EXIF:SubSecTimeOriginal', 'EXIF:OffsetTimeOriginal', 'File:FileCreateDate', 'File:FileModifyDate'
 ]
 
 
@@ -139,8 +139,14 @@ def best_datetime(metadata):
         if 'DateTimeOriginal' in tag and datetime_is_valid(metadata[tag]):
             return metadata[tag]
     for tag in metadata.keys():
-        if 'CreateDate' in tag and datetime_is_valid(metadata[tag]):
+        if 'CreationDate' in tag and datetime_is_valid(metadata[tag]):
             return metadata[tag]
+    for tag in metadata.keys():
+        if 'CreateDate' in tag and 'FileCreateDate' not in tag and datetime_is_valid(metadata[tag]):
+            return metadata[tag]
+    timestamp = metadata.get('File:FileCreateDate', '')
+    if timestamp and datetime_is_valid(timestamp):
+        return timestamp
     return metadata['File:FileModifyDate']
 
 
