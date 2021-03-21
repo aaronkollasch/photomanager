@@ -1,15 +1,15 @@
 # PhotoManager
 
-A manager for photos and other media files
+A manager for photos and other media files,
 inspired by [elodie](https://github.com/jmathai/elodie).
 
 Imports photos into a database and collects them to a specified directory.
 Verifies stored photos based on their checksum.
 Database is stored in a non-proprietary, human-readable JSON format.
-Will not modify any photos.  
+Will not modify any photos.
 
 Photos are organized by the best available date
-obtained from EXIF or non-EXIF information.
+obtained from metadata or file information.
 They can be prioritized so that only the best available version
 will be collected. Alternate and derived versions of photos
 are identified by matching filenames and timestamps.
@@ -67,7 +67,7 @@ collect them into a storage folder:
 ```
 This will copy the highest-priority versions of photos
 not already stored into the destination folder and
-give them consistent paths based on their 
+give them consistent paths based on their
 timestamps, checksums, and original names.
 
 ```
@@ -91,7 +91,7 @@ Paths to stored photos are saved in the database as relative to `destination`,
 so the library is portable, and the same database can be shared across
 library copies, e.g. those created with `rsync`.
 
-Importing and collection can be repeated 
+Importing and collection can be repeated
 as new sources of photos are found and collected.
 
 ### Verify stored photos against bit rot or modification
