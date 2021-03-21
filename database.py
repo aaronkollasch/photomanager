@@ -474,16 +474,15 @@ class Database:
         print(f"Verifying {len(stored_photos)} items")
         print(f"Total file size: {sizeof_fmt(total_file_size)}")
         if storage_type == 'SSD':
-            async_hashes = True
+            files = []
+            for photo in stored_photos:
+                abs_store_path = directory / photo.store_path
+                if abs_store_path.exists():
+                    files.append(str(abs_store_path))
+            print("Collecting media hashes")
+            checksum_cache = AsyncFileHasher(algorithm=self.hash_algorithm).check_files(files)
         else:
-            async_hashes = False  # concurrent reads of sequential files can lead to thrashing
-        files = []
-        for photo in stored_photos:
-            abs_store_path = directory / photo.store_path
-            if abs_store_path.exists():
-                files.append(str(abs_store_path))
-        print("Collecting media hashes")
-        checksum_cache = AsyncFileHasher(algorithm=self.hash_algorithm, use_async=async_hashes).check_files(files)
+            checksum_cache = {}
         for photo in tqdm(stored_photos):
             abs_store_path = directory / photo.store_path
             if not abs_store_path.exists():
@@ -492,8 +491,7 @@ class Database:
             elif (
                     checksum_cache[str(abs_store_path)] if str(abs_store_path) in checksum_cache
                     else file_checksum(abs_store_path, self.hash_algorithm)
-                    == photo.checksum
-            ):
+            ) == photo.checksum:
                 num_correct_photos += 1
             else:
                 tqdm.write(f"Incorrect checksum: {abs_store_path}")

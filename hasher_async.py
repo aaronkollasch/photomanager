@@ -46,7 +46,9 @@ def file_checksum(path: Union[str, PathLike], algorithm: str = DEFAULT_HASH_ALGO
 class AsyncFileHasher:
     def __init__(
             self, algorithm: str = DEFAULT_HASH_ALGO,
-            num_workers: int = os.cpu_count(), batch_size: int = 20, use_async: bool = True
+            num_workers: int = os.cpu_count(),
+            batch_size: int = 50,
+            use_async: bool = True,
     ):
         self.algorithm = algorithm
         if algorithm in HASH_ALGO_DEFINITIONS:
