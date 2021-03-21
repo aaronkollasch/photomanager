@@ -9,7 +9,7 @@ from os import PathLike
 import time
 from tqdm import tqdm
 try:
-    from photomanager import PhotoManagerBaseException
+    from database import PhotoManagerBaseException
 except ImportError:
     PhotoManagerBaseException = Exception
 

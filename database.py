@@ -15,7 +15,6 @@ from collections.abc import Collection
 from tqdm import tqdm
 from pyexiftool import ExifTool
 from pyexiftool_async import AsyncExifTool
-from photomanager import PhotoManagerBaseException
 from hasher_async import AsyncFileHasher, file_checksum, DEFAULT_HASH_ALGO
 
 PF = TypeVar('PF', bound='PhotoFile')
@@ -138,6 +137,14 @@ def sizeof_fmt(num: int) -> str:
         return '1 byte'
 
 
+class PhotoManagerBaseException(Exception):
+    pass
+
+
+class PhotoManagerException(PhotoManagerBaseException):
+    pass
+
+
 class DatabaseException(PhotoManagerBaseException):
     pass
 
@@ -183,7 +190,7 @@ class Database:
                 f"{datetime.fromtimestamp(path.stat().st_mtime).strftime('%Y-%m-%d_%H-%M-%S')}"
             )
             if not new_path.exists():
-                shutil.move(path, new_path)
+                os.rename(path, new_path)
         with open(path, 'w') as f:
             json.dump(self.db, fp=f, cls=EnhancedJSONEncoder)
 
