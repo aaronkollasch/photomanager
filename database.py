@@ -8,21 +8,16 @@ from datetime import datetime
 import shutil
 import dataclasses
 import json
-import hashlib
 import logging
 import traceback
-import asyncio
-from asyncio import subprocess
-from subprocess import Popen, DEVNULL
-import time
 from typing import Union, Optional, Type, TypeVar
-from collections.abc import Collection, Iterable
+from collections.abc import Collection
+from tqdm import tqdm
 from pyexiftool import ExifTool
 from pyexiftool_async import AsyncExifTool
-from tqdm import tqdm
+from photomanager import PhotoManagerBaseException
+from hasher_async import AsyncFileHasher, file_checksum, DEFAULT_HASH_ALGO
 
-BLOCK_SIZE = 65536
-DEFAULT_HASH_ALGO = 'blake2b-256'  # b2sum -l 256
 PF = TypeVar('PF', bound='PhotoFile')
 
 
@@ -103,128 +98,6 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-def file_checksum(path: Union[str, PathLike], algorithm: str = DEFAULT_HASH_ALGO) -> str:
-    if algorithm == 'sha256':
-        hash_obj = hashlib.sha256()
-    elif algorithm == 'blake2b-256':
-        hash_obj = hashlib.blake2b(digest_size=32)
-    else:
-        raise PhotoManagerException(f"Hash algorithm not supported: {algorithm}")
-    with open(path, 'rb') as f:
-        while block := f.read(BLOCK_SIZE):
-            hash_obj.update(block)
-    return hash_obj.hexdigest()
-
-
-class AsyncFileHasher:
-    def __init__(
-            self, algorithm: str = DEFAULT_HASH_ALGO,
-            num_workers: int = os.cpu_count(), batch_size: int = 20, use_async: bool = True
-    ):
-        self.algorithm = algorithm
-        if self.algorithm == 'blake2b-256':
-            self.command = ('b2sum', '-l', '256')
-        elif self.algorithm == 'sha256sum':
-            self.command = ('sha256sum',)
-        else:
-            raise PhotoManagerException(f"Hash algorithm not supported: {algorithm}")
-        self.use_async = use_async and self.cmd_available(self.command)
-        self.num_workers = num_workers
-        self.batch_size = batch_size
-        self.queue = None
-        self.workers = []
-        self.output_dict = {}
-        self.pbar = None
-
-    @staticmethod
-    def cmd_available(cmd) -> bool:
-        try:
-            p = Popen(cmd, stdout=DEVNULL)
-            p.terminate()
-            return True
-        except FileNotFoundError:
-            return False
-
-    def terminate(self):
-        for task in self.workers:
-            task.cancel()
-        if self.pbar:
-            self.pbar.close()
-
-    async def worker(self):
-        while True:
-            params = await self.queue.get()
-            process = await subprocess.create_subprocess_exec(
-                *self.command,
-                *params,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL)
-            stdout, stderr = await process.communicate()
-            for line in stdout.decode('utf-8').splitlines(keepends=False):
-                if line.strip():
-                    checksum, path = line.split(maxsplit=1)
-                    self.output_dict[path] = checksum
-            self.pbar.update(n=len(params))
-            self.queue.task_done()
-
-    async def execute_queue(self, all_params: list[list[bytes]]) -> dict[str, str]:
-        self.output_dict = {}
-        self.queue = asyncio.Queue()
-        self.workers = []
-        self.pbar = tqdm(total=sum(len(params) for params in all_params))
-
-        # Create worker tasks to process the queue concurrently.
-        for i in range(self.num_workers):
-            task = asyncio.create_task(self.worker())
-            self.workers.append(task)
-
-        for params in all_params:
-            await self.queue.put(params)
-
-        # Wait until the queue is fully processed.
-        started_at = time.monotonic()
-        await self.queue.join()
-        total_time = time.monotonic() - started_at
-
-        # Cancel our worker tasks.
-        for task in self.workers:
-            task.cancel()
-        # Wait until all worker tasks are cancelled.
-        await asyncio.gather(*self.workers, return_exceptions=True)
-        self.workers = []
-        self.queue = None
-        self.pbar.close()
-        self.pbar = None
-
-        print(f'{self.num_workers} subprocesses worked in parallel for {total_time:.2f} seconds')
-        return self.output_dict
-
-    @staticmethod
-    def make_chunks(it: Iterable, size: int, init: Collection = ()) -> list:
-        chunk = list(init)
-        for item in it:
-            chunk.append(item)
-            if len(chunk) == size:
-                yield chunk
-                chunk = list(init)
-        if chunk:
-            yield chunk
-
-    @staticmethod
-    def encode(it: Iterable[str]) -> bytes:
-        for item in it:
-            yield item.encode()
-
-    def check_files(self, file_paths: Iterable[str]) -> dict[str, str]:
-        if self.use_async:
-            all_params = list(self.make_chunks(self.encode(file_paths), self.batch_size))
-            return asyncio.run(self.execute_queue(all_params))
-        else:
-            for path in tqdm(file_paths):
-                self.output_dict[path] = file_checksum(path, self.algorithm)
-            return self.output_dict
-
-
 def datetime_str_to_object(ts_str: str) -> datetime:
     """Parses a datetime string into a datetime object"""
     if '.' in ts_str:
@@ -265,15 +138,7 @@ def sizeof_fmt(num: int) -> str:
         return '1 byte'
 
 
-class PhotoManagerBaseException(Exception):
-    pass
-
-
 class DatabaseException(PhotoManagerBaseException):
-    pass
-
-
-class PhotoManagerException(PhotoManagerBaseException):
     pass
 
 
@@ -286,7 +151,7 @@ class Database:
         self.photo_db: dict[str, list[PhotoFile]] = self.db['photo_db']
         self.hash_to_uid: dict[str, str] = {}
         self.timestamp_to_uids: dict[float, dict[str, None]] = {}
-        self.hash_algorithm = DEFAULT_HASH_ALGO
+        self.hash_algorithm = self.db['hash_algorithm']
 
     @classmethod
     def from_file(cls: Type[DB], path: Union[str, PathLike]) -> DB:
@@ -593,21 +458,23 @@ class Database:
             raise DatabaseException("Absolute subdirectory not supported")
         abs_subdirectory = directory / subdirectory
         stored_photos = []
-        files = []
         for photos in self.photo_db.values():
             for photo in photos:
                 abs_store_path = directory / photo.store_path
                 if photo.store_path and abs_store_path.is_relative_to(abs_subdirectory):
                     stored_photos.append(photo)
                     total_file_size += photo.file_size
-                    if abs_store_path.exists():
-                        files.append(str(abs_store_path))
         print(f"Verifying {len(stored_photos)} items")
         print(f"Total file size: {sizeof_fmt(total_file_size)}")
         if storage_type == 'SSD':
             async_hashes = True
         else:
             async_hashes = False  # concurrent reads of sequential files can lead to thrashing
+        files = []
+        for photo in stored_photos:
+            abs_store_path = directory / photo.store_path
+            if abs_store_path.exists():
+                files.append(str(abs_store_path))
         print("Collecting media hashes")
         checksum_cache = AsyncFileHasher(algorithm=self.hash_algorithm, use_async=async_hashes).check_files(files)
         for photo in tqdm(stored_photos):
@@ -721,7 +588,7 @@ class Database:
             directory: Union[str, PathLike],
             verify: bool = True,
             dry_run: bool = False,
-    ) -> dict:
+    ) -> dict[str, str]:
         """Updates filenames to match checksums
         Run after mapping hashes to new algorithm.
         Skips files whose filename checksum matches the stored checksum

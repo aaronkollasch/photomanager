@@ -23,6 +23,14 @@ audio_extensions = {
 extensions = photo_extensions | video_extensions | audio_extensions
 
 
+class PhotoManagerBaseException(Exception):
+    pass
+
+
+class PhotoManagerException(PhotoManagerBaseException):
+    pass
+
+
 @click.command('import', help='Find and add items to database')
 @click.option('--db', type=click.Path(dir_okay=False), required=True,
               default='./photos.json', help='PhotoManager database path')
