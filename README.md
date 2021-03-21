@@ -72,6 +72,7 @@ Options:
   --db FILE                PhotoManager database path  [required]
   --destination DIRECTORY  Photo storage base directory  [required]
   --subdir TEXT            Verify only items within subdirectory
+  --storage-type TEXT      Class of storage medium (HDD or SSD)
   --help                   Show this message and exit.
 ```
 

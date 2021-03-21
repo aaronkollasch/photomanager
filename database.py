@@ -16,7 +16,7 @@ from asyncio import subprocess
 from subprocess import Popen, DEVNULL
 import time
 from typing import Union, Optional, Type, TypeVar
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from pyexiftool import ExifTool
 from pyexiftool_async import AsyncExifTool
 from tqdm import tqdm
@@ -137,7 +137,7 @@ class AsyncFileHasher:
         self.pbar = None
 
     @staticmethod
-    def cmd_available(cmd):
+    def cmd_available(cmd) -> bool:
         try:
             p = Popen(cmd, stdout=DEVNULL)
             p.terminate()
@@ -167,7 +167,7 @@ class AsyncFileHasher:
             self.pbar.update(n=len(params))
             self.queue.task_done()
 
-    async def execute_queue(self, all_params):
+    async def execute_queue(self, all_params: list[list[bytes]]) -> dict[str, str]:
         self.output_dict = {}
         self.queue = asyncio.Queue()
         self.workers = []
@@ -200,7 +200,7 @@ class AsyncFileHasher:
         return self.output_dict
 
     @staticmethod
-    def make_chunks(it, size, init=()):
+    def make_chunks(it: Iterable, size: int, init: Collection = ()) -> list:
         chunk = list(init)
         for item in it:
             chunk.append(item)
@@ -211,11 +211,11 @@ class AsyncFileHasher:
             yield chunk
 
     @staticmethod
-    def encode(it):
+    def encode(it: Iterable[str]) -> bytes:
         for item in it:
             yield item.encode()
 
-    def check_files(self, file_paths):
+    def check_files(self, file_paths: Iterable[str]) -> dict[str, str]:
         if self.use_async:
             all_params = list(self.make_chunks(self.encode(file_paths), self.batch_size))
             return asyncio.run(self.execute_queue(all_params))
@@ -399,7 +399,7 @@ class Database:
             async_hashes = False  # concurrent reads of sequential files can lead to thrashing
             async_exif = 4  # exiftool is partially CPU-bound and benefits from async
         print("Collecting media hashes")
-        checksum_cache = AsyncFileHasher(use_async=async_hashes).check_files(files)
+        checksum_cache = AsyncFileHasher(algorithm=self.hash_algorithm, use_async=async_hashes).check_files(files)
         print("Collecting media dates and times")
         datetime_cache = AsyncExifTool(num_workers=async_exif).get_best_datetime_batch(files)
         for current_file in tqdm(files):
@@ -577,13 +577,15 @@ class Database:
     def verify_stored_photos(
             self,
             directory: Union[str, PathLike],
-            subdirectory: Union[str, PathLike] = ''
+            subdirectory: Union[str, PathLike] = '',
+            storage_type: str = 'HDD',
     ) -> int:
         """Check the files stored in directory against checksums in the database
 
-        :param directory the photo storage directory
-        :param subdirectory verify only photos within subdirectory
-        :return the number of errors found"""
+        :param directory: the photo storage directory
+        :param subdirectory: verify only photos within subdirectory
+        :param storage_type: the type of media importing from (uses async if SSD)
+        :return: the number of errors found"""
         num_correct_photos = num_incorrect_photos = num_missing_photos = total_file_size = 0
         directory = Path(directory).expanduser().resolve()
         subdirectory = Path(subdirectory)
@@ -591,20 +593,33 @@ class Database:
             raise DatabaseException("Absolute subdirectory not supported")
         abs_subdirectory = directory / subdirectory
         stored_photos = []
+        files = []
         for photos in self.photo_db.values():
             for photo in photos:
                 abs_store_path = directory / photo.store_path
                 if photo.store_path and abs_store_path.is_relative_to(abs_subdirectory):
                     stored_photos.append(photo)
                     total_file_size += photo.file_size
+                    if abs_store_path.exists():
+                        files.append(str(abs_store_path))
         print(f"Verifying {len(stored_photos)} items")
         print(f"Total file size: {sizeof_fmt(total_file_size)}")
+        if storage_type == 'SSD':
+            async_hashes = True
+        else:
+            async_hashes = False  # concurrent reads of sequential files can lead to thrashing
+        print("Collecting media hashes")
+        checksum_cache = AsyncFileHasher(algorithm=self.hash_algorithm, use_async=async_hashes).check_files(files)
         for photo in tqdm(stored_photos):
             abs_store_path = directory / photo.store_path
             if not abs_store_path.exists():
                 tqdm.write(f"Missing photo: {abs_store_path}")
                 num_missing_photos += 1
-            elif file_checksum(abs_store_path, self.hash_algorithm) == photo.checksum:
+            elif (
+                    checksum_cache[str(abs_store_path)] if str(abs_store_path) in checksum_cache
+                    else file_checksum(abs_store_path, self.hash_algorithm)
+                    == photo.checksum
+            ):
                 num_correct_photos += 1
             else:
                 tqdm.write(f"Incorrect checksum: {abs_store_path}")

@@ -129,9 +129,11 @@ def _clean(db, destination, subdir='', debug=False, dry_run=False):
               help='Photo storage base directory')
 @click.option('--subdir', type=str, default='',
               help='Verify only items within subdirectory')
-def _verify(db, destination, subdir=''):
+@click.option('--storage-type', type=str, default='HDD',
+              help='Class of storage medium (HDD or SSD)')
+def _verify(db, destination, subdir='', storage_type='HDD'):
     database = Database.from_file(db)
-    database.verify_stored_photos(destination, subdirectory=subdir)
+    database.verify_stored_photos(destination, subdirectory=subdir, storage_type=storage_type)
 
 
 @click.command('stats', help='Get database statistics')
