@@ -16,6 +16,16 @@ except ImportError:
 
 BLOCK_SIZE = 65536
 DEFAULT_HASH_ALGO = 'blake2b-256'  # b2sum -l 256
+HASH_ALGO_DEFINITIONS = {
+    "sha256": {
+        "factory": lambda: hashlib.sha256(),
+        "command": ('sha256sum',),
+    },
+    "blake2b-256": {
+        "factory": lambda: hashlib.blake2b(digest_size=32),
+        "command": ('b2sum', '-l', '256'),
+    },
+}
 
 
 class HasherException(PhotoManagerBaseException):
@@ -23,10 +33,8 @@ class HasherException(PhotoManagerBaseException):
 
 
 def file_checksum(path: Union[str, PathLike], algorithm: str = DEFAULT_HASH_ALGO) -> str:
-    if algorithm == 'sha256':
-        hash_obj = hashlib.sha256()
-    elif algorithm == 'blake2b-256':
-        hash_obj = hashlib.blake2b(digest_size=32)
+    if algorithm in HASH_ALGO_DEFINITIONS:
+        hash_obj = HASH_ALGO_DEFINITIONS[algorithm]['factory']()
     else:
         raise HasherException(f"Hash algorithm not supported: {algorithm}")
     with open(path, 'rb') as f:
@@ -41,10 +49,8 @@ class AsyncFileHasher:
             num_workers: int = os.cpu_count(), batch_size: int = 20, use_async: bool = True
     ):
         self.algorithm = algorithm
-        if self.algorithm == 'blake2b-256':
-            self.command = ('b2sum', '-l', '256')
-        elif self.algorithm == 'sha256sum':
-            self.command = ('sha256sum',)
+        if algorithm in HASH_ALGO_DEFINITIONS:
+            self.command = HASH_ALGO_DEFINITIONS[algorithm]['command']
         else:
             raise HasherException(f"Hash algorithm not supported: {algorithm}")
         self.use_async = use_async and self.cmd_available(self.command)
@@ -58,9 +64,12 @@ class AsyncFileHasher:
     @staticmethod
     def cmd_available(cmd) -> bool:
         try:
-            p = subprocess_std.Popen(cmd, stdout=subprocess_std.DEVNULL)
-            p.terminate()
-            return True
+            p = subprocess_std.Popen(cmd, stdout=subprocess_std.PIPE, stdin=subprocess_std.PIPE)
+            p.communicate()
+            if p.returncode:
+                return False
+            else:
+                return True
         except FileNotFoundError:
             return False
 
