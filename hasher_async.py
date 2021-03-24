@@ -45,7 +45,8 @@ def file_checksum(path: Union[str, PathLike], algorithm: str = DEFAULT_HASH_ALGO
 
 class AsyncFileHasher:
     def __init__(
-            self, algorithm: str = DEFAULT_HASH_ALGO,
+            self,
+            algorithm: str = DEFAULT_HASH_ALGO,
             num_workers: int = os.cpu_count(),
             batch_size: int = 50,
             use_async: bool = True,
@@ -98,7 +99,6 @@ class AsyncFileHasher:
             self.queue.task_done()
 
     async def execute_queue(self, all_params: list[list[bytes]]) -> dict[str, str]:
-        self.output_dict = {}
         self.queue = asyncio.Queue()
         self.workers = []
         self.pbar = tqdm(total=sum(len(params) for params in all_params))
@@ -146,10 +146,14 @@ class AsyncFileHasher:
             yield item.encode()
 
     def check_files(self, file_paths: Iterable[str]) -> dict[str, str]:
+        self.output_dict = {}
         if self.use_async:
             all_params = list(self.make_chunks(self.encode(file_paths), self.batch_size))
             return asyncio.run(self.execute_queue(all_params))
         else:
             for path in tqdm(file_paths):
-                self.output_dict[path] = file_checksum(path, self.algorithm)
+                try:
+                    self.output_dict[path] = file_checksum(path, self.algorithm)
+                except FileNotFoundError:
+                    pass
             return self.output_dict
