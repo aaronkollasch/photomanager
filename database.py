@@ -192,7 +192,7 @@ class Database:
             if not new_path.exists():
                 os.rename(path, new_path)
         with open(path, 'w') as f:
-            json.dump(self.db, fp=f, cls=EnhancedJSONEncoder)
+            json.dump(self.db, fp=f, cls=EnhancedJSONEncoder, indent=0)
 
     def find_photo(self, photo: PhotoFile) -> Optional[str]:
         """Finds a photo in the database and returns its uid
