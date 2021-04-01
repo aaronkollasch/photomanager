@@ -15,6 +15,7 @@ will be collected. Alternate and derived versions of photos
 are identified by matching filenames and timestamps.
 
 ## Installation
+Requires Python 3.9.
 ### Clone the repository
 ```shell
 git clone https://github.com/aaronkollasch/photomanager.git
@@ -35,12 +36,6 @@ dnf install perl-Image-ExifTool
 ```
 Or download from [https://exiftool.org](https://exiftool.org/)
 
-### Requirements
-- Python 3.9
-- click
-- tqdm
-- [ExifTool](https://exiftool.org/)
-
 ## Usage
 ### Import photos into the database
 ```shell
@@ -57,7 +52,35 @@ copy is unavailable. Alternate versions are matched using their
 timestamp and filename.
 
 Old versions of the database are given unique names and not overwritten.
-Command history is stored within the database.
+
+The database takes this form:
+```json
+{
+  "photo_db": {
+    "<uid>": [
+      "<photo>",
+      "<photo>",
+      "..."
+    ]
+  },
+  "command_history": {
+    "<timestamp>": "<command>"
+  },
+  "hash_algorithm": "blake2b-256"
+}
+```
+where an example photo has the form:
+```json
+{
+  "checksum": "881f279108bcec5b6e...",
+  "source_path": "/path/to/photo_123.jpg",
+  "datetime": "2021:03:29 06:40:00+00:00",
+  "timestamp": 1617000000,
+  "file_size": 123456,
+  "store_path": "2021/03-Mar/2021-03-29_02-40-00-881f279-photo_123.jpg",
+  "priority": 10
+}
+```
 
 ### Collect files into a storage folder
 Now that PhotoManager knows what photos you want to store,
@@ -87,7 +110,7 @@ timestamps, checksums, and original names.
 │   │   └── 2017-12-25_20-32-41-4bb6987-DSC_8705.NEF
 ```
 
-Paths to stored photos are saved in the database as relative to `destination`,
+Stored photo paths in the database are relative to `destination`,
 so the library is portable, and the same database can be shared across
 library copies, e.g. those created with `rsync`.
 
@@ -111,9 +134,23 @@ Options:
 Commands:
   clean    Remove lower-priority alternatives of stored items
   collect  Collect highest-priority items into storage
+  create   Create an empty database
   import   Find and add items to database
   stats    Get database statistics
   verify   Verify checksums of stored items
+```
+### Create database
+_This command is only needed if you want to use a
+non-default hashing algorithm._
+```
+Usage: photomanager.py create [OPTIONS]
+
+  Create an empty database
+
+Options:
+  --db FILE              PhotoManager database path  [required]
+  --hash-algorithm TEXT  Hash algorithm (default=blake2b-256)
+  --help                 Show this message and exit.
 ```
 ### Import photos
 ```
