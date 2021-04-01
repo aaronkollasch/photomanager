@@ -8,6 +8,7 @@ from datetime import datetime
 import shutil
 import dataclasses
 import json
+import gzip
 import logging
 import traceback
 from typing import Union, Optional, Type, TypeVar
@@ -164,14 +165,19 @@ class Database:
     def from_file(cls: Type[DB], path: Union[str, PathLike]) -> DB:
         """Loads a Database from a path"""
         db = cls()
-        if os.path.exists(path):
-            with open(path) as f:
-                db.db = json.load(f)
-                db.photo_db = db.db['photo_db']
-                for uid in db.photo_db.keys():
-                    db.photo_db[uid] = [pf_from_dict(d) for d in db.photo_db[uid]]
-                db.db.setdefault('hash_algorithm', 'sha256')  # legacy dbs do not specify algo and use sha256
-                db.hash_algorithm = db.db['hash_algorithm']
+        path = Path(path)
+        if path.exists():
+            if path.suffix == '.gz':
+                with gzip.open(path, 'rt', encoding='utf-8') as f:
+                    db.db = json.load(f)
+            else:
+                with open(path) as f:
+                    db.db = json.load(f)
+            db.photo_db = db.db['photo_db']
+            for uid in db.photo_db.keys():
+                db.photo_db[uid] = [pf_from_dict(d) for d in db.photo_db[uid]]
+            db.db.setdefault('hash_algorithm', 'sha256')  # legacy dbs do not specify algo and use sha256
+            db.hash_algorithm = db.db['hash_algorithm']
             for uid, photos in db.photo_db.items():
                 for photo in photos:
                     db.hash_to_uid[photo.checksum] = uid
@@ -179,20 +185,29 @@ class Database:
                         db.timestamp_to_uids[photo.timestamp][uid] = None
                     else:
                         db.timestamp_to_uids[photo.timestamp] = {uid: None}
+        else:
+            print("Database file does not exist. Starting with blank database.")
         return db
 
     def to_file(self, path: Union[str, PathLike]) -> None:
         """Saves the db to path and moves an existing database at that path to a different location"""
         path = Path(path)
         if path.is_file():
-            new_path = path.with_stem(
-                f"{path.stem}_"
+            base_path = path
+            for _ in path.suffixes:
+                base_path = base_path.with_suffix('')
+            new_path = base_path.with_stem(
+                f"{base_path.stem}_"
                 f"{datetime.fromtimestamp(path.stat().st_mtime).strftime('%Y-%m-%d_%H-%M-%S')}"
-            )
+            ).with_suffix(''.join(path.suffixes))
             if not new_path.exists():
                 os.rename(path, new_path)
-        with open(path, 'w') as f:
-            json.dump(self.db, fp=f, cls=EnhancedJSONEncoder, indent=0)
+        if path.suffix == '.gz':
+            with gzip.open(path, 'wt', encoding='utf-8') as f:
+                json.dump(self.db, fp=f, cls=EnhancedJSONEncoder, indent=0)
+        else:
+            with open(path, 'w') as f:
+                json.dump(self.db, fp=f, cls=EnhancedJSONEncoder, indent=0)
 
     def find_photo(self, photo: PhotoFile) -> Optional[str]:
         """Finds a photo in the database and returns its uid
