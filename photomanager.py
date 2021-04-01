@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 import click
 from pyexiftool import ExifTool
-from database import Database
+from database import Database, DEFAULT_HASH_ALGO
 
 
 photo_extensions = {
@@ -21,6 +21,18 @@ audio_extensions = {
     'm4a', 'ogg', 'aiff', 'wav', 'flac', 'caf', 'mp3',
 }
 extensions = photo_extensions | video_extensions | audio_extensions
+
+
+@click.command('create', help='Create an empty database')
+@click.option('--db', type=click.Path(dir_okay=False), required=True,
+              default='./photos.json', help='PhotoManager database path')
+@click.option('--hash-algorithm', type=str, default=DEFAULT_HASH_ALGO,
+              help=f'Hash algorithm (default={DEFAULT_HASH_ALGO})')
+def _create(db, hash_algorithm=DEFAULT_HASH_ALGO):
+    database = Database()
+    database.hash_algorithm = hash_algorithm
+    database.db['command_history'][datetime.now().strftime('%Y-%m-%d_%H-%M-%S')] = ' '.join(sys.argv)
+    database.to_file(db)
 
 
 @click.command('import', help='Find and add items to database')
@@ -149,6 +161,7 @@ def main():
     pass
 
 
+main.add_command(_create)
 main.add_command(_import)
 main.add_command(_collect)
 main.add_command(_clean)
