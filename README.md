@@ -56,6 +56,8 @@ Old versions of the database are given unique names and not overwritten.
 The database takes this form:
 ```json
 {
+  "version": 1,
+  "hash_algorithm": "blake2b-256",
   "photo_db": {
     "<uid>": [
       "<photo>",
@@ -65,8 +67,7 @@ The database takes this form:
   },
   "command_history": {
     "<timestamp>": "<command>"
-  },
-  "hash_algorithm": "blake2b-256"
+  }
 }
 ```
 where an example photo has the form:

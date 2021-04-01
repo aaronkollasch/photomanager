@@ -31,7 +31,7 @@ extensions = photo_extensions | video_extensions | audio_extensions
 def _create(db, hash_algorithm=DEFAULT_HASH_ALGO):
     database = Database()
     database.hash_algorithm = hash_algorithm
-    database.db['command_history'][datetime.now().strftime('%Y-%m-%d_%H-%M-%S')] = ' '.join(sys.argv)
+    database.command_history[datetime.now().strftime('%Y-%m-%d_%H-%M-%S')] = ' '.join(sys.argv)
     database.to_file(db)
 
 
@@ -93,7 +93,7 @@ def _import(db, source, file, exclude, paths, debug=False, priority=10, storage_
 
     with ExifTool():
         database.import_photos(files=filtered_files, priority=priority, storage_type=storage_type)
-    database.db['command_history'][datetime.now().strftime('%Y-%m-%d_%H-%M-%S')] = ' '.join(sys.argv)
+    database.command_history[datetime.now().strftime('%Y-%m-%d_%H-%M-%S')] = ' '.join(sys.argv)
     database.to_file(db)
 
 
@@ -109,7 +109,7 @@ def _collect(db, destination, debug=False):
         logging.basicConfig(level=logging.DEBUG)
     database = Database.from_file(db)
     database.collect_to_directory(destination)
-    database.db['command_history'][datetime.now().strftime('%Y-%m-%d_%H-%M-%S')] = ' '.join(sys.argv)
+    database.command_history[datetime.now().strftime('%Y-%m-%d_%H-%M-%S')] = ' '.join(sys.argv)
     database.to_file(db)
 
 
@@ -129,7 +129,7 @@ def _clean(db, destination, subdir='', debug=False, dry_run=False):
         logging.basicConfig(level=logging.DEBUG)
     database = Database.from_file(db)
     database.clean_stored_photos(destination, subdirectory=subdir, dry_run=dry_run)
-    database.db['command_history'][datetime.now().strftime('%Y-%m-%d_%H-%M-%S')] = ' '.join(sys.argv)
+    database.command_history[datetime.now().strftime('%Y-%m-%d_%H-%M-%S')] = ' '.join(sys.argv)
     if not dry_run:
         database.to_file(db)
 

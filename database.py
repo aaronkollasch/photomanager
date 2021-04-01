@@ -154,19 +154,38 @@ DB = TypeVar('DB', bound='Database')
 
 
 class Database:
+    VERSION = 1
+    DB_KEY_ORDER = ('version', 'hash_algorithm', 'photo_db', 'command_history')
+
     def __init__(self):
-        self.db: dict = {'photo_db': {}, 'command_history': {}, 'hash_algorithm': DEFAULT_HASH_ALGO}
-        self.photo_db: dict[str, list[PhotoFile]] = self.db['photo_db']
+        self.db: dict = {
+            'version': self.VERSION,
+            'hash_algorithm': DEFAULT_HASH_ALGO,
+            'photo_db': {},
+            'command_history': {}
+        }
         self.hash_to_uid: dict[str, str] = {}
         self.timestamp_to_uids: dict[float, dict[str, None]] = {}
 
     @property
-    def hash_algorithm(self):
+    def version(self) -> int:
+        return self.db['version']
+
+    @property
+    def hash_algorithm(self) -> str:
         return self.db['hash_algorithm']
 
     @hash_algorithm.setter
-    def hash_algorithm(self, new_algorithm):
+    def hash_algorithm(self, new_algorithm: str):
         self.db['hash_algorithm'] = new_algorithm
+
+    @property
+    def photo_db(self) -> dict[str, list[PhotoFile]]:
+        return self.db['photo_db']
+
+    @property
+    def command_history(self) -> dict[str, str]:
+        return self.db['command_history']
 
     @classmethod
     def from_file(cls: Type[DB], path: Union[str, PathLike]) -> DB:
@@ -180,10 +199,12 @@ class Database:
             else:
                 with open(path) as f:
                     db.db = json.load(f)
-            db.photo_db = db.db['photo_db']
+            db.db.setdefault('version', '1')                # legacy dbs are version 1
+            db.db.setdefault('hash_algorithm', 'sha256')    # legacy dbs use sha256
+            db.db = {k: db.db[k] for k in cls.DB_KEY_ORDER}
             for uid in db.photo_db.keys():
                 db.photo_db[uid] = [pf_from_dict(d) for d in db.photo_db[uid]]
-            db.db.setdefault('hash_algorithm', 'sha256')  # legacy dbs do not specify algo and use sha256
+
             for uid, photos in db.photo_db.items():
                 for photo in photos:
                     db.hash_to_uid[photo.checksum] = uid
