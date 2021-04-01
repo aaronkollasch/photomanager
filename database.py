@@ -159,7 +159,14 @@ class Database:
         self.photo_db: dict[str, list[PhotoFile]] = self.db['photo_db']
         self.hash_to_uid: dict[str, str] = {}
         self.timestamp_to_uids: dict[float, dict[str, None]] = {}
-        self.hash_algorithm = self.db['hash_algorithm']
+
+    @property
+    def hash_algorithm(self):
+        return self.db['hash_algorithm']
+
+    @hash_algorithm.setter
+    def hash_algorithm(self, new_algorithm):
+        self.db['hash_algorithm'] = new_algorithm
 
     @classmethod
     def from_file(cls: Type[DB], path: Union[str, PathLike]) -> DB:
@@ -177,7 +184,6 @@ class Database:
             for uid in db.photo_db.keys():
                 db.photo_db[uid] = [pf_from_dict(d) for d in db.photo_db[uid]]
             db.db.setdefault('hash_algorithm', 'sha256')  # legacy dbs do not specify algo and use sha256
-            db.hash_algorithm = db.db['hash_algorithm']
             for uid, photos in db.photo_db.items():
                 for photo in photos:
                     db.hash_to_uid[photo.checksum] = uid
@@ -597,7 +603,7 @@ class Database:
             else:
                 photo.checksum = f"{photo.checksum}:{old_algo}"
                 num_skipped_photos += 1
-        self.hash_algorithm = self.db['hash_algorithm'] = new_algo
+        self.hash_algorithm = new_algo
         print(f"Mapped {num_correct_photos} items")
         if num_skipped_photos:
             print(f"Skipped {num_skipped_photos} items")
