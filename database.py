@@ -236,6 +236,17 @@ class Database:
             with open(path, 'w') as f:
                 json.dump(self.db, fp=f, cls=EnhancedJSONEncoder, indent=0)
 
+    def add_command(self, command: str) -> str:
+        """Adds a command to the command history
+
+        Creates a timestamp string with the current date, time, and time zone.
+
+        :return the timestamp string"""
+
+        dt = datetime.now().astimezone().strftime('%Y-%m-%d_%H-%M-%S%z')
+        self.command_history[dt] = command
+        return dt
+
     def find_photo(self, photo: PhotoFile) -> Optional[str]:
         """Finds a photo in the database and returns its uid
 
