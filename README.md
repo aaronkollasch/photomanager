@@ -24,6 +24,8 @@ pip install -r requirements.txt
 ```
 
 ### Install ExifTool
+ExifTool is required to import, 
+but not to store or verify photos.
 ```shell
 # macOS
 brew install exiftool
@@ -83,6 +85,10 @@ where an example photo has the form:
 }
 ```
 
+If the photos are stored on an SSD or RAID array, use
+`--storage-type SSD` or `--storage-type RAID` and
+checksum and EXIF checks will be performed by multiple workers.
+
 ### Collect files into a storage folder
 Now that PhotoManager knows what photos you want to store,
 collect them into a storage folder:
@@ -122,6 +128,9 @@ as new sources of photos are found and collected.
 ```shell
 ./photomanager.py verify --db db.json --destination /path/to/destination
 ```
+If the photos are stored on an SSD or RAID array,
+use `--storage-type SSD` or `--storage-type RAID` and
+multiple files will be verified in parallel.
 
 ## Usage instructions
 Use the `--help` argument to see instructions for each command

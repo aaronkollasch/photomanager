@@ -47,7 +47,7 @@ def _create(db, hash_algorithm=DEFAULT_HASH_ALGO):
 @click.option('--priority', type=int, default=10,
               help='Priority of imported photos (lower is preferred, default=10)')
 @click.option('--storage-type', type=str, default='HDD',
-              help='Class of storage medium (HDD or SSD)')
+              help='Class of storage medium (HDD, SSD, RAID)')
 @click.option('--debug', default=False, is_flag=True,
               help='Run in debug mode')
 @click.argument('paths', nargs=-1, type=click.Path())
@@ -142,7 +142,7 @@ def _clean(db, destination, subdir='', debug=False, dry_run=False):
 @click.option('--subdir', type=str, default='',
               help='Verify only items within subdirectory')
 @click.option('--storage-type', type=str, default='HDD',
-              help='Class of storage medium (HDD or SSD)')
+              help='Class of storage medium (HDD, SSD, RAID)')
 def _verify(db, destination, subdir='', storage_type='HDD'):
     database = Database.from_file(db)
     database.verify_stored_photos(destination, subdirectory=subdir, storage_type=storage_type)

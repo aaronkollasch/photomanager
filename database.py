@@ -327,12 +327,12 @@ class Database:
         :return: the number of photos imported"""
         logger = logging.getLogger()
         num_added_photos = num_merged_photos = num_skipped_photos = num_error_photos = 0
-        if storage_type == 'SSD':
+        if storage_type in ('SSD', 'RAID'):
             async_hashes = True
             async_exif = os.cpu_count()
         else:
             async_hashes = False  # concurrent reads of sequential files can lead to thrashing
-            async_exif = 4  # exiftool is partially CPU-bound and benefits from async
+            async_exif = min(4, os.cpu_count())  # exiftool is partially CPU-bound and benefits from async
         print("Collecting media hashes")
         checksum_cache = AsyncFileHasher(algorithm=self.hash_algorithm, use_async=async_hashes).check_files(files)
         print("Collecting media dates and times")
@@ -536,7 +536,7 @@ class Database:
                     total_file_size += photo.file_size
         print(f"Verifying {len(stored_photos)} items")
         print(f"Total file size: {sizeof_fmt(total_file_size)}")
-        if storage_type == 'SSD':
+        if storage_type in ('SSD', 'RAID'):
             files = []
             for photo in stored_photos:
                 abs_store_path = directory / photo.store_path
