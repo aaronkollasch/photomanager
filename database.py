@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 from os import PathLike
 import stat
@@ -138,6 +139,15 @@ def sizeof_fmt(num: int) -> str:
         return '1 byte'
 
 
+def path_is_relative_to(subpath: Union[str, PathLike], path: Union[str, PathLike]) -> bool:
+    """Check if subpath is a child of path"""
+    subpath, path = Path(subpath), Path(path)
+    if hasattr(subpath, 'is_relative_to'):  # added in Python 3.9
+        return subpath.is_relative_to(path)
+    else:
+        return path in subpath.parents
+
+
 class PhotoManagerBaseException(Exception):
     pass
 
@@ -223,8 +233,8 @@ class Database:
             base_path = path
             for _ in path.suffixes:
                 base_path = base_path.with_suffix('')
-            new_path = base_path.with_stem(
-                f"{base_path.stem}_"
+            new_path = base_path.with_name(
+                f"{base_path.name}_"
                 f"{datetime.fromtimestamp(path.stat().st_mtime).strftime('%Y-%m-%d_%H-%M-%S')}"
             ).with_suffix(''.join(path.suffixes))
             if not new_path.exists():
@@ -476,7 +486,7 @@ class Database:
             for photo in photos:
                 abs_store_path = directory / photo.store_path
                 if (photo.priority > highest_stored_priority and photo.store_path and
-                        abs_store_path.is_relative_to(abs_subdirectory)):
+                        path_is_relative_to(abs_store_path, abs_subdirectory)):
                     photos_to_remove.append(photo)
                     total_file_size += photo.file_size
         print(f"Identified {len(photos_to_remove)} lower-priority items for removal")
@@ -521,7 +531,7 @@ class Database:
         for photos in self.photo_db.values():
             for photo in photos:
                 abs_store_path = directory / photo.store_path
-                if photo.store_path and abs_store_path.is_relative_to(abs_subdirectory):
+                if photo.store_path and path_is_relative_to(abs_store_path, abs_subdirectory):
                     stored_photos.append(photo)
                     total_file_size += photo.file_size
         print(f"Verifying {len(stored_photos)} items")

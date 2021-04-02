@@ -15,7 +15,7 @@ will be collected. Alternate and derived versions of photos
 are identified by matching filenames and timestamps.
 
 ## Installation
-Requires Python 3.9.
+Requires Python 3.8 or 3.9.
 ### Clone the repository
 ```shell
 git clone https://github.com/aaronkollasch/photomanager.git
