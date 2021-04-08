@@ -145,7 +145,9 @@ def _clean(db, destination, subdir='', debug=False, dry_run=False):
               help='Class of storage medium (HDD, SSD, RAID)')
 def _verify(db, destination, subdir='', storage_type='HDD'):
     database = Database.from_file(db)
-    database.verify_stored_photos(destination, subdirectory=subdir, storage_type=storage_type)
+    num_errors = database.verify_stored_photos(destination, subdirectory=subdir, storage_type=storage_type)
+    if num_errors:
+        sys.exit(1)
 
 
 @click.command('stats', help='Get database statistics')
