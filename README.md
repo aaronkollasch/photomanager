@@ -25,7 +25,7 @@ pip install -r requirements.txt
 
 ### Install ExifTool
 ExifTool is required to import, 
-but not to store or verify photos.
+but not to collect or verify photos.
 ```shell
 # macOS
 brew install exiftool

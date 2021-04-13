@@ -7,7 +7,7 @@ from uuid import uuid4
 from pathlib import Path
 from datetime import datetime
 import shutil
-import dataclasses
+from dataclasses import dataclass, is_dataclass, asdict
 import json
 import gzip
 import logging
@@ -22,15 +22,26 @@ from hasher_async import AsyncFileHasher, file_checksum, DEFAULT_HASH_ALGO
 PF = TypeVar('PF', bound='PhotoFile')
 
 
-@dataclasses.dataclass
+@dataclass
 class PhotoFile:
-    checksum: str  # SHA-256 checksum of photo file
-    source_path: str  # Absolute path where photo was found
-    datetime: str  # Datetime string for best estimated creation date
-    timestamp: float  # POSIX timestamp of best estimated creation date
-    file_size: int  # Photo file size
-    store_path: str = ''  # Relative path where photo is stored, if it is stored
-    priority: int = 10  # Photo priority (lower is preferred)
+    """A dataclass describing a photo or other media file
+
+    Attributes:
+        :checksum (str): checksum of photo file
+        :source_path (str): Absolute path where photo was found
+        :datetime (str): Datetime string for best estimated creation date
+        :timestamp (float): POSIX timestamp of best estimated creation date
+        :file_size (int): Photo file size, in bytes
+        :store_path (str): Relative path where photo is stored, empty if not stored
+        :priority (int): Photo priority (lower is preferred)
+    """
+    checksum: str
+    source_path: str
+    datetime: str
+    timestamp: float
+    file_size: int
+    store_path: str = ''
+    priority: int = 10
 
     @classmethod
     def from_file(
@@ -39,6 +50,12 @@ class PhotoFile:
             algorithm: str = DEFAULT_HASH_ALGO,
             priority: int = 10
     ) -> PF:
+        """Create a PhotoFile for a given file
+
+        :param source_path: The path to the file
+        :param algorithm: The hashing algorithm to use
+        :param priority: The photo's priority
+        """
         photo_hash: str = file_checksum(source_path, algorithm)
         dt = get_media_datetime(source_path)
         timestamp = datetime_str_to_object(dt).timestamp()
@@ -62,6 +79,17 @@ class PhotoFile:
             algorithm: str = DEFAULT_HASH_ALGO,
             priority: int = 10,
     ) -> PF:
+        """Create a PhotoFile for a given file
+
+        If source_path is in the checksum and datetime caches, uses the cached value
+        instead of reading from the file.
+
+        :param source_path: The path to the file
+        :param checksum_cache: A mapping of source paths to known checksums
+        :param datetime_cache: A mapping of source paths to datetime strings
+        :param algorithm: The hashing algorithm to use for new checksums
+        :param priority: The photo's priority
+        """
         photo_hash: str = (
             checksum_cache[source_path] if source_path in checksum_cache
             else file_checksum(source_path, algorithm)
@@ -82,20 +110,19 @@ class PhotoFile:
             priority=priority,
         )
 
+    @classmethod
+    def from_dict(cls: Type[PF], d: dict) -> PF:
+        return cls(**d)
 
-def pf_from_dict(d: dict) -> PhotoFile:
-    return PhotoFile(**d)
-
-
-def pf_to_dict(pf: PhotoFile) -> dict:
-    return dataclasses.asdict(pf)
+    def to_dict(self) -> dict:
+        return asdict(self)
 
 
 class EnhancedJSONEncoder(json.JSONEncoder):
     """Encodes dataclasses as dictionaries"""
     def default(self, o):
-        if dataclasses.is_dataclass(o):
-            return dataclasses.asdict(o)
+        if is_dataclass(o):
+            return asdict(o)
         return super().default(o)
 
 
@@ -213,7 +240,7 @@ class Database:
             db.db.setdefault('hash_algorithm', 'sha256')    # legacy dbs use sha256
             db.db = {k: db.db[k] for k in cls.DB_KEY_ORDER}
             for uid in db.photo_db.keys():
-                db.photo_db[uid] = [pf_from_dict(d) for d in db.photo_db[uid]]
+                db.photo_db[uid] = [PhotoFile.from_dict(d) for d in db.photo_db[uid]]
 
             for uid, photos in db.photo_db.items():
                 for photo in photos:
