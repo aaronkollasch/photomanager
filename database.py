@@ -344,7 +344,7 @@ class Database:
             self,
             files: Collection[Union[str, PathLike]],
             priority: int = 10,
-            storage_type: str = 'HDD'
+            storage_type: str = 'HDD',
     ) -> int:
         """Imports photo files into the database with a designated priority
 
@@ -372,7 +372,8 @@ class Database:
                     current_file,
                     checksum_cache=checksum_cache,
                     datetime_cache=datetime_cache,
-                    algorithm=self.hash_algorithm, priority=priority
+                    algorithm=self.hash_algorithm,
+                    priority=priority,
                 )
                 uid = self.find_photo(photo=pf)
                 result = self.add_photo(photo=pf, uid=uid)

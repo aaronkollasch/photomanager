@@ -62,6 +62,7 @@ from asyncio import subprocess
 import json
 import codecs
 import time
+import traceback
 from tqdm import tqdm
 from pyexiftool import datetime_tags, best_datetime
 
@@ -155,15 +156,22 @@ class AsyncExifTool(object):
                 outputs = [b""]
                 while not outputs[-1][-32:].strip().endswith(sentinel):
                     outputs.append(await process.stdout.read(block_size))
-                output = b"".join(outputs).strip()[:-len(sentinel)]
-                output = json.loads(output.decode("utf-8"))
-                for d in output:
-                    if mode == 'best_datetime':
-                        self.output_dict[d['SourceFile']] = best_datetime(d)
-                    else:
-                        self.output_dict[d['SourceFile']] = d
-                self.pbar.update(n=len(output))
-                self.queue.task_done()
+                try:
+                    output = b"".join(outputs).strip()[:-len(sentinel)]
+                    output = json.loads(output.decode("utf-8"))
+                    for d in output:
+                        if mode == 'best_datetime':
+                            self.output_dict[d['SourceFile']] = best_datetime(d)
+                        else:
+                            self.output_dict[d['SourceFile']] = d
+                    self.pbar.update(n=len(output))
+                except (Exception,):
+                    print(f"AsyncExifTool worker encountered an exception!\n"
+                          f"exiftool params: {self.executable} {params}\n"
+                          f"exiftool output: {b''.join(outputs)}", file=sys.stderr)
+                    traceback.print_exc(file=sys.stderr)
+                finally:
+                    self.queue.task_done()
         finally:
             if process is not None:
                 await process.communicate(b"-stay_open\nFalse\n")

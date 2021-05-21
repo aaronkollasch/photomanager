@@ -1,5 +1,7 @@
 from __future__ import annotations
 import os
+import sys
+import traceback
 import hashlib
 import asyncio
 from asyncio import subprocess as subprocess_async
@@ -92,12 +94,19 @@ class AsyncFileHasher:
                 stderr=subprocess_async.DEVNULL,
             )
             stdout, stderr = await process.communicate()
-            for line in stdout.decode('utf-8').splitlines(keepends=False):
-                if line.strip():
-                    checksum, path = line.split(maxsplit=1)
-                    self.output_dict[path] = checksum
-            self.pbar.update(n=len(params))
-            self.queue.task_done()
+            try:
+                for line in stdout.decode('utf-8').splitlines(keepends=False):
+                    if line.strip():
+                        checksum, path = line.split(maxsplit=1)
+                        self.output_dict[path] = checksum
+                self.pbar.update(n=len(params))
+            except (Exception,):
+                print(f"AsyncFileHasher worker encountered an exception!\n"
+                      f"hasher params: {self.command} {params}\n"
+                      f"hasher output: {stdout}", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+            finally:
+                self.queue.task_done()
 
     async def execute_queue(self, all_params: list[list[bytes]]) -> dict[str, str]:
         self.queue = asyncio.Queue()
