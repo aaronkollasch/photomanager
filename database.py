@@ -16,6 +16,7 @@ from collections.abc import Collection
 from tqdm import tqdm
 import orjson
 import zstandard as zstd
+import xxhash
 from pyexiftool import ExifTool
 from pyexiftool_async import AsyncExifTool
 from hasher_async import AsyncFileHasher, file_checksum, DEFAULT_HASH_ALGO
@@ -228,8 +229,15 @@ class Database:
                     db.db = orjson.loads(f.read())
             elif path.suffix == '.zst':
                 with open(path, 'rb') as f:
-                    dctx = zstd.ZstdDecompressor()
-                    db.db = orjson.loads(dctx.decompress(f.read()))
+                    c = f.read()
+                    has_checksum, checksum = zstd.get_frame_parameters(c).has_checksum, c[-4:]
+                    s = zstd.decompress(c)
+                    del c
+                    s_hash = xxhash.xxh64_digest(s)
+                    if has_checksum and checksum != s_hash[-4:][::-1]:
+                        raise DatabaseException(f"zstd content checksum verification failed: {checksum} {s_hash}")
+                    db.db = orjson.loads(s)
+                    del s
             else:
                 with open(path, 'rb') as f:
                     db.db = orjson.loads(f.read())
@@ -269,7 +277,7 @@ class Database:
                 f.write(save_bytes)
         elif path.suffix == '.zst':
             with open(path, 'wb') as f:
-                cctx = zstd.ZstdCompressor()
+                cctx = zstd.ZstdCompressor(level=5, write_checksum=True)
                 f.write(cctx.compress(save_bytes))
         else:
             with open(path, 'wb') as f:
