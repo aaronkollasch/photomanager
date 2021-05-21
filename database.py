@@ -229,8 +229,7 @@ class Database:
             elif path.suffix == '.zst':
                 with open(path, 'rb') as f:
                     dctx = zstd.ZstdDecompressor()
-                    with dctx.stream_reader(f) as reader:
-                        db.db = orjson.loads(reader.read())
+                    db.db = orjson.loads(dctx.decompress(f.read()))
             else:
                 with open(path, 'rb') as f:
                     db.db = orjson.loads(f.read())
@@ -271,8 +270,7 @@ class Database:
         elif path.suffix == '.zst':
             with open(path, 'wb') as f:
                 cctx = zstd.ZstdCompressor()
-                with cctx.stream_writer(f, write_return_read=True) as compressor:
-                    compressor.write(save_bytes)
+                f.write(cctx.compress(save_bytes))
         else:
             with open(path, 'wb') as f:
                 f.write(save_bytes)
