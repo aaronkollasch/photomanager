@@ -1,0 +1,16 @@
+#!/bin/bash
+# Use to view PhotoManager database files compressed with different formats.
+preview_cmd=less
+if [ "${1: -5}" == ".json" ]; then
+  is_pretty=$(($(head -c 1000 "$1" | wc -l) > 0))
+  if (( is_pretty > 0 )); then $preview_cmd "$1"
+  else jq -C . < "$1"  | $preview_cmd -r; fi
+elif [ "${1: -3}" == ".gz" ]; then
+  is_pretty=$(($(gzcat "$1" | head -c 1000 | wc -l) > 0))
+  if (( is_pretty > 0 )); then zless "$1"
+  else gzcat "$1" | jq -C . | $preview_cmd -r; fi
+elif [ "${1: -4}" == ".zst" ]; then
+  is_pretty=$(($(zstdcat "$1" | head -c 1000 | wc -l) > 0))
+  if (( is_pretty > 0 )); then zstdcat "$1" | $preview_cmd -r
+  else zstdcat "$1" | jq -C . | $preview_cmd -r; fi
+fi

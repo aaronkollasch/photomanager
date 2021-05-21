@@ -7,14 +7,15 @@ from uuid import uuid4
 from pathlib import Path
 from datetime import datetime
 import shutil
-from dataclasses import dataclass, is_dataclass, asdict
-import json
+from dataclasses import dataclass, asdict
 import gzip
 import logging
 import traceback
 from typing import Union, Optional, Type, TypeVar
 from collections.abc import Collection
 from tqdm import tqdm
+import orjson
+import zstandard as zstd
 from pyexiftool import ExifTool
 from pyexiftool_async import AsyncExifTool
 from hasher_async import AsyncFileHasher, file_checksum, DEFAULT_HASH_ALGO
@@ -116,14 +117,6 @@ class PhotoFile:
 
     def to_dict(self) -> dict:
         return asdict(self)
-
-
-class EnhancedJSONEncoder(json.JSONEncoder):
-    """Encodes dataclasses as dictionaries"""
-    def default(self, o):
-        if is_dataclass(o):
-            return asdict(o)
-        return super().default(o)
 
 
 def datetime_str_to_object(ts_str: str) -> datetime:
@@ -231,11 +224,16 @@ class Database:
         path = Path(path)
         if path.exists():
             if path.suffix == '.gz':
-                with gzip.open(path, 'rt', encoding='utf-8') as f:
-                    db.db = json.load(f)
+                with gzip.open(path, 'rb') as f:
+                    db.db = orjson.loads(f.read())
+            elif path.suffix == '.zst':
+                with open(path, 'rb') as f:
+                    dctx = zstd.ZstdDecompressor()
+                    with dctx.stream_reader(f) as reader:
+                        db.db = orjson.loads(reader.read())
             else:
-                with open(path) as f:
-                    db.db = json.load(f)
+                with open(path, 'rb') as f:
+                    db.db = orjson.loads(f.read())
             db.db.setdefault('version', '1')                # legacy dbs are version 1
             db.db.setdefault('hash_algorithm', 'sha256')    # legacy dbs use sha256
             db.db = {k: db.db[k] for k in cls.DB_KEY_ORDER}
@@ -266,12 +264,18 @@ class Database:
             ).with_suffix(''.join(path.suffixes))
             if not new_path.exists():
                 os.rename(path, new_path)
+        save_bytes = orjson.dumps(self.db, option=orjson.OPT_INDENT_2)
         if path.suffix == '.gz':
-            with gzip.open(path, 'wt', encoding='utf-8') as f:
-                json.dump(self.db, fp=f, cls=EnhancedJSONEncoder, indent=0)
+            with gzip.open(path, 'wb', compresslevel=5) as f:
+                f.write(save_bytes)
+        elif path.suffix == '.zst':
+            with open(path, 'wb') as f:
+                cctx = zstd.ZstdCompressor()
+                with cctx.stream_writer(f, write_return_read=True) as compressor:
+                    compressor.write(save_bytes)
         else:
-            with open(path, 'w') as f:
-                json.dump(self.db, fp=f, cls=EnhancedJSONEncoder, indent=0)
+            with open(path, 'wb') as f:
+                f.write(save_bytes)
 
     def add_command(self, command: str) -> str:
         """Adds a command to the command history

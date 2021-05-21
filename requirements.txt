@@ -1,2 +1,4 @@
 tqdm~=4.59.0
 click~=7.1.2
+orjson~=3.5.2
+zstandard~=0.15.2
