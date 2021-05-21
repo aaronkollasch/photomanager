@@ -147,7 +147,7 @@ class AsyncFileHasher:
             if len(chunk) == size:
                 yield chunk
                 chunk = list(init)
-        if chunk:
+        if len(chunk) > len(init):
             yield chunk
 
     @staticmethod

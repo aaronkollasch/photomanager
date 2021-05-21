@@ -219,7 +219,7 @@ class AsyncExifTool(object):
             if len(chunk) == size:
                 yield chunk
                 chunk = list(init)
-        if chunk:
+        if len(chunk) > len(init):
             yield chunk
 
     def get_metadata_batch(self, filenames):
