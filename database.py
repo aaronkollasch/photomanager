@@ -235,7 +235,9 @@ class Database:
                     del c
                     s_hash = xxhash.xxh64_digest(s)
                     if has_checksum and checksum != s_hash[-4:][::-1]:
-                        raise DatabaseException(f"zstd content checksum verification failed: {checksum} {s_hash}")
+                        raise DatabaseException(
+                            f"zstd content checksum verification failed: {checksum.hex()} != {s_hash.hex()}"
+                        )
                     db.db = orjson.loads(s)
                     del s
             else:
@@ -255,11 +257,14 @@ class Database:
                     else:
                         db.timestamp_to_uids[photo.timestamp] = {uid: None}
         else:
-            print("Database file does not exist. Starting with blank database.")
+            logger = logging.getLogger()
+            logger.info("Database file does not exist. Starting with blank database.")
         return db
 
     def to_file(self, path: Union[str, PathLike]) -> None:
         """Saves the db to path and moves an existing database at that path to a different location"""
+        logger = logging.getLogger()
+        logger.info(f"Saving database to {path}")
         path = Path(path)
         if path.is_file():
             base_path = path
@@ -270,6 +275,7 @@ class Database:
                 f"{datetime.fromtimestamp(path.stat().st_mtime).strftime('%Y-%m-%d_%H-%M-%S')}"
             ).with_suffix(''.join(path.suffixes))
             if not new_path.exists():
+                logger.info(f"Moving old database at {path} to {new_path}")
                 os.rename(path, new_path)
         save_bytes = orjson.dumps(self.db, option=orjson.OPT_INDENT_2)
         if path.suffix == '.gz':
@@ -300,6 +306,7 @@ class Database:
         Matches first by file checksum, then by timestamp+filename (case-insensitive).
 
         :return the photo's uid, or None if not found"""
+        logger = logging.getLogger()
         if photo.checksum in self.hash_to_uid:
             return self.hash_to_uid[photo.checksum]
         uids = self.timestamp_to_uids.get(photo.timestamp, None)
@@ -311,7 +318,7 @@ class Database:
                     name_matches.append(uid)
             if name_matches:
                 if len(name_matches) > 1:
-                    print(f"ambiguous timestamp+name match: {photo.source_path}: {name_matches}")
+                    logger.warning(f"ambiguous timestamp+name match: {photo.source_path}: {name_matches}")
                 return name_matches[0]
             else:
                 return None
@@ -370,35 +377,37 @@ class Database:
         else:
             async_hashes = False  # concurrent reads of sequential files can lead to thrashing
             async_exif = min(4, os.cpu_count())  # exiftool is partially CPU-bound and benefits from async
-        print("Collecting media hashes")
+        logger.info("Collecting media hashes")
         checksum_cache = AsyncFileHasher(algorithm=self.hash_algorithm, use_async=async_hashes).check_files(files)
-        print("Collecting media dates and times")
+        logger.info("Collecting media dates and times")
         datetime_cache = AsyncExifTool(num_workers=async_exif).get_best_datetime_batch(files)
-        for current_file in tqdm(files):
-            if logger.isEnabledFor(logging.DEBUG):
-                tqdm.write(f"Importing {current_file}")
-            try:
-                pf = PhotoFile.from_file_cached(
-                    current_file,
-                    checksum_cache=checksum_cache,
-                    datetime_cache=datetime_cache,
-                    algorithm=self.hash_algorithm,
-                    priority=priority,
-                )
-                uid = self.find_photo(photo=pf)
-                result = self.add_photo(photo=pf, uid=uid)
+        logger.info("Importing media")
+        with ExifTool():
+            for current_file in tqdm(files):
+                if logger.isEnabledFor(logging.DEBUG):
+                    tqdm.write(f"Importing {current_file}")
+                try:
+                    pf = PhotoFile.from_file_cached(
+                        current_file,
+                        checksum_cache=checksum_cache,
+                        datetime_cache=datetime_cache,
+                        algorithm=self.hash_algorithm,
+                        priority=priority,
+                    )
+                    uid = self.find_photo(photo=pf)
+                    result = self.add_photo(photo=pf, uid=uid)
 
-                if result is None:
-                    num_skipped_photos += 1
-                elif uid is None:
-                    num_added_photos += 1
-                else:
-                    num_merged_photos += 1
-            except Exception as e:
-                print(f"Error importing {current_file}")
-                tb_str = traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
-                print(tb_str)
-                num_error_photos += 1
+                    if result is None:
+                        num_skipped_photos += 1
+                    elif uid is None:
+                        num_added_photos += 1
+                    else:
+                        num_merged_photos += 1
+                except Exception as e:
+                    print(f"Error importing {current_file}")
+                    tb_str = traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
+                    print(tb_str)
+                    num_error_photos += 1
 
         print(f"Imported {num_added_photos+num_merged_photos}/{len(files)} items")
         print(f"Added {num_added_photos} new items and merged {num_merged_photos} items")
@@ -431,13 +440,12 @@ class Database:
 
         :param directory the photo storage directory
         :return the number of photos collected"""
-
-        print("Collecting photos.")
+        logger = logging.getLogger()
+        logger.info("Collecting photos.")
         estimated_library_size = sum(photo.file_size for photo in self.get_chosen_photos())
-        print(f"Estimated total library size: {sizeof_fmt(estimated_library_size)}")
+        logger.info(f"Estimated total library size: {sizeof_fmt(estimated_library_size)}")
         directory = Path(directory).expanduser().resolve()
         num_transferred_photos = num_added_photos = num_missed_photos = num_stored_photos = 0
-        logger = logging.getLogger()
         for uid, photos in tqdm(self.photo_db.items()):
             highest_priority = min(photo.priority for photo in photos)
             stored_checksums = set()

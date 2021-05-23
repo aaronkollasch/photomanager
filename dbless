@@ -7,10 +7,10 @@ if [ "${1: -5}" == ".json" ]; then
   else jq -C . < "$1"  | $preview_cmd -r; fi
 elif [ "${1: -3}" == ".gz" ]; then
   is_pretty=$(($(gzcat "$1" | head -c 1000 | wc -l) > 0))
-  if (( is_pretty > 0 )); then zless "$1"
+  if (( is_pretty > 0 )); then gzcat "$1" | $preview_cmd
   else gzcat "$1" | jq -C . | $preview_cmd -r; fi
 elif [ "${1: -4}" == ".zst" ]; then
   is_pretty=$(($(zstdcat "$1" | head -c 1000 | wc -l) > 0))
-  if (( is_pretty > 0 )); then zstdcat "$1" | $preview_cmd -r
+  if (( is_pretty > 0 )); then zstdcat "$1" | $preview_cmd
   else zstdcat "$1" | jq -C . | $preview_cmd -r; fi
 fi

@@ -38,6 +38,13 @@ dnf install perl-Image-ExifTool
 ```
 Or download from [https://exiftool.org](https://exiftool.org/)
 
+### Extras
+The database JSON file can optionally be compressed as a zstd
+or gzip file. 
+Zstd is available in most package managers, e.g. `brew install zstd`.
+Database filenames ending in `.gz` will be read as gzip archives and
+names ending in `.zst` will be read as zstd archives.
+
 ## Usage
 ### Import photos into the database
 ```shell
