@@ -378,7 +378,10 @@ class Database:
             async_hashes = False  # concurrent reads of sequential files can lead to thrashing
             async_exif = min(4, os.cpu_count())  # exiftool is partially CPU-bound and benefits from async
         logger.info("Collecting media hashes")
-        checksum_cache = AsyncFileHasher(algorithm=self.hash_algorithm, use_async=async_hashes).check_files(files)
+        checksum_cache = AsyncFileHasher(
+            algorithm=self.hash_algorithm,
+            use_async=async_hashes
+        ).check_files(files, pbar_unit='B')
         logger.info("Collecting media dates and times")
         datetime_cache = AsyncExifTool(num_workers=async_exif).get_best_datetime_batch(files)
         logger.info("Importing media")
@@ -591,16 +594,24 @@ class Database:
         print(f"Verifying {len(stored_photos)} items")
         print(f"Total file size: {sizeof_fmt(total_file_size)}")
         if storage_type in ('SSD', 'RAID'):
-            files = []
+            files, sizes = [], []
             for photo in stored_photos:
                 abs_store_path = directory / photo.store_path
                 if abs_store_path.exists():
                     files.append(str(abs_store_path))
+                    sizes.append(photo.file_size)
             print("Collecting media hashes")
-            checksum_cache = AsyncFileHasher(algorithm=self.hash_algorithm).check_files(files)
+            checksum_cache = AsyncFileHasher(algorithm=self.hash_algorithm).check_files(
+                file_paths=files,
+                pbar_unit='B',
+                file_sizes=sizes
+            )
+            p_bar = tqdm(total=len(stored_photos))
         else:
             checksum_cache = {}
-        for photo in tqdm(stored_photos):
+            p_bar = tqdm(total=total_file_size, unit='B', unit_scale=True, unit_divisor=1024)
+
+        for photo in stored_photos:
             abs_store_path = directory / photo.store_path
             if not abs_store_path.exists():
                 tqdm.write(f"Missing photo: {abs_store_path}")
@@ -613,6 +624,11 @@ class Database:
             else:
                 tqdm.write(f"Incorrect checksum: {abs_store_path}")
                 num_incorrect_photos += 1
+            if checksum_cache:
+                p_bar.update()
+            else:
+                p_bar.update(photo.file_size)
+        p_bar.close()
 
         print(f"Checked {num_correct_photos+num_incorrect_photos+num_missing_photos} items")
         if num_incorrect_photos or num_missing_photos:
