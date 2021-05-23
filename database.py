@@ -257,14 +257,14 @@ class Database:
                     else:
                         db.timestamp_to_uids[photo.timestamp] = {uid: None}
         else:
-            logger = logging.getLogger()
-            logger.info("Database file does not exist. Starting with blank database.")
+            logger = logging.getLogger(__name__)
+            logger.warning("Database file does not exist. Starting with blank database.")
         return db
 
     def to_file(self, path: Union[str, PathLike]) -> None:
         """Saves the db to path and moves an existing database at that path to a different location"""
-        logger = logging.getLogger()
-        logger.info(f"Saving database to {path}")
+        logger = logging.getLogger(__name__)
+        logger.debug(f"Saving database to {path}")
         path = Path(path)
         if path.is_file():
             base_path = path
@@ -275,7 +275,7 @@ class Database:
                 f"{datetime.fromtimestamp(path.stat().st_mtime).strftime('%Y-%m-%d_%H-%M-%S')}"
             ).with_suffix(''.join(path.suffixes))
             if not new_path.exists():
-                logger.info(f"Moving old database at {path} to {new_path}")
+                logger.debug(f"Moving old database at {path} to {new_path}")
                 os.rename(path, new_path)
         save_bytes = orjson.dumps(self.db, option=orjson.OPT_INDENT_2)
         if path.suffix == '.gz':
@@ -306,7 +306,7 @@ class Database:
         Matches first by file checksum, then by timestamp+filename (case-insensitive).
 
         :return the photo's uid, or None if not found"""
-        logger = logging.getLogger()
+        logger = logging.getLogger(__name__)
         if photo.checksum in self.hash_to_uid:
             return self.hash_to_uid[photo.checksum]
         uids = self.timestamp_to_uids.get(photo.timestamp, None)
@@ -369,7 +369,7 @@ class Database:
         :param priority: the imported photos' priority
         :param storage_type: the type of media importing from (uses more async if SSD)
         :return: the number of photos imported"""
-        logger = logging.getLogger()
+        logger = logging.getLogger(__name__)
         num_added_photos = num_merged_photos = num_skipped_photos = num_error_photos = 0
         if storage_type in ('SSD', 'RAID'):
             async_hashes = True
@@ -429,7 +429,7 @@ class Database:
             chosen_photos.extend(new_chosen_photos)
         return chosen_photos
 
-    def collect_to_directory(self, directory: Union[str, PathLike]) -> int:
+    def collect_to_directory(self, directory: Union[str, PathLike], dry_run: bool = False) -> int:
         """Collects photos in the database into a directory
 
         Collects only photos that have a store_path set or that have the highest priority
@@ -439,13 +439,13 @@ class Database:
         Stored photos have permissions set to read-only for all.
 
         :param directory the photo storage directory
+        :param dry_run if True, do not copy photos
         :return the number of photos collected"""
-        logger = logging.getLogger()
-        logger.info("Collecting photos.")
-        estimated_library_size = sum(photo.file_size for photo in self.get_chosen_photos())
-        logger.info(f"Estimated total library size: {sizeof_fmt(estimated_library_size)}")
+        logger = logging.getLogger(__name__)
         directory = Path(directory).expanduser().resolve()
         num_transferred_photos = num_added_photos = num_missed_photos = num_stored_photos = 0
+        photos_to_copy = []
+        logger.info("Checking stored photos")
         for uid, photos in tqdm(self.photo_db.items()):
             highest_priority = min(photo.priority for photo in photos)
             stored_checksums = set()
@@ -458,16 +458,11 @@ class Database:
                     stored_checksums.add(photo.checksum)
                     num_stored_photos += 1
                 elif os.path.exists(photo.source_path):
-                    if logger.isEnabledFor(logging.DEBUG):
-                        tqdm.write(f"Copying {photo.source_path} to {abs_store_path}")
-                    os.makedirs(abs_store_path.parent, exist_ok=True)
-                    shutil.copy2(photo.source_path, abs_store_path)
-                    os.chmod(abs_store_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+                    photos_to_copy.append((photo, None))
                     stored_checksums.add(photo.checksum)
                     num_transferred_photos += 1
                 else:
-                    if logger.isEnabledFor(logging.DEBUG):
-                        tqdm.write(f"Photo not found: {photo.source_path}")
+                    logger.debug(f"Photo not found: {photo.source_path}")
                     num_missed_photos += 1
             for photo in highest_priority_photos:
                 if photo.checksum in stored_checksums:
@@ -480,26 +475,39 @@ class Database:
                 )
                 abs_store_path = directory / rel_store_path
                 if abs_store_path.exists():
-                    if logger.isEnabledFor(logging.DEBUG):
-                        tqdm.write(f"Photo already present: {abs_store_path}")
+                    logger.debug(f"Photo already present: {abs_store_path}")
                     photo.store_path = rel_store_path
                     stored_checksums.add(photo.checksum)
                     num_stored_photos += 1
                 elif os.path.exists(photo.source_path):
-                    if logger.isEnabledFor(logging.DEBUG):
-                        tqdm.write(f"Copying {photo.source_path} to {abs_store_path}")
-                    os.makedirs(abs_store_path.parent, exist_ok=True)
-                    shutil.copy2(photo.source_path, abs_store_path)
-                    os.chmod(abs_store_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
-                    photo.store_path = rel_store_path
+                    photos_to_copy.append((photo, rel_store_path))
                     stored_checksums.add(photo.checksum)
                     num_added_photos += 1
                 else:
-                    if logger.isEnabledFor(logging.DEBUG):
-                        tqdm.write(f"Photo not found: {photo.source_path}")
+                    logger.debug(f"Photo not found: {photo.source_path}")
                     num_missed_photos += 1
 
-        print(f"Copied {num_added_photos+num_transferred_photos} items: "
+        estimated_copy_size = sum(photo.file_size for photo, _ in photos_to_copy)
+        logger.info(f"{'Will copy' if dry_run else 'Copying'} {len(photos_to_copy)} items, "
+                    f"estimated size: {sizeof_fmt(estimated_copy_size)}")
+        p_bar = tqdm(total=estimated_copy_size, unit='B', unit_scale=True, unit_divisor=1024)
+        for photo, rel_store_path in photos_to_copy:
+            if rel_store_path is None:
+                abs_store_path = directory / photo.store_path
+            else:
+                abs_store_path = directory / rel_store_path
+            if logger.isEnabledFor(logging.DEBUG):
+                tqdm.write(f"{'Will copy' if dry_run else 'Copying'}: {photo.source_path} to {abs_store_path}")
+            if not dry_run:
+                os.makedirs(abs_store_path.parent, exist_ok=True)
+                shutil.copy2(photo.source_path, abs_store_path)
+                os.chmod(abs_store_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+                if rel_store_path is not None:
+                    photo.store_path = rel_store_path
+            p_bar.update(photo.file_size)
+        p_bar.close()
+
+        print(f"Copied {len(photos_to_copy)} items, estimated size: {sizeof_fmt(estimated_copy_size)}: "
               f"{num_added_photos} new items and {num_transferred_photos} items marked as stored elsewhere")
         if num_stored_photos or num_missed_photos:
             print(f"Skipped {num_stored_photos} items already stored and {num_missed_photos} missing items")
@@ -517,6 +525,7 @@ class Database:
         :param subdirectory remove only photos within subdirectory
         :param dry_run if True, do not remove photos
         :return the number of photos removed"""
+        logger = logging.getLogger(__name__)
         num_removed_photos = num_missing_photos = total_file_size = 0
         directory = Path(directory).expanduser().resolve()
         subdirectory = Path(subdirectory)
@@ -537,7 +546,6 @@ class Database:
                     total_file_size += photo.file_size
         print(f"Identified {len(photos_to_remove)} lower-priority items for removal")
         print(f"Total file size: {sizeof_fmt(total_file_size)}")
-        logger = logging.getLogger()
         for photo in tqdm(photos_to_remove):
             abs_store_path = directory / photo.store_path
             if abs_store_path.exists():

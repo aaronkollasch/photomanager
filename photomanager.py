@@ -5,7 +5,6 @@ from pathlib import Path
 import re
 import logging
 import click
-from pyexiftool import ExifTool
 from database import Database, DEFAULT_HASH_ALGO
 
 
@@ -21,6 +20,13 @@ audio_extensions = {
     'm4a', 'ogg', 'aiff', 'wav', 'flac', 'caf', 'mp3',
 }
 extensions = photo_extensions | video_extensions | audio_extensions
+
+
+def config_logging(debug=False):
+    if debug:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
 
 @click.command('create', help='Create an empty database')
@@ -55,8 +61,7 @@ def _import(db, source, file, exclude, paths, debug=False, priority=10, storage_
     if not source and not file and not paths:
         print("Nothing to import")
         sys.exit(1)
-    if debug:
-        logging.basicConfig(level=logging.DEBUG)
+    config_logging(debug=debug)
     database = Database.from_file(db)
 
     paths = {Path(p).expanduser().resolve(): None for p in paths}
@@ -103,13 +108,15 @@ def _import(db, source, file, exclude, paths, debug=False, priority=10, storage_
               help='Photo storage base directory')
 @click.option('--debug', default=False, is_flag=True,
               help='Run in debug mode')
-def _collect(db, destination, debug=False):
-    if debug:
-        logging.basicConfig(level=logging.DEBUG)
+@click.option('--dry-run', default=False, is_flag=True,
+              help='Perform a dry run that makes no changes')
+def _collect(db, destination, debug=False, dry_run=False):
+    config_logging(debug=debug)
     database = Database.from_file(db)
     database.collect_to_directory(destination)
     database.add_command(' '.join(sys.argv))
-    database.to_file(db)
+    if not dry_run:
+        database.to_file(db)
 
 
 @click.command('clean', help='Remove lower-priority alternatives of stored items')
@@ -124,8 +131,7 @@ def _collect(db, destination, debug=False):
 @click.option('--dry-run', default=False, is_flag=True,
               help='Perform a dry run that makes no changes')
 def _clean(db, destination, subdir='', debug=False, dry_run=False):
-    if debug:
-        logging.basicConfig(level=logging.DEBUG)
+    config_logging(debug=debug)
     database = Database.from_file(db)
     database.clean_stored_photos(destination, subdirectory=subdir, dry_run=dry_run)
     database.add_command(' '.join(sys.argv))
