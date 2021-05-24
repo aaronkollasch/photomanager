@@ -42,7 +42,7 @@ Or download from [https://exiftool.org](https://exiftool.org/)
 The database JSON file can optionally be compressed as a zstd
 or gzip file. 
 Zstd is available in most package managers, e.g. `brew install zstd`.
-Database filenames ending in `.gz` will be read as gzip archives and
+Filenames ending in `.gz` will be read as gzip archives and
 names ending in `.zst` will be read as zstd archives.
 
 ## Usage
@@ -165,7 +165,8 @@ Usage: photomanager.py create [OPTIONS]
   Create an empty database
 
 Options:
-  --db FILE              PhotoManager database path  [required]
+  --db FILE              PhotoManager database path (.json). Add
+                         extensions .zst or .gz to compress.  [required]
   --hash-algorithm TEXT  Hash algorithm (default=blake2b-256)
   --help                 Show this message and exit.
 ```
@@ -176,14 +177,14 @@ Usage: photomanager.py import [OPTIONS] [PATHS]...
   Find and add items to database
 
 Options:
-  --db FILE            PhotoManager database path  [required]
+  --db FILE            PhotoManager database filepath (.json). Add extensions
+                       .zst or .gz to compress.  [required]
   --source DIRECTORY   Directory to import
   --file FILE          File to import
   --exclude TEXT       Name patterns to exclude
   --priority INTEGER   Priority of imported photos (lower is preferred,
                        default=10)
-
-  --storage-type TEXT  Class of storage medium (HDD or SSD)
+  --storage-type TEXT  Class of storage medium (HDD, SSD, RAID)
   --debug              Run in debug mode
   --help               Show this message and exit.
 ```
@@ -198,6 +199,7 @@ Options:
   --db FILE                PhotoManager database path  [required]
   --destination DIRECTORY  Photo storage base directory  [required]
   --debug                  Run in debug mode
+  --collect-db             Also save the database within destination
   --help                   Show this message and exit.
 ```
 
@@ -211,7 +213,7 @@ Options:
   --db FILE                PhotoManager database path  [required]
   --destination DIRECTORY  Photo storage base directory  [required]
   --subdir TEXT            Verify only items within subdirectory
-  --storage-type TEXT      Class of storage medium (HDD or SSD)
+  --storage-type TEXT      Class of storage medium (HDD, SSD, RAID)
   --help                   Show this message and exit.
 ```
 

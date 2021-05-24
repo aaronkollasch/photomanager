@@ -112,7 +112,7 @@ def _import(db, source, file, exclude, paths, debug=False, priority=10, storage_
 @click.option('--dry-run', default=False, is_flag=True,
               help='Perform a dry run that makes no changes')
 @click.option('--collect-db', default=False, is_flag=True,
-              help='Also save the database within the destination directory')
+              help='Also save the database within destination')
 def _collect(db, destination, debug=False, dry_run=False, collect_db=False):
     config_logging(debug=debug)
     database = Database.from_file(db)
