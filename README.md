@@ -126,7 +126,7 @@ timestamps, checksums, and original names.
 
 Stored photo paths in the database are relative to `destination`,
 so the library is portable, and the same database can be shared across
-library copies, e.g. those created with `rsync`.
+library copies. Recommended syncing tools are `rsync` and `rclone`.
 
 Importing and collection can be repeated
 as new sources of photos are found and collected.
