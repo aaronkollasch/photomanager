@@ -30,8 +30,8 @@ def config_logging(debug=False):
 
 
 @click.command('create', help='Create an empty database')
-@click.option('--db', type=click.Path(dir_okay=False), required=True,
-              default='./photos.json', help='PhotoManager database path')
+@click.option('--db', type=click.Path(dir_okay=False), required=True, default='./photos.json',
+              help='PhotoManager database filepath (.json). Add extensions .zst or .gz to compress.')
 @click.option('--hash-algorithm', type=str, default=DEFAULT_HASH_ALGO,
               help=f'Hash algorithm (default={DEFAULT_HASH_ALGO})')
 def _create(db, hash_algorithm=DEFAULT_HASH_ALGO):
@@ -42,8 +42,8 @@ def _create(db, hash_algorithm=DEFAULT_HASH_ALGO):
 
 
 @click.command('import', help='Find and add items to database')
-@click.option('--db', type=click.Path(dir_okay=False), required=True,
-              default='./photos.json', help='PhotoManager database path')
+@click.option('--db', type=click.Path(dir_okay=False), required=True, default='./photos.json',
+              help='PhotoManager database filepath (.json). Add extensions .zst or .gz to compress.')
 @click.option('--source', type=click.Path(file_okay=False),
               help='Directory to import')
 @click.option('--file', type=click.Path(dir_okay=False),
@@ -110,13 +110,17 @@ def _import(db, source, file, exclude, paths, debug=False, priority=10, storage_
               help='Run in debug mode')
 @click.option('--dry-run', default=False, is_flag=True,
               help='Perform a dry run that makes no changes')
-def _collect(db, destination, debug=False, dry_run=False):
+@click.option('--collect-db', default=False, is_flag=True,
+              help='Also save the database within the destination directory')
+def _collect(db, destination, debug=False, dry_run=False, collect_db=False):
     config_logging(debug=debug)
     database = Database.from_file(db)
     database.collect_to_directory(destination)
     database.add_command(' '.join(sys.argv))
     if not dry_run:
         database.to_file(db)
+        if collect_db:
+            database.to_file(Path(destination) / 'database' / Path(db).name)
 
 
 @click.command('clean', help='Remove lower-priority alternatives of stored items')
