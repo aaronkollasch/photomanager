@@ -276,7 +276,20 @@ class Database:
             ).with_suffix(''.join(path.suffixes))
             if not new_path.exists():
                 logger.debug(f"Moving old database at {path} to {new_path}")
-                os.rename(path, new_path)
+                try:
+                    os.rename(path, new_path)
+                except OSError as e:
+                    logger.warning(f"Could not move old database from {path} to {new_path}. "
+                                   f"{type(e).__name__} {e}")
+                    try:
+                        name, version = base_path.name.rsplit('_', 1)
+                        version = int(version)
+                        base_path = base_path.with_name(name + '_' + str(version+1))
+                    except ValueError:
+                        base_path = base_path.with_name(base_path.name + '_1')
+                    path = base_path.with_name(base_path.name + ''.join(path.suffixes))
+                    logger.info(f"Saving new database to alternate path {path}")
+
         save_bytes = orjson.dumps(self.db, option=orjson.OPT_INDENT_2)
         if path.suffix == '.gz':
             with gzip.open(path, 'wb', compresslevel=5) as f:
