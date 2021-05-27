@@ -59,7 +59,7 @@ import os
 import sys
 import asyncio
 from asyncio import subprocess
-import json
+import orjson
 import codecs
 import time
 import traceback
@@ -158,7 +158,7 @@ class AsyncExifTool(object):
                     outputs.append(await process.stdout.read(block_size))
                 try:
                     output = b"".join(outputs).strip()[:-len(sentinel)]
-                    output = json.loads(output.decode("utf-8"))
+                    output = orjson.loads(output)
                     for d in output:
                         if mode == 'best_datetime':
                             self.output_dict[d['SourceFile']] = best_datetime(d)

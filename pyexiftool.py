@@ -58,7 +58,7 @@ from __future__ import unicode_literals
 import sys
 import subprocess
 import os
-import json
+import orjson
 import warnings
 import codecs
 
@@ -298,7 +298,7 @@ class ExifTool(object, metaclass=Singleton):
         as Unicode strings in Python 3.x.
         """
         params = map(fsencode, params)
-        return json.loads(self.execute(b"-j", *params).decode("utf-8"))
+        return orjson.loads(self.execute(b"-j", *params))
 
     def get_metadata_batch(self, filenames):
         """Return all meta-data for the given files.
