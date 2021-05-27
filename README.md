@@ -3,7 +3,8 @@
 A manager for photos and other media files,
 inspired by [elodie](https://github.com/jmathai/elodie).
 
-Imports photos into a database and collects them to a specified directory.
+Indexes photos, adds them to a database, and 
+collects them in a specified directory.
 Verifies stored photos based on their checksum.
 Database is stored in a non-proprietary, human-readable JSON format.
 Will not modify any photos.
@@ -24,7 +25,7 @@ pip install -r requirements.txt
 ```
 
 ### Install ExifTool
-ExifTool is required to import, 
+ExifTool is required to index, 
 but not to collect or verify photos.
 ```shell
 # macOS
@@ -46,12 +47,12 @@ Filenames ending in `.gz` will be read as gzip archives and
 names ending in `.zst` will be read as zstd archives.
 
 ## Usage
-### Import photos into the database
+### Add photos to the database
 ```shell
-./photomanager.py import --debug --db db.json /path/to/directory /path/to/photo.jpg
+./photomanager.py index --debug --db db.json /path/to/directory /path/to/photo.jpg
 ```
 PhotoManager will search for media files in any supplied directories
-and also import single files supplied directly as arguments.
+and also index single files supplied directly as arguments.
 Repeat with as many sources as desired.
 
 For lower-quality versions of source photos such as downstream edits
@@ -128,7 +129,7 @@ Stored photo paths in the database are relative to `destination`,
 so the library is portable, and the same database can be shared across
 library copies. Recommended syncing tools are `rsync` and `rclone`.
 
-Importing and collection can be repeated
+Indexing and collection can be repeated
 as new sources of photos are found and collected.
 
 ### Verify stored photos against bit rot or modification
@@ -152,7 +153,7 @@ Commands:
   clean    Remove lower-priority alternatives of stored items
   collect  Collect highest-priority items into storage
   create   Create an empty database
-  import   Find and add items to database
+  index    Find and add items to database
   stats    Get database statistics
   verify   Verify checksums of stored items
 ```
@@ -170,19 +171,19 @@ Options:
   --hash-algorithm TEXT  Hash algorithm (default=blake2b-256)
   --help                 Show this message and exit.
 ```
-### Import photos
+### Index photos
 ```
-Usage: photomanager.py import [OPTIONS] [PATHS]...
+Usage: photomanager.py index [OPTIONS] [PATHS]...
 
   Find and add items to database
 
 Options:
   --db FILE            PhotoManager database filepath (.json). Add extensions
                        .zst or .gz to compress.  [required]
-  --source DIRECTORY   Directory to import
-  --file FILE          File to import
+  --source DIRECTORY   Directory to index
+  --file FILE          File to index
   --exclude TEXT       Name patterns to exclude
-  --priority INTEGER   Priority of imported photos (lower is preferred,
+  --priority INTEGER   Priority of indexed photos (lower is preferred,
                        default=10)
   --storage-type TEXT  Class of storage medium (HDD, SSD, RAID)
   --debug              Run in debug mode

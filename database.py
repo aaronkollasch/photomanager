@@ -370,18 +370,18 @@ class Database:
             self.timestamp_to_uids[photo.timestamp] = {uid: None}
         return uid
 
-    def import_photos(
+    def index_photos(
             self,
             files: Collection[Union[str, PathLike]],
             priority: int = 10,
             storage_type: str = 'HDD',
     ) -> int:
-        """Imports photo files into the database with a designated priority
+        """Indexes photo files and adds them to the database with a designated priority
 
-        :param files: the photo file paths to import
-        :param priority: the imported photos' priority
-        :param storage_type: the type of media importing from (uses more async if SSD)
-        :return: the number of photos imported"""
+        :param files: the photo file paths to index
+        :param priority: the photos' priority
+        :param storage_type: the storage type being indexed (uses more async if SSD)
+        :return: the number of photos indexed"""
         logger = logging.getLogger(__name__)
         num_added_photos = num_merged_photos = num_skipped_photos = num_error_photos = 0
         if storage_type in ('SSD', 'RAID'):
@@ -397,35 +397,37 @@ class Database:
         ).check_files(files, pbar_unit='B')
         logger.info("Collecting media dates and times")
         datetime_cache = AsyncExifTool(num_workers=async_exif).get_best_datetime_batch(files)
-        logger.info("Importing media")
-        with ExifTool():
-            for current_file in tqdm(files):
-                if logger.isEnabledFor(logging.DEBUG):
-                    tqdm.write(f"Importing {current_file}")
-                try:
-                    pf = PhotoFile.from_file_cached(
-                        current_file,
-                        checksum_cache=checksum_cache,
-                        datetime_cache=datetime_cache,
-                        algorithm=self.hash_algorithm,
-                        priority=priority,
-                    )
-                    uid = self.find_photo(photo=pf)
-                    result = self.add_photo(photo=pf, uid=uid)
+        logger.info("Indexing media")
+        exiftool = ExifTool()
+        exiftool.start()
+        for current_file in tqdm(files):
+            if logger.isEnabledFor(logging.DEBUG):
+                tqdm.write(f"Indexing {current_file}")
+            try:
+                pf = PhotoFile.from_file_cached(
+                    current_file,
+                    checksum_cache=checksum_cache,
+                    datetime_cache=datetime_cache,
+                    algorithm=self.hash_algorithm,
+                    priority=priority,
+                )
+                uid = self.find_photo(photo=pf)
+                result = self.add_photo(photo=pf, uid=uid)
 
-                    if result is None:
-                        num_skipped_photos += 1
-                    elif uid is None:
-                        num_added_photos += 1
-                    else:
-                        num_merged_photos += 1
-                except Exception as e:
-                    print(f"Error importing {current_file}")
-                    tb_str = traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
-                    print(tb_str)
-                    num_error_photos += 1
+                if result is None:
+                    num_skipped_photos += 1
+                elif uid is None:
+                    num_added_photos += 1
+                else:
+                    num_merged_photos += 1
+            except Exception as e:
+                tqdm.write(f"Error indexing {current_file}")
+                tb_str = traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
+                tqdm.write(tb_str)
+                num_error_photos += 1
+        exiftool.terminate()
 
-        print(f"Imported {num_added_photos+num_merged_photos}/{len(files)} items")
+        print(f"Indexed {num_added_photos+num_merged_photos}/{len(files)} items")
         print(f"Added {num_added_photos} new items and merged {num_merged_photos} items")
         if num_skipped_photos or num_error_photos:
             print(f"Skipped {num_skipped_photos} items and errored on {num_error_photos} items")
@@ -589,7 +591,7 @@ class Database:
 
         :param directory: the photo storage directory
         :param subdirectory: verify only photos within subdirectory
-        :param storage_type: the type of media importing from (uses async if SSD)
+        :param storage_type: the type of media the photos are stored on (uses async if SSD)
         :return: the number of errors found"""
         num_correct_photos = num_incorrect_photos = num_missing_photos = total_file_size = 0
         directory = Path(directory).expanduser().resolve()
@@ -649,6 +651,9 @@ class Database:
         else:
             print("No errors found")
         return num_incorrect_photos + num_missing_photos
+
+    def verify_indexed_photos(self):
+        raise NotImplementedError()
 
     def get_stats(self) -> tuple[int, int, int, int]:
         """Get database item statistics

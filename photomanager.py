@@ -42,25 +42,26 @@ def _create(db, hash_algorithm=DEFAULT_HASH_ALGO):
     database.to_file(db)
 
 
-@click.command('import', help='Find and add items to database')
+@click.command('index', help='Index and add items to database')
 @click.option('--db', type=click.Path(dir_okay=False), required=True, default='./photos.json',
               help='PhotoManager database filepath (.json). Add extensions .zst or .gz to compress.')
 @click.option('--source', type=click.Path(file_okay=False),
-              help='Directory to import')
+              help='Directory to index')
 @click.option('--file', type=click.Path(dir_okay=False),
-              help='File to import')
+              help='File to index')
 @click.option('--exclude', multiple=True,
               help='Name patterns to exclude')
 @click.option('--priority', type=int, default=10,
-              help='Priority of imported photos (lower is preferred, default=10)')
+              help='Priority of indexed photos (lower is preferred, default=10)')
 @click.option('--storage-type', type=str, default='HDD',
               help='Class of storage medium (HDD, SSD, RAID)')
 @click.option('--debug', default=False, is_flag=True,
               help='Run in debug mode')
 @click.argument('paths', nargs=-1, type=click.Path())
-def _import(db, source, file, exclude, paths, debug=False, priority=10, storage_type='HDD'):
+def _index(db, source, file, exclude, paths, debug=False, priority=10, storage_type='HDD'):
     if not source and not file and not paths:
-        print("Nothing to import")
+        print("Nothing to index")
+        print(click.get_current_context().get_help())
         sys.exit(1)
     config_logging(debug=debug)
     database = Database.from_file(db)
@@ -97,7 +98,7 @@ def _import(db, source, file, exclude, paths, debug=False, priority=10, storage_
     if skipped_extensions:
         print(f"Skipped extensions: {skipped_extensions}")
 
-    database.import_photos(files=filtered_files, priority=priority, storage_type=storage_type)
+    database.index_photos(files=filtered_files, priority=priority, storage_type=storage_type)
     database.add_command(shlex.join(sys.argv))
     database.to_file(db)
 
@@ -168,13 +169,27 @@ def _stats(db):
     database.get_stats()
 
 
-@click.group()
+ALIASES = {
+    "import": _index,
+}
+
+
+class AliasedGroup(click.Group):
+    def get_command(self, ctx, cmd_name):
+        try:
+            cmd_name = ALIASES[cmd_name].name
+        except KeyError:
+            pass
+        return super().get_command(ctx, cmd_name)
+
+
+@click.group(cls=AliasedGroup)
 def main():
     pass
 
 
 main.add_command(_create)
-main.add_command(_import)
+main.add_command(_index)
 main.add_command(_collect)
 main.add_command(_clean)
 main.add_command(_verify)
