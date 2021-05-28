@@ -64,7 +64,7 @@ import codecs
 import time
 import traceback
 from tqdm import tqdm
-from pyexiftool import datetime_tags, best_datetime
+from photomanager.pyexiftool import datetime_tags, best_datetime
 
 basestring = (bytes, str)
 

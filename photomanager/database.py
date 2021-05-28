@@ -17,9 +17,9 @@ from tqdm import tqdm
 import orjson
 import zstandard as zstd
 import xxhash
-from pyexiftool import ExifTool
-from pyexiftool_async import AsyncExifTool
-from hasher_async import AsyncFileHasher, file_checksum, DEFAULT_HASH_ALGO
+from photomanager.pyexiftool import ExifTool
+from photomanager.pyexiftool_async import AsyncExifTool
+from photomanager.hasher_async import AsyncFileHasher, file_checksum, DEFAULT_HASH_ALGO
 
 PF = TypeVar('PF', bound='PhotoFile')
 

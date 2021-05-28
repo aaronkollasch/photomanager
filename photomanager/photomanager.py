@@ -8,7 +8,7 @@ import re
 from typing import Union, Optional, Iterable
 import logging
 import click
-from database import Database, DEFAULT_HASH_ALGO
+from photomanager.database import Database, DEFAULT_HASH_ALGO
 
 
 photo_extensions = {
