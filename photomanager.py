@@ -57,15 +57,35 @@ def _create(db, hash_algorithm=DEFAULT_HASH_ALGO):
               help='Class of storage medium (HDD, SSD, RAID)')
 @click.option('--debug', default=False, is_flag=True,
               help='Run in debug mode')
+@click.option('--dry-run', default=False, is_flag=True,
+              help='Perform a dry run that makes no changes')
 @click.argument('paths', nargs=-1, type=click.Path())
-def _index(db, source, file, exclude, paths, debug=False, priority=10, storage_type='HDD'):
+def _index(db, source, file, exclude, paths, debug=False, dry_run=False, priority=10, storage_type='HDD'):
     if not source and not file and not paths:
         print("Nothing to index")
         print(click.get_current_context().get_help())
         sys.exit(1)
     config_logging(debug=debug)
     database = Database.from_file(db)
+    filtered_files = list_files(source=source, file=file, exclude=exclude, paths=paths)
+    database.index_photos(files=filtered_files, priority=priority, storage_type=storage_type)
+    database.add_command(shlex.join(sys.argv))
+    if not dry_run:
+        database.to_file(db)
 
+
+def list_files(
+        source: Optional[Union[str, PathLike]] = None,
+        file: Optional[Union[str, PathLike]] = None,
+        paths: Iterable[Union[str, PathLike]] = tuple(),
+        exclude: Iterable[str] = tuple(),
+):
+    """List all files in sources, excluding regex patterns
+
+    :param source: Directory to list. If `-`, read directories from stdin.
+    :param file: File to list. If `-`, read files from stdin.
+    :param paths: Paths (directories or files) to list.
+    :param exclude: Regex patterns to exclude."""
     paths = {Path(p).expanduser().resolve(): None for p in paths}
     if source == '-':
         with click.open_file('-', 'r') as f:
@@ -98,9 +118,7 @@ def _index(db, source, file, exclude, paths, debug=False, priority=10, storage_t
     if skipped_extensions:
         print(f"Skipped extensions: {skipped_extensions}")
 
-    database.index_photos(files=filtered_files, priority=priority, storage_type=storage_type)
-    database.add_command(shlex.join(sys.argv))
-    database.to_file(db)
+    return filtered_files
 
 
 @click.command('collect', help='Collect highest-priority items into storage')
@@ -117,6 +135,53 @@ def _index(db, source, file, exclude, paths, debug=False, priority=10, storage_t
 def _collect(db, destination, debug=False, dry_run=False, collect_db=False):
     config_logging(debug=debug)
     database = Database.from_file(db)
+    database.collect_to_directory(destination)
+    database.add_command(shlex.join(sys.argv))
+    if not dry_run:
+        database.to_file(db)
+        if collect_db:
+            database.to_file(Path(destination) / 'database' / Path(db).name)
+
+
+@click.command('import', help='Index items and collect to directory')
+@click.option('--db', type=click.Path(dir_okay=False), required=True, default='./photos.json',
+              help='PhotoManager database filepath (.json). Add extensions .zst or .gz to compress.')
+@click.option('--destination', type=click.Path(file_okay=False), required=True,
+              help='Photo storage base directory')
+@click.option('--source', type=click.Path(file_okay=False),
+              help='Directory to index')
+@click.option('--file', type=click.Path(dir_okay=False),
+              help='File to index')
+@click.option('--exclude', multiple=True,
+              help='Name patterns to exclude')
+@click.option('--priority', type=int, default=10,
+              help='Priority of indexed photos (lower is preferred, default=10)')
+@click.option('--storage-type', type=str, default='HDD',
+              help='Class of storage medium (HDD, SSD, RAID)')
+@click.option('--debug', default=False, is_flag=True,
+              help='Run in debug mode')
+@click.option('--dry-run', default=False, is_flag=True,
+              help='Perform a dry run that makes no changes')
+@click.option('--collect-db', default=False, is_flag=True,
+              help='Also save the database within destination')
+@click.argument('paths', nargs=-1, type=click.Path())
+def _import(
+        db,
+        destination,
+        source,
+        file,
+        exclude,
+        paths,
+        debug=False,
+        dry_run=False,
+        priority=10,
+        storage_type='HDD',
+        collect_db=False
+):
+    config_logging(debug=debug)
+    database = Database.from_file(db)
+    filtered_files = list_files(source=source, file=file, exclude=exclude, paths=paths)
+    database.index_photos(files=filtered_files, priority=priority, storage_type=storage_type)
     database.collect_to_directory(destination)
     database.add_command(shlex.join(sys.argv))
     if not dry_run:
@@ -169,21 +234,7 @@ def _stats(db):
     database.get_stats()
 
 
-ALIASES = {
-    "import": _index,
-}
-
-
-class AliasedGroup(click.Group):
-    def get_command(self, ctx, cmd_name):
-        try:
-            cmd_name = ALIASES[cmd_name].name
-        except KeyError:
-            pass
-        return super().get_command(ctx, cmd_name)
-
-
-@click.group(cls=AliasedGroup)
+@click.group()
 def main():
     pass
 
@@ -191,6 +242,7 @@ def main():
 main.add_command(_create)
 main.add_command(_index)
 main.add_command(_collect)
+main.add_command(_import)
 main.add_command(_clean)
 main.add_command(_verify)
 main.add_command(_stats)

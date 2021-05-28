@@ -153,6 +153,7 @@ Commands:
   clean    Remove lower-priority alternatives of stored items
   collect  Collect highest-priority items into storage
   create   Create an empty database
+  import   Index items and collect to directory
   index    Find and add items to database
   stats    Get database statistics
   verify   Verify checksums of stored items
