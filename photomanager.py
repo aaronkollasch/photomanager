@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 from __future__ import annotations
 import sys
+from os import PathLike
 from pathlib import Path
 import shlex
 import re
+from typing import Union, Optional, Iterable
 import logging
 import click
 from database import Database, DEFAULT_HASH_ALGO
@@ -23,7 +25,7 @@ audio_extensions = {
 extensions = photo_extensions | video_extensions | audio_extensions
 
 
-def config_logging(debug=False):
+def config_logging(debug: bool = False):
     if debug:
         logging.basicConfig(level=logging.DEBUG)
     else:
@@ -35,7 +37,10 @@ def config_logging(debug=False):
               help='PhotoManager database filepath (.json). Add extensions .zst or .gz to compress.')
 @click.option('--hash-algorithm', type=str, default=DEFAULT_HASH_ALGO,
               help=f'Hash algorithm (default={DEFAULT_HASH_ALGO})')
-def _create(db, hash_algorithm=DEFAULT_HASH_ALGO):
+def _create(
+        db: Union[str, PathLike],
+        hash_algorithm: str = DEFAULT_HASH_ALGO,
+):
     database = Database()
     database.hash_algorithm = hash_algorithm
     database.add_command(shlex.join(sys.argv))
@@ -60,7 +65,17 @@ def _create(db, hash_algorithm=DEFAULT_HASH_ALGO):
 @click.option('--dry-run', default=False, is_flag=True,
               help='Perform a dry run that makes no changes')
 @click.argument('paths', nargs=-1, type=click.Path())
-def _index(db, source, file, exclude, paths, debug=False, dry_run=False, priority=10, storage_type='HDD'):
+def _index(
+        db: Union[str, PathLike],
+        source: Optional[Union[str, PathLike]] = None,
+        file: Optional[Union[str, PathLike]] = None,
+        paths: Iterable[Union[str, PathLike]] = tuple(),
+        exclude: Iterable[str] = tuple(),
+        debug=False,
+        dry_run=False,
+        priority=10,
+        storage_type='HDD',
+):
     if not source and not file and not paths:
         print("Nothing to index")
         print(click.get_current_context().get_help())
@@ -132,7 +147,13 @@ def list_files(
               help='Perform a dry run that makes no changes')
 @click.option('--collect-db', default=False, is_flag=True,
               help='Also save the database within destination')
-def _collect(db, destination, debug=False, dry_run=False, collect_db=False):
+def _collect(
+        db: Union[str, PathLike],
+        destination: Union[str, PathLike],
+        debug: bool = False,
+        dry_run: bool = False,
+        collect_db: bool = False,
+):
     config_logging(debug=debug)
     database = Database.from_file(db)
     database.collect_to_directory(destination)
@@ -166,17 +187,17 @@ def _collect(db, destination, debug=False, dry_run=False, collect_db=False):
               help='Also save the database within destination')
 @click.argument('paths', nargs=-1, type=click.Path())
 def _import(
-        db,
-        destination,
-        source,
-        file,
-        exclude,
-        paths,
-        debug=False,
-        dry_run=False,
-        priority=10,
-        storage_type='HDD',
-        collect_db=False
+        db: Union[str, PathLike],
+        destination: Union[str, PathLike],
+        source: Optional[Union[str, PathLike]] = None,
+        file: Optional[Union[str, PathLike]] = None,
+        paths: Iterable[Union[str, PathLike]] = tuple(),
+        exclude: Iterable[str] = tuple(),
+        debug: bool = False,
+        dry_run: bool = False,
+        priority: int = 10,
+        storage_type: str = 'HDD',
+        collect_db: bool = False,
 ):
     config_logging(debug=debug)
     database = Database.from_file(db)
@@ -201,7 +222,13 @@ def _import(
               help='Run in debug mode')
 @click.option('--dry-run', default=False, is_flag=True,
               help='Perform a dry run that makes no changes')
-def _clean(db, destination, subdir='', debug=False, dry_run=False):
+def _clean(
+        db: Union[str, PathLike],
+        destination: Union[str, PathLike],
+        subdir: Union[str, PathLike] = '',
+        debug: bool = False,
+        dry_run: bool = False,
+):
     config_logging(debug=debug)
     database = Database.from_file(db)
     database.clean_stored_photos(destination, subdirectory=subdir, dry_run=dry_run)
@@ -219,7 +246,12 @@ def _clean(db, destination, subdir='', debug=False, dry_run=False):
               help='Verify only items within subdirectory')
 @click.option('--storage-type', type=str, default='HDD',
               help='Class of storage medium (HDD, SSD, RAID)')
-def _verify(db, destination, subdir='', storage_type='HDD'):
+def _verify(
+        db: Union[str, PathLike],
+        destination: Union[str, PathLike],
+        subdir: Union[str, PathLike] = '',
+        storage_type: str = 'HDD',
+):
     database = Database.from_file(db)
     num_errors = database.verify_stored_photos(destination, subdirectory=subdir, storage_type=storage_type)
     if num_errors:
@@ -229,7 +261,7 @@ def _verify(db, destination, subdir='', storage_type='HDD'):
 @click.command('stats', help='Get database statistics')
 @click.option('--db', type=click.Path(dir_okay=False), required=True,
               default='./photos.json', help='PhotoManager database path')
-def _stats(db):
+def _stats(db: Union[str, PathLike]):
     database = Database.from_file(db)
     database.get_stats()
 
