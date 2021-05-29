@@ -228,52 +228,70 @@ class Database:
     def command_history(self) -> dict[str, str]:
         return self.db["command_history"]
 
+    @property
+    def json(self) -> bytes:
+        return orjson.dumps(self.db, option=orjson.OPT_INDENT_2)
+
+    @json.setter
+    def json(self, json_data: bytes):
+        """Sets Database parameters from json data"""
+        db = orjson.loads(json_data)
+        db.setdefault("version", "1")  # legacy dbs are version 1
+        db.setdefault("hash_algorithm", "sha256")  # legacy dbs use sha256
+        db = {k: db[k] for k in self.DB_KEY_ORDER}
+        for uid in db["photo_db"].keys():
+            db["photo_db"][uid] = [PhotoFile.from_dict(d) for d in db["photo_db"][uid]]
+        self.db = db
+
+        for uid, photos in self.photo_db.items():
+            for photo in photos:
+                self.hash_to_uid[photo.checksum] = uid
+                if photo.timestamp in self.timestamp_to_uids:
+                    self.timestamp_to_uids[photo.timestamp][uid] = None
+                else:
+                    self.timestamp_to_uids[photo.timestamp] = {uid: None}
+
+    @classmethod
+    def from_json(cls: Type[DB], json_data: bytes) -> DB:
+        """Loads a Database from JSON data"""
+        db = cls()
+        db.json = json_data
+        return db
+
     @classmethod
     def from_file(cls: Type[DB], path: Union[str, PathLike]) -> DB:
         """Loads a Database from a path"""
-        db = cls()
         path = Path(path)
-        if path.exists():
-            if path.suffix == ".gz":
-                with gzip.open(path, "rb") as f:
-                    db.db = orjson.loads(f.read())
-            elif path.suffix == ".zst":
-                with open(path, "rb") as f:
-                    c = f.read()
-                    has_checksum, checksum = (
-                        zstd.get_frame_parameters(c).has_checksum,
-                        c[-4:],
-                    )
-                    s = zstd.decompress(c)
-                    del c
-                    s_hash = xxhash.xxh64_digest(s)
-                    if has_checksum and checksum != s_hash[-4:][::-1]:
-                        raise DatabaseException(
-                            f"zstd content checksum verification failed: {checksum.hex()} != {s_hash.hex()}"
-                        )
-                    db.db = orjson.loads(s)
-                    del s
-            else:
-                with open(path, "rb") as f:
-                    db.db = orjson.loads(f.read())
-            db.db.setdefault("version", "1")  # legacy dbs are version 1
-            db.db.setdefault("hash_algorithm", "sha256")  # legacy dbs use sha256
-            db.db = {k: db.db[k] for k in cls.DB_KEY_ORDER}
-            for uid in db.photo_db.keys():
-                db.photo_db[uid] = [PhotoFile.from_dict(d) for d in db.photo_db[uid]]
-
-            for uid, photos in db.photo_db.items():
-                for photo in photos:
-                    db.hash_to_uid[photo.checksum] = uid
-                    if photo.timestamp in db.timestamp_to_uids:
-                        db.timestamp_to_uids[photo.timestamp][uid] = None
-                    else:
-                        db.timestamp_to_uids[photo.timestamp] = {uid: None}
-        else:
+        if not path.exists():
             logger = logging.getLogger(__name__)
             logger.warning(
                 "Database file does not exist. Starting with blank database."
             )
+            return cls()
+
+        if path.suffix == ".gz":
+            with gzip.open(path, "rb") as f:
+                s = f.read()
+        elif path.suffix == ".zst":
+            with open(path, "rb") as f:
+                c = f.read()
+                has_checksum, checksum = (
+                    zstd.get_frame_parameters(c).has_checksum,
+                    c[-4:],
+                )
+                s = zstd.decompress(c)
+                del c
+                s_hash = xxhash.xxh64_digest(s)
+                if has_checksum and checksum != s_hash[-4:][::-1]:
+                    raise DatabaseException(
+                        f"zstd content checksum verification failed: {checksum.hex()} != {s_hash.hex()}"
+                    )
+        else:
+            with open(path, "rb") as f:
+                s = f.read()
+
+        db = cls.from_json(s)
+        del s
         return db
 
     def to_file(self, path: Union[str, PathLike]) -> None:
@@ -307,7 +325,7 @@ class Database:
                     path = base_path.with_name(base_path.name + "".join(path.suffixes))
                     logger.info(f"Saving new database to alternate path {path}")
 
-        save_bytes = orjson.dumps(self.db, option=orjson.OPT_INDENT_2)
+        save_bytes = self.json
         if path.suffix == ".gz":
             with gzip.open(path, "wb", compresslevel=5) as f:
                 f.write(save_bytes)
