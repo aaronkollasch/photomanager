@@ -308,10 +308,12 @@ def _stats(db: Union[str, PathLike]):
     database.get_stats()
 
 
+CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+
+
 # fmt: off
-@click.group()
+@click.group(context_settings=CONTEXT_SETTINGS)
 @click.version_option(version=version, prog_name="photomanager", message="%(prog)s %(version)s")
-@click.help_option("--help", "-h")
 # fmt: on
 def main():
     pass

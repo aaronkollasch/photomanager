@@ -736,7 +736,8 @@ class Database:
         )
         if num_incorrect_photos or num_missing_photos:
             print(
-                f"Found {num_incorrect_photos} incorrect and {num_missing_photos} missing items"
+                f"Found {num_incorrect_photos} incorrect and "
+                f"{num_missing_photos} missing items"
             )
         else:
             print("No errors found")
@@ -768,9 +769,9 @@ class Database:
     ) -> dict[str, str]:
         """Make a map of file checksums in order to migrate hashing algorithms
 
-        Checks source file hashes using the old algorithm to make sure the new hashes are correct.
-        If the source has an incorrect hash, does not map checksum and instead denotes the hash by
-        appending ':{algorithm}'
+        Checks source file hashes using the old algorithm to make sure the new hashes
+        are correct. If the source has an incorrect hash, does not map checksum and
+        instead denotes the hash by appending ':{algorithm}'
 
         :param new_algo the new algorithm to use
         :param hash_map the map from old hashes to new hashes; will be updated with new mappings

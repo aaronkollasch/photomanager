@@ -219,7 +219,8 @@ class AsyncExifTool(object):
         self.pbar = None
 
         print(
-            f"{self.num_workers} subprocesses worked in parallel for {total_time:.2f} seconds"
+            f"{self.num_workers} subprocesses worked in "
+            f"parallel for {total_time:.2f} seconds"
         )
         return self.output_dict
 

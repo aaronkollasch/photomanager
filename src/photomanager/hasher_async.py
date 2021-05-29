@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os
 import sys
+from io import IOBase
 import traceback
 import hashlib
 from dataclasses import dataclass
@@ -38,13 +39,23 @@ class HasherException(PhotoManagerBaseException):
 
 
 def file_checksum(
-    path: Union[str, PathLike], algorithm: str = DEFAULT_HASH_ALGO
+    path: Union[str, PathLike, IOBase], algorithm: str = DEFAULT_HASH_ALGO
 ) -> str:
     if algorithm in HASH_ALGO_DEFINITIONS:
         hash_obj = HASH_ALGO_DEFINITIONS[algorithm]["factory"]()
     else:
         raise HasherException(f"Hash algorithm not supported: {algorithm}")
-    with open(path, "rb") as f:
+    if isinstance(path, IOBase):
+
+        def file_obj():
+            return path
+
+    else:
+
+        def file_obj():
+            return open(path, "rb")
+
+    with file_obj() as f:
         while block := f.read(BLOCK_SIZE):
             hash_obj.update(block)
     return hash_obj.hexdigest()

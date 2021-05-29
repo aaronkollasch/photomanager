@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 [tool.black]
 line-length = 88
 target-version = ['py38']
-include = 'photomanager/.*\.pyi?$'
+include = '^/(src|tests)/.*\.pyi?$'
 extend-exclude = '''
 # A regex preceded with ^/ will apply only to files and directories
 # in the root of the project.
