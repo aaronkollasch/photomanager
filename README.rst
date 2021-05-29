@@ -29,7 +29,7 @@ Clone the repository
 
     git clone https://github.com/aaronkollasch/photomanager.git
     cd photomanager
-    pip install -r requirements.txt
+    pip install .
 
 
 Install ExifTool
@@ -68,7 +68,7 @@ Add photos to the database
 
 .. code-block:: bash
 
-    ./photomanager.py index --debug --db db.json /path/to/directory /path/to/photo.jpg
+    photomanager index --debug --db db.json /path/to/directory /path/to/photo.jpg
 
 PhotoManager will search for media files in any supplied directories
 and also index single files supplied directly as arguments.
@@ -127,7 +127,7 @@ collect them into a storage folder:
 
 .. code-block:: bash
 
-    ./photomanager.py collect --debug --db db.json --destination /path/to/destination
+    photomanager collect --debug --db db.json --destination /path/to/destination
 
 This will copy the highest-priority versions of photos
 not already stored into the destination folder and
@@ -163,7 +163,7 @@ Verify stored photos against bit rot or modification
 
 .. code-block:: bash
 
-    ./photomanager.py verify --db db.json --destination /path/to/destination
+    photomanager verify --db db.json --destination /path/to/destination
 
 If the photos are stored on an SSD or RAID array,
 use ``--storage-type SSD`` or ``--storage-type RAID`` and
@@ -176,8 +176,8 @@ Use the ``--help`` argument to see instructions for each command
 
 ::
 
-    ./photomanager.py --help
-    Usage: photomanager.py [OPTIONS] COMMAND [ARGS]...
+    photomanager --help
+    Usage: photomanager [OPTIONS] COMMAND [ARGS]...
 
     Options:
       --help  Show this message and exit.
@@ -198,7 +198,7 @@ non-default hashing algorithm.`
 
 ::
 
-    Usage: photomanager.py create [OPTIONS]
+    Usage: photomanager create [OPTIONS]
 
       Create an empty database
 
@@ -213,7 +213,7 @@ Index photos
 
 ::
 
-    Usage: photomanager.py index [OPTIONS] [PATHS]...
+    Usage: photomanager index [OPTIONS] [PATHS]...
 
       Find and add items to database
 
@@ -234,7 +234,7 @@ Collect photos
 
 ::
 
-    Usage: photomanager.py collect [OPTIONS]
+    Usage: photomanager collect [OPTIONS]
 
       Collect highest-priority items into storage
 
@@ -250,7 +250,7 @@ Verify photos
 
 ::
 
-    Usage: photomanager.py verify [OPTIONS]
+    Usage: photomanager verify [OPTIONS]
 
       Verify checksums of stored items
 
@@ -266,7 +266,7 @@ Remove unnecessary duplicates
 
 ::
 
-    Usage: photomanager.py clean [OPTIONS]
+    Usage: photomanager clean [OPTIONS]
 
       Remove lower-priority alternatives of stored items
 

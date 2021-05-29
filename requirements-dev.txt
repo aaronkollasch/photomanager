@@ -4,3 +4,7 @@ orjson>=3.5.2
 zstandard>=0.15.2
 xxhash>=2.0.2
 pytest
+tox
+black
+flake8
+flake8-black
