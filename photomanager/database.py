@@ -21,7 +21,7 @@ from photomanager.pyexiftool import ExifTool
 from photomanager.pyexiftool_async import AsyncExifTool
 from photomanager.hasher_async import AsyncFileHasher, file_checksum, DEFAULT_HASH_ALGO
 
-PF = TypeVar('PF', bound='PhotoFile')
+PF = TypeVar("PF", bound="PhotoFile")
 
 
 @dataclass
@@ -37,20 +37,21 @@ class PhotoFile:
         :store_path (str): Relative path where photo is stored, empty if not stored
         :priority (int): Photo priority (lower is preferred)
     """
+
     checksum: str
     source_path: str
     datetime: str
     timestamp: float
     file_size: int
-    store_path: str = ''
+    store_path: str = ""
     priority: int = 10
 
     @classmethod
     def from_file(
-            cls: Type[PF],
-            source_path: Union[str, PathLike],
-            algorithm: str = DEFAULT_HASH_ALGO,
-            priority: int = 10
+        cls: Type[PF],
+        source_path: Union[str, PathLike],
+        algorithm: str = DEFAULT_HASH_ALGO,
+        priority: int = 10,
     ) -> PF:
         """Create a PhotoFile for a given file
 
@@ -68,18 +69,18 @@ class PhotoFile:
             datetime=dt,
             timestamp=timestamp,
             file_size=file_size,
-            store_path='',
+            store_path="",
             priority=priority,
         )
 
     @classmethod
     def from_file_cached(
-            cls: Type[PF],
-            source_path: str,
-            checksum_cache: dict[str, str],
-            datetime_cache: dict[str, str],
-            algorithm: str = DEFAULT_HASH_ALGO,
-            priority: int = 10,
+        cls: Type[PF],
+        source_path: str,
+        checksum_cache: dict[str, str],
+        datetime_cache: dict[str, str],
+        algorithm: str = DEFAULT_HASH_ALGO,
+        priority: int = 10,
     ) -> PF:
         """Create a PhotoFile for a given file
 
@@ -93,11 +94,13 @@ class PhotoFile:
         :param priority: The photo's priority
         """
         photo_hash: str = (
-            checksum_cache[source_path] if source_path in checksum_cache
+            checksum_cache[source_path]
+            if source_path in checksum_cache
             else file_checksum(source_path, algorithm)
         )
         dt = (
-            datetime_cache[source_path] if source_path in datetime_cache
+            datetime_cache[source_path]
+            if source_path in datetime_cache
             else get_media_datetime(source_path)
         )
         timestamp = datetime_str_to_object(dt).timestamp()
@@ -108,7 +111,7 @@ class PhotoFile:
             datetime=dt,
             timestamp=timestamp,
             file_size=file_size,
-            store_path='',
+            store_path="",
             priority=priority,
         )
 
@@ -122,14 +125,19 @@ class PhotoFile:
 
 def datetime_str_to_object(ts_str: str) -> datetime:
     """Parses a datetime string into a datetime object"""
-    if '.' in ts_str:
-        for fmt in ('%Y:%m:%d %H:%M:%S.%f%z', '%Y:%m:%d %H:%M:%S.%f'):
+    if "." in ts_str:
+        for fmt in ("%Y:%m:%d %H:%M:%S.%f%z", "%Y:%m:%d %H:%M:%S.%f"):
             try:
                 return datetime.strptime(ts_str, fmt)
             except ValueError:
                 pass
     else:
-        for fmt in ('%Y:%m:%d %H:%M:%S%z', '%Y:%m:%d %H:%M:%S', '%Y:%m:%d %H:%M%z', '%Y:%m:%d %H:%M'):
+        for fmt in (
+            "%Y:%m:%d %H:%M:%S%z",
+            "%Y:%m:%d %H:%M:%S",
+            "%Y:%m:%d %H:%M%z",
+            "%Y:%m:%d %H:%M",
+        ):
             try:
                 return datetime.strptime(ts_str, fmt)
             except ValueError:
@@ -142,7 +150,7 @@ def get_media_datetime(path: Union[str, PathLike]) -> str:
     return ExifTool().get_best_datetime(path)
 
 
-unit_list = list(zip(['bytes', 'kB', 'MB', 'GB', 'TB', 'PB'], [0, 0, 1, 2, 2, 2]))
+unit_list = list(zip(["bytes", "kB", "MB", "GB", "TB", "PB"], [0, 0, 1, 2, 2, 2]))
 
 
 def sizeof_fmt(num: int) -> str:
@@ -150,20 +158,22 @@ def sizeof_fmt(num: int) -> str:
     https://stackoverflow.com/questions/1094841/get-human-readable-version-of-file-size"""
     if num > 1:
         exponent = min(int(log(num, 1024)), len(unit_list) - 1)
-        quotient = float(num) / 1024**exponent
+        quotient = float(num) / 1024 ** exponent
         unit, num_decimals = unit_list[exponent]
-        format_string = '{:.%sf} {}' % num_decimals
+        format_string = "{:.%sf} {}" % num_decimals
         return format_string.format(quotient, unit)
     if num == 0:
-        return '0 bytes'
+        return "0 bytes"
     if num == 1:
-        return '1 byte'
+        return "1 byte"
 
 
-def path_is_relative_to(subpath: Union[str, PathLike], path: Union[str, PathLike]) -> bool:
+def path_is_relative_to(
+    subpath: Union[str, PathLike], path: Union[str, PathLike]
+) -> bool:
     """Check if subpath is a child of path"""
     subpath, path = Path(subpath), Path(path)
-    if hasattr(subpath, 'is_relative_to'):  # added in Python 3.9
+    if hasattr(subpath, "is_relative_to"):  # added in Python 3.9
         return subpath.is_relative_to(path)
     else:
         return path in subpath.parents
@@ -181,42 +191,42 @@ class DatabaseException(PhotoManagerBaseException):
     pass
 
 
-DB = TypeVar('DB', bound='Database')
+DB = TypeVar("DB", bound="Database")
 
 
 class Database:
     VERSION = 1
-    DB_KEY_ORDER = ('version', 'hash_algorithm', 'photo_db', 'command_history')
+    DB_KEY_ORDER = ("version", "hash_algorithm", "photo_db", "command_history")
 
     def __init__(self):
         self.db: dict = {
-            'version': self.VERSION,
-            'hash_algorithm': DEFAULT_HASH_ALGO,
-            'photo_db': {},
-            'command_history': {}
+            "version": self.VERSION,
+            "hash_algorithm": DEFAULT_HASH_ALGO,
+            "photo_db": {},
+            "command_history": {},
         }
         self.hash_to_uid: dict[str, str] = {}
         self.timestamp_to_uids: dict[float, dict[str, None]] = {}
 
     @property
     def version(self) -> int:
-        return self.db['version']
+        return self.db["version"]
 
     @property
     def hash_algorithm(self) -> str:
-        return self.db['hash_algorithm']
+        return self.db["hash_algorithm"]
 
     @hash_algorithm.setter
     def hash_algorithm(self, new_algorithm: str):
-        self.db['hash_algorithm'] = new_algorithm
+        self.db["hash_algorithm"] = new_algorithm
 
     @property
     def photo_db(self) -> dict[str, list[PhotoFile]]:
-        return self.db['photo_db']
+        return self.db["photo_db"]
 
     @property
     def command_history(self) -> dict[str, str]:
-        return self.db['command_history']
+        return self.db["command_history"]
 
     @classmethod
     def from_file(cls: Type[DB], path: Union[str, PathLike]) -> DB:
@@ -224,13 +234,16 @@ class Database:
         db = cls()
         path = Path(path)
         if path.exists():
-            if path.suffix == '.gz':
-                with gzip.open(path, 'rb') as f:
+            if path.suffix == ".gz":
+                with gzip.open(path, "rb") as f:
                     db.db = orjson.loads(f.read())
-            elif path.suffix == '.zst':
-                with open(path, 'rb') as f:
+            elif path.suffix == ".zst":
+                with open(path, "rb") as f:
                     c = f.read()
-                    has_checksum, checksum = zstd.get_frame_parameters(c).has_checksum, c[-4:]
+                    has_checksum, checksum = (
+                        zstd.get_frame_parameters(c).has_checksum,
+                        c[-4:],
+                    )
                     s = zstd.decompress(c)
                     del c
                     s_hash = xxhash.xxh64_digest(s)
@@ -241,10 +254,10 @@ class Database:
                     db.db = orjson.loads(s)
                     del s
             else:
-                with open(path, 'rb') as f:
+                with open(path, "rb") as f:
                     db.db = orjson.loads(f.read())
-            db.db.setdefault('version', '1')                # legacy dbs are version 1
-            db.db.setdefault('hash_algorithm', 'sha256')    # legacy dbs use sha256
+            db.db.setdefault("version", "1")  # legacy dbs are version 1
+            db.db.setdefault("hash_algorithm", "sha256")  # legacy dbs use sha256
             db.db = {k: db.db[k] for k in cls.DB_KEY_ORDER}
             for uid in db.photo_db.keys():
                 db.photo_db[uid] = [PhotoFile.from_dict(d) for d in db.photo_db[uid]]
@@ -258,7 +271,9 @@ class Database:
                         db.timestamp_to_uids[photo.timestamp] = {uid: None}
         else:
             logger = logging.getLogger(__name__)
-            logger.warning("Database file does not exist. Starting with blank database.")
+            logger.warning(
+                "Database file does not exist. Starting with blank database."
+            )
         return db
 
     def to_file(self, path: Union[str, PathLike]) -> None:
@@ -269,37 +284,39 @@ class Database:
         if path.is_file():
             base_path = path
             for _ in path.suffixes:
-                base_path = base_path.with_suffix('')
+                base_path = base_path.with_suffix("")
             new_path = base_path.with_name(
                 f"{base_path.name}_"
                 f"{datetime.fromtimestamp(path.stat().st_mtime).strftime('%Y-%m-%d_%H-%M-%S')}"
-            ).with_suffix(''.join(path.suffixes))
+            ).with_suffix("".join(path.suffixes))
             if not new_path.exists():
                 logger.debug(f"Moving old database at {path} to {new_path}")
                 try:
                     os.rename(path, new_path)
                 except OSError as e:
-                    logger.warning(f"Could not move old database from {path} to {new_path}. "
-                                   f"{type(e).__name__} {e}")
+                    logger.warning(
+                        f"Could not move old database from {path} to {new_path}. "
+                        f"{type(e).__name__} {e}"
+                    )
                     try:
-                        name, version = base_path.name.rsplit('_', 1)
+                        name, version = base_path.name.rsplit("_", 1)
                         version = int(version)
-                        base_path = base_path.with_name(name + '_' + str(version+1))
+                        base_path = base_path.with_name(name + "_" + str(version + 1))
                     except ValueError:
-                        base_path = base_path.with_name(base_path.name + '_1')
-                    path = base_path.with_name(base_path.name + ''.join(path.suffixes))
+                        base_path = base_path.with_name(base_path.name + "_1")
+                    path = base_path.with_name(base_path.name + "".join(path.suffixes))
                     logger.info(f"Saving new database to alternate path {path}")
 
         save_bytes = orjson.dumps(self.db, option=orjson.OPT_INDENT_2)
-        if path.suffix == '.gz':
-            with gzip.open(path, 'wb', compresslevel=5) as f:
+        if path.suffix == ".gz":
+            with gzip.open(path, "wb", compresslevel=5) as f:
                 f.write(save_bytes)
-        elif path.suffix == '.zst':
-            with open(path, 'wb') as f:
+        elif path.suffix == ".zst":
+            with open(path, "wb") as f:
                 cctx = zstd.ZstdCompressor(level=5, write_checksum=True)
                 f.write(cctx.compress(save_bytes))
         else:
-            with open(path, 'wb') as f:
+            with open(path, "wb") as f:
                 f.write(save_bytes)
 
     def add_command(self, command: str) -> str:
@@ -309,7 +326,7 @@ class Database:
 
         :return the timestamp string"""
 
-        dt = datetime.now().astimezone().strftime('%Y-%m-%d_%H-%M-%S%z')
+        dt = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S%z")
         self.command_history[dt] = command
         return dt
 
@@ -327,11 +344,16 @@ class Database:
             name_matches = []
             photo_name = Path(photo.source_path).name
             for uid in uids:
-                if any(photo_name.lower() == Path(pf.source_path).name.lower() for pf in self.photo_db[uid]):
+                if any(
+                    photo_name.lower() == Path(pf.source_path).name.lower()
+                    for pf in self.photo_db[uid]
+                ):
                     name_matches.append(uid)
             if name_matches:
                 if len(name_matches) > 1:
-                    logger.warning(f"ambiguous timestamp+name match: {photo.source_path}: {name_matches}")
+                    logger.warning(
+                        f"ambiguous timestamp+name match: {photo.source_path}: {name_matches}"
+                    )
                 return name_matches[0]
             else:
                 return None
@@ -351,8 +373,10 @@ class Database:
         if photo.checksum in self.hash_to_uid:
             if uid is not None and uid != self.hash_to_uid[photo.checksum]:
                 return None
-            if any(photo.checksum == pf.checksum and photo.source_path == pf.source_path
-                   for pf in self.photo_db[self.hash_to_uid[photo.checksum]]):
+            if any(
+                photo.checksum == pf.checksum and photo.source_path == pf.source_path
+                for pf in self.photo_db[self.hash_to_uid[photo.checksum]]
+            ):
                 return None
         if uid is None:
             uid = self.hash_to_uid.get(photo.checksum, uuid4().hex)
@@ -371,10 +395,10 @@ class Database:
         return uid
 
     def index_photos(
-            self,
-            files: Collection[Union[str, PathLike]],
-            priority: int = 10,
-            storage_type: str = 'HDD',
+        self,
+        files: Collection[Union[str, PathLike]],
+        priority: int = 10,
+        storage_type: str = "HDD",
     ) -> int:
         """Indexes photo files and adds them to the database with a designated priority
 
@@ -384,19 +408,24 @@ class Database:
         :return: the number of photos indexed"""
         logger = logging.getLogger(__name__)
         num_added_photos = num_merged_photos = num_skipped_photos = num_error_photos = 0
-        if storage_type in ('SSD', 'RAID'):
+        if storage_type in ("SSD", "RAID"):
             async_hashes = True
             async_exif = os.cpu_count()
         else:
-            async_hashes = False  # concurrent reads of sequential files can lead to thrashing
-            async_exif = min(4, os.cpu_count())  # exiftool is partially CPU-bound and benefits from async
+            async_hashes = (
+                False  # concurrent reads of sequential files can lead to thrashing
+            )
+            async_exif = min(
+                4, os.cpu_count()
+            )  # exiftool is partially CPU-bound and benefits from async
         logger.info("Collecting media hashes")
         checksum_cache = AsyncFileHasher(
-            algorithm=self.hash_algorithm,
-            use_async=async_hashes
-        ).check_files(files, pbar_unit='B')
+            algorithm=self.hash_algorithm, use_async=async_hashes
+        ).check_files(files, pbar_unit="B")
         logger.info("Collecting media dates and times")
-        datetime_cache = AsyncExifTool(num_workers=async_exif).get_best_datetime_batch(files)
+        datetime_cache = AsyncExifTool(num_workers=async_exif).get_best_datetime_batch(
+            files
+        )
         logger.info("Indexing media")
         exiftool = ExifTool()
         exiftool.start()
@@ -422,15 +451,21 @@ class Database:
                     num_merged_photos += 1
             except Exception as e:
                 tqdm.write(f"Error indexing {current_file}")
-                tb_str = traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
+                tb_str = traceback.format_exception(
+                    etype=type(e), value=e, tb=e.__traceback__
+                )
                 tqdm.write(tb_str)
                 num_error_photos += 1
         exiftool.terminate()
 
         print(f"Indexed {num_added_photos+num_merged_photos}/{len(files)} items")
-        print(f"Added {num_added_photos} new items and merged {num_merged_photos} items")
+        print(
+            f"Added {num_added_photos} new items and merged {num_merged_photos} items"
+        )
         if num_skipped_photos or num_error_photos:
-            print(f"Skipped {num_skipped_photos} items and errored on {num_error_photos} items")
+            print(
+                f"Skipped {num_skipped_photos} items and errored on {num_error_photos} items"
+            )
         return num_added_photos + num_merged_photos
 
     def get_chosen_photos(self) -> list[PhotoFile]:
@@ -441,13 +476,18 @@ class Database:
             new_chosen_photos = list(photo for photo in photos if photo.store_path)
             stored_checksums = set(photo.checksum for photo in new_chosen_photos)
             for photo in photos:
-                if photo.priority == highest_priority and photo.checksum not in stored_checksums:
+                if (
+                    photo.priority == highest_priority
+                    and photo.checksum not in stored_checksums
+                ):
                     new_chosen_photos.append(photo)
                     stored_checksums.add(photo.checksum)
             chosen_photos.extend(new_chosen_photos)
         return chosen_photos
 
-    def collect_to_directory(self, directory: Union[str, PathLike], dry_run: bool = False) -> int:
+    def collect_to_directory(
+        self, directory: Union[str, PathLike], dry_run: bool = False
+    ) -> int:
         """Collects photos in the database into a directory
 
         Collects only photos that have a store_path set or that have the highest priority
@@ -461,15 +501,20 @@ class Database:
         :return the number of photos collected"""
         logger = logging.getLogger(__name__)
         directory = Path(directory).expanduser().resolve()
-        num_transferred_photos = num_added_photos = num_missed_photos = num_stored_photos = 0
+        num_transferred_photos = (
+            num_added_photos
+        ) = num_missed_photos = num_stored_photos = 0
         photos_to_copy = []
         logger.info("Checking stored photos")
         for uid, photos in tqdm(self.photo_db.items()):
             highest_priority = min(photo.priority for photo in photos)
             stored_checksums = set()
             photos_marked_as_stored = [photo for photo in photos if photo.store_path]
-            highest_priority_photos = [photo for photo in photos if photo.priority == highest_priority
-                                       and not photo.store_path]
+            highest_priority_photos = [
+                photo
+                for photo in photos
+                if photo.priority == highest_priority and not photo.store_path
+            ]
             for photo in photos_marked_as_stored:
                 abs_store_path = directory / photo.store_path
                 if abs_store_path.exists():
@@ -506,16 +551,22 @@ class Database:
                     num_missed_photos += 1
 
         estimated_copy_size = sum(photo.file_size for photo, _ in photos_to_copy)
-        logger.info(f"{'Will copy' if dry_run else 'Copying'} {len(photos_to_copy)} items, "
-                    f"estimated size: {sizeof_fmt(estimated_copy_size)}")
-        p_bar = tqdm(total=estimated_copy_size, unit='B', unit_scale=True, unit_divisor=1024)
+        logger.info(
+            f"{'Will copy' if dry_run else 'Copying'} {len(photos_to_copy)} items, "
+            f"estimated size: {sizeof_fmt(estimated_copy_size)}"
+        )
+        p_bar = tqdm(
+            total=estimated_copy_size, unit="B", unit_scale=True, unit_divisor=1024
+        )
         for photo, rel_store_path in photos_to_copy:
             if rel_store_path is None:
                 abs_store_path = directory / photo.store_path
             else:
                 abs_store_path = directory / rel_store_path
             if logger.isEnabledFor(logging.DEBUG):
-                tqdm.write(f"{'Will copy' if dry_run else 'Copying'}: {photo.source_path} to {abs_store_path}")
+                tqdm.write(
+                    f"{'Will copy' if dry_run else 'Copying'}: {photo.source_path} to {abs_store_path}"
+                )
             if not dry_run:
                 os.makedirs(abs_store_path.parent, exist_ok=True)
                 shutil.copy2(photo.source_path, abs_store_path)
@@ -525,17 +576,21 @@ class Database:
             p_bar.update(photo.file_size)
         p_bar.close()
 
-        print(f"Copied {len(photos_to_copy)} items, estimated size: {sizeof_fmt(estimated_copy_size)}: "
-              f"{num_added_photos} new items and {num_transferred_photos} items marked as stored elsewhere")
+        print(
+            f"Copied {len(photos_to_copy)} items, estimated size: {sizeof_fmt(estimated_copy_size)}: "
+            f"{num_added_photos} new items and {num_transferred_photos} items marked as stored elsewhere"
+        )
         if num_stored_photos or num_missed_photos:
-            print(f"Skipped {num_stored_photos} items already stored and {num_missed_photos} missing items")
+            print(
+                f"Skipped {num_stored_photos} items already stored and {num_missed_photos} missing items"
+            )
         return num_added_photos + num_transferred_photos
 
     def clean_stored_photos(
-            self,
-            directory: Union[str, PathLike],
-            subdirectory: Union[str, PathLike] = '',
-            dry_run: bool = False
+        self,
+        directory: Union[str, PathLike],
+        subdirectory: Union[str, PathLike] = "",
+        dry_run: bool = False,
     ) -> int:
         """Removes lower-priority stored photos if a higher-priority version is stored
 
@@ -553,13 +608,17 @@ class Database:
         photos_to_remove = []
         for photos in self.photo_db.values():
             highest_stored_priority = min(
-                photo.priority for photo in photos
+                photo.priority
+                for photo in photos
                 if photo.store_path and (directory / photo.store_path).exists()
             )
             for photo in photos:
                 abs_store_path = directory / photo.store_path
-                if (photo.priority > highest_stored_priority and photo.store_path and
-                        path_is_relative_to(abs_store_path, abs_subdirectory)):
+                if (
+                    photo.priority > highest_stored_priority
+                    and photo.store_path
+                    and path_is_relative_to(abs_store_path, abs_subdirectory)
+                ):
                     photos_to_remove.append(photo)
                     total_file_size += photo.file_size
         print(f"Identified {len(photos_to_remove)} lower-priority items for removal")
@@ -568,24 +627,28 @@ class Database:
             abs_store_path = directory / photo.store_path
             if abs_store_path.exists():
                 if logger.isEnabledFor(logging.DEBUG):
-                    tqdm.write(f"{'Will remove' if dry_run else 'Removing'}: {abs_store_path}")
+                    tqdm.write(
+                        f"{'Will remove' if dry_run else 'Removing'}: {abs_store_path}"
+                    )
                 if not dry_run:
                     os.remove(abs_store_path)
-                    photo.store_path = ''
+                    photo.store_path = ""
                 num_removed_photos += 1
             else:
                 if logger.isEnabledFor(logging.DEBUG):
                     tqdm.write(f"Missing photo: {abs_store_path}")
                 num_missing_photos += 1
-        print(f"{'Found' if dry_run else 'Removed'} {num_removed_photos} items "
-              f"and skipped {num_missing_photos} missing items")
+        print(
+            f"{'Found' if dry_run else 'Removed'} {num_removed_photos} items "
+            f"and skipped {num_missing_photos} missing items"
+        )
         return num_removed_photos
 
     def verify_stored_photos(
-            self,
-            directory: Union[str, PathLike],
-            subdirectory: Union[str, PathLike] = '',
-            storage_type: str = 'HDD',
+        self,
+        directory: Union[str, PathLike],
+        subdirectory: Union[str, PathLike] = "",
+        storage_type: str = "HDD",
     ) -> int:
         """Check the files stored in directory against checksums in the database
 
@@ -593,7 +656,9 @@ class Database:
         :param subdirectory: verify only photos within subdirectory
         :param storage_type: the type of media the photos are stored on (uses async if SSD)
         :return: the number of errors found"""
-        num_correct_photos = num_incorrect_photos = num_missing_photos = total_file_size = 0
+        num_correct_photos = (
+            num_incorrect_photos
+        ) = num_missing_photos = total_file_size = 0
         directory = Path(directory).expanduser().resolve()
         subdirectory = Path(subdirectory)
         if subdirectory.is_absolute():
@@ -603,12 +668,14 @@ class Database:
         for photos in self.photo_db.values():
             for photo in photos:
                 abs_store_path = directory / photo.store_path
-                if photo.store_path and path_is_relative_to(abs_store_path, abs_subdirectory):
+                if photo.store_path and path_is_relative_to(
+                    abs_store_path, abs_subdirectory
+                ):
                     stored_photos.append(photo)
                     total_file_size += photo.file_size
         print(f"Verifying {len(stored_photos)} items")
         print(f"Total file size: {sizeof_fmt(total_file_size)}")
-        if storage_type in ('SSD', 'RAID'):
+        if storage_type in ("SSD", "RAID"):
             files, sizes = [], []
             for photo in stored_photos:
                 abs_store_path = directory / photo.store_path
@@ -617,14 +684,14 @@ class Database:
                     sizes.append(photo.file_size)
             print("Collecting media hashes")
             checksum_cache = AsyncFileHasher(algorithm=self.hash_algorithm).check_files(
-                file_paths=files,
-                pbar_unit='B',
-                file_sizes=sizes
+                file_paths=files, pbar_unit="B", file_sizes=sizes
             )
             p_bar = tqdm(total=len(stored_photos))
         else:
             checksum_cache = {}
-            p_bar = tqdm(total=total_file_size, unit='B', unit_scale=True, unit_divisor=1024)
+            p_bar = tqdm(
+                total=total_file_size, unit="B", unit_scale=True, unit_divisor=1024
+            )
 
         for photo in stored_photos:
             abs_store_path = directory / photo.store_path
@@ -632,8 +699,9 @@ class Database:
                 tqdm.write(f"Missing photo: {abs_store_path}")
                 num_missing_photos += 1
             elif (
-                    checksum_cache[str(abs_store_path)] if str(abs_store_path) in checksum_cache
-                    else file_checksum(abs_store_path, self.hash_algorithm)
+                checksum_cache[str(abs_store_path)]
+                if str(abs_store_path) in checksum_cache
+                else file_checksum(abs_store_path, self.hash_algorithm)
             ) == photo.checksum:
                 num_correct_photos += 1
             else:
@@ -645,9 +713,13 @@ class Database:
                 p_bar.update(photo.file_size)
         p_bar.close()
 
-        print(f"Checked {num_correct_photos+num_incorrect_photos+num_missing_photos} items")
+        print(
+            f"Checked {num_correct_photos+num_incorrect_photos+num_missing_photos} items"
+        )
         if num_incorrect_photos or num_missing_photos:
-            print(f"Found {num_incorrect_photos} incorrect and {num_missing_photos} missing items")
+            print(
+                f"Found {num_incorrect_photos} incorrect and {num_missing_photos} missing items"
+            )
         else:
             print("No errors found")
         return num_incorrect_photos + num_missing_photos
@@ -673,7 +745,9 @@ class Database:
         print(f"Total file size:    {sizeof_fmt(total_file_size)}")
         return num_uids, num_photos, num_stored_photos, total_file_size
 
-    def make_hash_map(self, new_algo: str, hash_map: Optional[dict[str, str]] = None) -> dict[str, str]:
+    def make_hash_map(
+        self, new_algo: str, hash_map: Optional[dict[str, str]] = None
+    ) -> dict[str, str]:
         """Make a map of file checksums in order to migrate hashing algorithms
 
         Checks source file hashes using the old algorithm to make sure the new hashes are correct.
@@ -687,14 +761,18 @@ class Database:
             hash_map = {}
         old_algo = self.hash_algorithm
         print(f"Converting {old_algo} to {new_algo}")
-        num_correct_photos = num_incorrect_photos = num_missing_photos = num_skipped_photos = 0
+        num_correct_photos = (
+            num_incorrect_photos
+        ) = num_missing_photos = num_skipped_photos = 0
         all_photos = [photo for photos in self.photo_db.values() for photo in photos]
         for photo in tqdm(all_photos):
             if photo.checksum in hash_map:
                 num_skipped_photos += 1
             elif os.path.exists(photo.source_path):
                 if photo.checksum == file_checksum(photo.source_path, old_algo):
-                    hash_map[photo.checksum] = file_checksum(photo.source_path, new_algo)
+                    hash_map[photo.checksum] = file_checksum(
+                        photo.source_path, new_algo
+                    )
                     num_correct_photos += 1
                 else:
                     tqdm.write(f"Incorrect checksum: {photo.source_path}")
@@ -707,10 +785,14 @@ class Database:
         if num_skipped_photos:
             print(f"Skipped {num_skipped_photos} items")
         if num_incorrect_photos or num_missing_photos:
-            print(f"Found {num_incorrect_photos} incorrect and {num_missing_photos} missing items")
+            print(
+                f"Found {num_incorrect_photos} incorrect and {num_missing_photos} missing items"
+            )
         return hash_map
 
-    def map_hashes(self, new_algo: str, hash_map: dict[str, str], map_all: bool = False) -> Optional[int]:
+    def map_hashes(
+        self, new_algo: str, hash_map: dict[str, str], map_all: bool = False
+    ) -> Optional[int]:
         """Map the database's checksums to a new algorithm
 
         If a checksum cannot be mapped, it is appended by ':{algorithm}'
@@ -723,7 +805,11 @@ class Database:
         num_correct_photos = num_skipped_photos = 0
         old_algo = self.hash_algorithm
         all_photos = [photo for photos in self.photo_db.values() for photo in photos]
-        if map_all and (num_skipped_photos := sum(photo.checksum not in hash_map for photo in all_photos)):
+        if map_all and (
+            num_skipped_photos := sum(
+                photo.checksum not in hash_map for photo in all_photos
+            )
+        ):
             print(f"Not all items will be mapped: {num_skipped_photos}")
             return None
         for photo in tqdm(all_photos):
@@ -740,10 +826,10 @@ class Database:
         return num_skipped_photos
 
     def update_stored_filename_hashes(
-            self,
-            directory: Union[str, PathLike],
-            verify: bool = True,
-            dry_run: bool = False,
+        self,
+        directory: Union[str, PathLike],
+        verify: bool = True,
+        dry_run: bool = False,
     ) -> dict[str, str]:
         """Updates filenames to match checksums
         Run after mapping hashes to new algorithm.
@@ -753,9 +839,16 @@ class Database:
         :param verify: if True, verify that file checksums match
         :param dry_run: if True, perform a dry run and do not move photos
         :return: the number of missing or incorrect files not moved"""
-        num_correct_photos = num_skipped_photos = num_incorrect_photos = num_missing_photos = 0
+        num_correct_photos = (
+            num_skipped_photos
+        ) = num_incorrect_photos = num_missing_photos = 0
         directory = Path(directory).expanduser().resolve()
-        stored_photos = [photo for photos in self.photo_db.values() for photo in photos if photo.store_path]
+        stored_photos = [
+            photo
+            for photos in self.photo_db.values()
+            for photo in photos
+            if photo.store_path
+        ]
         total_file_size = sum(photo.file_size for photo in stored_photos)
         print(f"Updating {len(stored_photos)} filename hashes")
         print(f"Total file size: {sizeof_fmt(total_file_size)}")
@@ -763,7 +856,9 @@ class Database:
         file_map = {}
         for photo in tqdm(stored_photos):
             abs_store_path = directory / photo.store_path
-            new_store_path = f"{photo.store_path[:32]}{photo.checksum[:7]}{photo.store_path[39:]}"
+            new_store_path = (
+                f"{photo.store_path[:32]}{photo.checksum[:7]}{photo.store_path[39:]}"
+            )
             new_abs_store_path = directory / new_store_path
             if new_abs_store_path.exists():
                 num_skipped_photos += 1
@@ -772,9 +867,14 @@ class Database:
                 num_missing_photos += 1
             elif photo.store_path[32:39] == photo.checksum[:7]:
                 num_skipped_photos += 1
-            elif not verify or file_checksum(abs_store_path, self.hash_algorithm) == photo.checksum:
+            elif (
+                not verify
+                or file_checksum(abs_store_path, self.hash_algorithm) == photo.checksum
+            ):
                 if logger.isEnabledFor(logging.DEBUG):
-                    tqdm.write(f"{'Will move' if dry_run else 'Moving'} {abs_store_path} to {new_abs_store_path}")
+                    tqdm.write(
+                        f"{'Will move' if dry_run else 'Moving'} {abs_store_path} to {new_abs_store_path}"
+                    )
                 file_map[str(abs_store_path)] = str(new_abs_store_path)
                 if not dry_run:
                     os.rename(abs_store_path, new_abs_store_path)
@@ -787,5 +887,7 @@ class Database:
         if num_skipped_photos:
             print(f"Skipped {num_skipped_photos} items")
         if num_incorrect_photos or num_missing_photos:
-            print(f"Found {num_incorrect_photos} incorrect and {num_missing_photos} missing items")
+            print(
+                f"Found {num_incorrect_photos} incorrect and {num_missing_photos} missing items"
+            )
         return file_map

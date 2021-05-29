@@ -113,45 +113,59 @@ del _fscodec
 
 
 def datetime_is_valid(timestamp: str) -> bool:
-    if timestamp and isinstance(timestamp, str) and not timestamp.startswith('0000'):
+    if timestamp and isinstance(timestamp, str) and not timestamp.startswith("0000"):
         return True
     return False
 
 
 datetime_tags = [
-    'Composite:SubSecDateTimeOriginal', 'QuickTime:CreationDate', 'DateTimeOriginal', 'CreateDate', 'CreationDate',
-    'EXIF:SubSecTimeOriginal', 'EXIF:OffsetTimeOriginal', 'File:FileCreateDate', 'File:FileModifyDate'
+    "Composite:SubSecDateTimeOriginal",
+    "QuickTime:CreationDate",
+    "DateTimeOriginal",
+    "CreateDate",
+    "CreationDate",
+    "EXIF:SubSecTimeOriginal",
+    "EXIF:OffsetTimeOriginal",
+    "File:FileCreateDate",
+    "File:FileModifyDate",
 ]
 
 
 def best_datetime(metadata):
-    timestamp = metadata.get('Composite:SubSecDateTimeOriginal', '')
+    timestamp = metadata.get("Composite:SubSecDateTimeOriginal", "")
     if timestamp and datetime_is_valid(timestamp):
         return timestamp
-    timestamp = metadata.get('QuickTime:CreationDate', '')
+    timestamp = metadata.get("QuickTime:CreationDate", "")
     if timestamp and datetime_is_valid(timestamp):
         return timestamp
-    if 'EXIF:DateTimeOriginal' in metadata and datetime_is_valid(metadata['EXIF:DateTimeOriginal']):
-        subsec = metadata.get('EXIF:SubSecTimeOriginal', '')
-        offset = metadata.get('EXIF:OffsetTimeOriginal', '')
+    if "EXIF:DateTimeOriginal" in metadata and datetime_is_valid(
+        metadata["EXIF:DateTimeOriginal"]
+    ):
+        subsec = metadata.get("EXIF:SubSecTimeOriginal", "")
+        offset = metadata.get("EXIF:OffsetTimeOriginal", "")
         return f"{metadata['EXIF:DateTimeOriginal']}{'.' if subsec else ''}{subsec}{offset}"
     for tag in metadata.keys():
-        if 'DateTimeOriginal' in tag and datetime_is_valid(metadata[tag]):
+        if "DateTimeOriginal" in tag and datetime_is_valid(metadata[tag]):
             return metadata[tag]
     for tag in metadata.keys():
-        if 'CreationDate' in tag and datetime_is_valid(metadata[tag]):
+        if "CreationDate" in tag and datetime_is_valid(metadata[tag]):
             return metadata[tag]
     for tag in metadata.keys():
-        if 'CreateDate' in tag and 'FileCreateDate' not in tag and datetime_is_valid(metadata[tag]):
+        if (
+            "CreateDate" in tag
+            and "FileCreateDate" not in tag
+            and datetime_is_valid(metadata[tag])
+        ):
             return metadata[tag]
-    timestamp = metadata.get('File:FileCreateDate', '')
+    timestamp = metadata.get("File:FileCreateDate", "")
     if timestamp and datetime_is_valid(timestamp):
         return timestamp
-    return metadata['File:FileModifyDate']
+    return metadata["File:FileModifyDate"]
 
 
 class Singleton(type):
     """Metaclass to use the singleton [anti-]pattern"""
+
     instance = None
 
     def __call__(cls, *args, **kwargs):
@@ -217,10 +231,20 @@ class ExifTool(object, metaclass=Singleton):
             return
         with open(os.devnull, "w") as devnull:
             self._process = subprocess.Popen(
-                [self.executable, "-stay_open", "True",  "-@", "-",
-                 "-common_args", "-G", "-n"],
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                stderr=devnull)
+                [
+                    self.executable,
+                    "-stay_open",
+                    "True",
+                    "-@",
+                    "-",
+                    "-common_args",
+                    "-G",
+                    "-n",
+                ],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=devnull,
+            )
         self.running = True
 
     def terminate(self):
@@ -273,7 +297,7 @@ class ExifTool(object, metaclass=Singleton):
         fd = self._process.stdout.fileno()
         while not output[-32:].strip().endswith(sentinel):
             output += os.read(fd, block_size)
-        return output.strip()[:-len(sentinel)]
+        return output.strip()[: -len(sentinel)]
 
     def execute_json(self, *params):
         """Execute the given batch of parameters and parse the JSON output.
@@ -330,11 +354,11 @@ class ExifTool(object, metaclass=Singleton):
         # Explicitly ruling out strings here because passing in a
         # string would lead to strange and hard-to-find errors
         if isinstance(tags, basestring):
-            raise TypeError("The argument 'tags' must be "
-                            "an iterable of strings")
+            raise TypeError("The argument 'tags' must be " "an iterable of strings")
         if isinstance(filenames, basestring):
-            raise TypeError("The argument 'filenames' must be "
-                            "an iterable of strings")
+            raise TypeError(
+                "The argument 'filenames' must be " "an iterable of strings"
+            )
         params = ["-" + t for t in tags]
         params.extend(filenames)
         return self.execute_json(*params)

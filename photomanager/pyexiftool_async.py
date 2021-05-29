@@ -147,28 +147,38 @@ class AsyncExifTool(object):
                 if process is None:
                     process = await subprocess.create_subprocess_exec(
                         self.executable,
-                        "-stay_open", "True",  "-@", "-",
-                        "-common_args", "-G", "-n",
-                        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                        stderr=subprocess.DEVNULL)
+                        "-stay_open",
+                        "True",
+                        "-@",
+                        "-",
+                        "-common_args",
+                        "-G",
+                        "-n",
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.DEVNULL,
+                    )
                 process.stdin.write(b"\n".join(params + (b"-execute\n",)))
                 await process.stdin.drain()
                 outputs = [b""]
                 while not outputs[-1][-32:].strip().endswith(sentinel):
                     outputs.append(await process.stdout.read(block_size))
                 try:
-                    output = b"".join(outputs).strip()[:-len(sentinel)]
+                    output = b"".join(outputs).strip()[: -len(sentinel)]
                     output = orjson.loads(output)
                     for d in output:
-                        if mode == 'best_datetime':
-                            self.output_dict[d['SourceFile']] = best_datetime(d)
+                        if mode == "best_datetime":
+                            self.output_dict[d["SourceFile"]] = best_datetime(d)
                         else:
-                            self.output_dict[d['SourceFile']] = d
+                            self.output_dict[d["SourceFile"]] = d
                     self.pbar.update(n=len(output))
                 except (Exception,):
-                    print(f"AsyncExifTool worker encountered an exception!\n"
-                          f"exiftool params: {self.executable} {params}\n"
-                          f"exiftool output: {b''.join(outputs)}", file=sys.stderr)
+                    print(
+                        f"AsyncExifTool worker encountered an exception!\n"
+                        f"exiftool params: {self.executable} {params}\n"
+                        f"exiftool output: {b''.join(outputs)}",
+                        file=sys.stderr,
+                    )
                     traceback.print_exc(file=sys.stderr)
                 finally:
                     self.queue.task_done()
@@ -208,7 +218,9 @@ class AsyncExifTool(object):
         self.pbar.close()
         self.pbar = None
 
-        print(f'{self.num_workers} subprocesses worked in parallel for {total_time:.2f} seconds')
+        print(
+            f"{self.num_workers} subprocesses worked in parallel for {total_time:.2f} seconds"
+        )
         return self.output_dict
 
     @staticmethod
@@ -249,4 +261,6 @@ class AsyncExifTool(object):
     def get_best_datetime_batch(self, filenames):
         params = tuple("-" + t for t in datetime_tags)
         all_params = list(self.make_chunks(filenames, self.batch_size, init=params))
-        return asyncio.run(self.execute_queue(all_params, len(filenames), mode='best_datetime'))
+        return asyncio.run(
+            self.execute_queue(all_params, len(filenames), mode="best_datetime")
+        )
