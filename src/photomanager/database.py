@@ -200,7 +200,7 @@ class Database:
     DB_KEY_ORDER = ("version", "hash_algorithm", "photo_db", "command_history")
 
     def __init__(self):
-        self.db: dict = {
+        self._db: dict = {
             "version": self.VERSION,
             "hash_algorithm": DEFAULT_HASH_ALGO,
             "photo_db": {},
@@ -208,6 +208,9 @@ class Database:
         }
         self.hash_to_uid: dict[str, str] = {}
         self.timestamp_to_uids: dict[float, dict[str, None]] = {}
+
+    def __eq__(self, other: DB) -> bool:
+        return self.db == other.db
 
     @property
     def version(self) -> int:
@@ -230,19 +233,17 @@ class Database:
         return self.db["command_history"]
 
     @property
-    def json(self) -> bytes:
-        return orjson.dumps(self.db, option=orjson.OPT_INDENT_2)
+    def db(self) -> dict:
+        return self._db
 
-    @json.setter
-    def json(self, json_data: bytes):
-        """Sets Database parameters from json data"""
-        db = orjson.loads(json_data)
+    @db.setter
+    def db(self, db: dict):
         db.setdefault("version", "1")  # legacy dbs are version 1
         db.setdefault("hash_algorithm", "sha256")  # legacy dbs use sha256
         db = {k: db[k] for k in self.DB_KEY_ORDER}
         for uid in db["photo_db"].keys():
             db["photo_db"][uid] = [PhotoFile.from_dict(d) for d in db["photo_db"][uid]]
-        self.db = db
+        self._db = db
 
         for uid, photos in self.photo_db.items():
             for photo in photos:
@@ -251,6 +252,23 @@ class Database:
                     self.timestamp_to_uids[photo.timestamp][uid] = None
                 else:
                     self.timestamp_to_uids[photo.timestamp] = {uid: None}
+
+    @classmethod
+    def from_dict(cls: Type[DB], db_dict: dict) -> DB:
+        """Loads a Database from a dictionary. Will modify the dictionary."""
+        db = cls()
+        db.db = db_dict
+        return db
+
+    @property
+    def json(self) -> bytes:
+        return orjson.dumps(self.db, option=orjson.OPT_INDENT_2)
+
+    @json.setter
+    def json(self, json_data: bytes):
+        """Sets Database parameters from json data"""
+        db = orjson.loads(json_data)
+        self.db = db
 
     @classmethod
     def from_json(cls: Type[DB], json_data: bytes) -> DB:
@@ -292,8 +310,9 @@ class Database:
             with open(path, "rb") as f:
                 s = f.read()
 
-        db = cls.from_json(s)
+        db = orjson.loads(s)
         del s
+        db = cls.from_dict(db)
         return db
 
     def to_file(self, path: Union[str, PathLike]) -> None:
