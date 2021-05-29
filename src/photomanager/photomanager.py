@@ -14,12 +14,13 @@ from photomanager.database import Database, DEFAULT_HASH_ALGO
 
 # fmt: off
 photo_extensions = {
-    "jpeg", "jpg", "png", "apng", "gif", "nef", "cr2", "orf", "tif", "tiff", "ico", "bmp", "dng", "arw", "rw2",
-    "heic", "avif", "heif", "heics", "heifs", "avics", "avci", "avcs", "mng", "webp", "psd", "jp2", "psb",
+    "jpeg", "jpg", "png", "apng", "gif", "nef", "cr2", "orf", "tif", "tiff", "ico",
+    "bmp", "dng", "arw", "rw2", "heic", "avif", "heif", "heics", "heifs", "avics",
+    "avci", "avcs", "mng", "webp", "psd", "jp2", "psb",
 }
 video_extensions = {
-    "mov", "mp4", "m4v", "avi", "mpg", "mpeg", "avchd", "mts", "ts", "m2ts", "3gp", "gifv", "mkv", "asf", "ogg", "webm",
-    "flv", "3g2", "svi", "mpv"
+    "mov", "mp4", "m4v", "avi", "mpg", "mpeg", "avchd", "mts", "ts", "m2ts", "3gp",
+    "gifv", "mkv", "asf", "ogg", "webm", "flv", "3g2", "svi", "mpv"
 }
 audio_extensions = {
     "m4a", "ogg", "aiff", "wav", "flac", "caf", "mp3",
@@ -37,19 +38,12 @@ def config_logging(debug: bool = False):
 
 # fmt: off
 @click.command("create", help="Create an empty database")
-@click.option(
-    "--db",
-    type=click.Path(dir_okay=False),
-    required=True,
-    default="./photos.json",
-    help="PhotoManager database filepath (.json). Add extensions .zst or .gz to compress.",
-)
-@click.option(
-    "--hash-algorithm",
-    type=str,
-    default=DEFAULT_HASH_ALGO,
-    help=f"Hash algorithm (default={DEFAULT_HASH_ALGO})",
-)
+@click.option("--db", type=click.Path(dir_okay=False), required=True,
+              default="./photos.json",
+              help="PhotoManager database filepath (.json). "
+                   "Add extensions .zst or .gz to compress.")
+@click.option("--hash-algorithm", type=str, default=DEFAULT_HASH_ALGO,
+              help=f"Hash algorithm (default={DEFAULT_HASH_ALGO})")
 # fmt: on
 def _create(
     db: Union[str, PathLike],
@@ -63,8 +57,10 @@ def _create(
 
 # fmt: off
 @click.command("index", help="Index and add items to database")
-@click.option("--db", type=click.Path(dir_okay=False), required=True, default="./photos.json",
-              help="PhotoManager database filepath (.json). Add extensions .zst or .gz to compress.")
+@click.option("--db", type=click.Path(dir_okay=False), required=True,
+              default="./photos.json",
+              help="PhotoManager database filepath (.json). "
+                   "Add extensions .zst or .gz to compress.")
 @click.option("--source", type=click.Path(file_okay=False),
               help="Directory to index")
 @click.option("--file", type=click.Path(dir_okay=False),
@@ -196,8 +192,10 @@ def _collect(
 
 # fmt: off
 @click.command("import", help="Index items and collect to directory")
-@click.option("--db", type=click.Path(dir_okay=False), required=True, default="./photos.json",
-              help="PhotoManager database filepath (.json). Add extensions .zst or .gz to compress.")
+@click.option("--db", type=click.Path(dir_okay=False), required=True,
+              default="./photos.json",
+              help="PhotoManager database filepath (.json). "
+                   "Add extensions .zst or .gz to compress.")
 @click.option("--destination", type=click.Path(file_okay=False), required=True,
               help="Photo storage base directory")
 @click.option("--source", type=click.Path(file_okay=False),
@@ -313,7 +311,8 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 # fmt: off
 @click.group(context_settings=CONTEXT_SETTINGS)
-@click.version_option(version=version, prog_name="photomanager", message="%(prog)s %(version)s")
+@click.version_option(version=version, prog_name="photomanager",
+                      message="%(prog)s %(version)s")
 # fmt: on
 def main():
     pass

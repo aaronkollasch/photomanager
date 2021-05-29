@@ -155,7 +155,8 @@ unit_list = list(zip(["bytes", "kB", "MB", "GB", "TB", "PB"], [0, 0, 1, 2, 2, 2]
 
 def sizeof_fmt(num: int) -> str:
     """Human friendly file size
-    https://stackoverflow.com/questions/1094841/get-human-readable-version-of-file-size"""
+    https://stackoverflow.com/questions/1094841/
+    get-human-readable-version-of-file-size"""
     if num > 1:
         exponent = min(int(log(num, 1024)), len(unit_list) - 1)
         quotient = float(num) / 1024 ** exponent
@@ -284,7 +285,8 @@ class Database:
                 s_hash = xxhash.xxh64_digest(s)
                 if has_checksum and checksum != s_hash[-4:][::-1]:
                     raise DatabaseException(
-                        f"zstd content checksum verification failed: {checksum.hex()} != {s_hash.hex()}"
+                        f"zstd content checksum verification failed: "
+                        f"{checksum.hex()} != {s_hash.hex()}"
                     )
         else:
             with open(path, "rb") as f:
@@ -295,7 +297,8 @@ class Database:
         return db
 
     def to_file(self, path: Union[str, PathLike]) -> None:
-        """Saves the db to path and moves an existing database at that path to a different location"""
+        """Saves the db to path and moves an existing database
+        at that path to a different location"""
         logger = logging.getLogger(__name__)
         logger.debug(f"Saving database to {path}")
         path = Path(path)
@@ -303,9 +306,11 @@ class Database:
             base_path = path
             for _ in path.suffixes:
                 base_path = base_path.with_suffix("")
+            timestamp_str = datetime.fromtimestamp(path.stat().st_mtime).strftime(
+                "%Y-%m-%d_%H-%M-%S"
+            )
             new_path = base_path.with_name(
-                f"{base_path.name}_"
-                f"{datetime.fromtimestamp(path.stat().st_mtime).strftime('%Y-%m-%d_%H-%M-%S')}"
+                f"{base_path.name}_{timestamp_str}"
             ).with_suffix("".join(path.suffixes))
             if not new_path.exists():
                 logger.debug(f"Moving old database at {path} to {new_path}")
@@ -370,7 +375,8 @@ class Database:
             if name_matches:
                 if len(name_matches) > 1:
                     logger.warning(
-                        f"ambiguous timestamp+name match: {photo.source_path}: {name_matches}"
+                        f"ambiguous timestamp+name match: "
+                        f"{photo.source_path}: {name_matches}"
                     )
                 return name_matches[0]
             else:
@@ -381,8 +387,9 @@ class Database:
     def add_photo(self, photo: PhotoFile, uid: Optional[str]) -> Optional[str]:
         """Adds a photo into the database with specified uid (can be None)
 
-        Skips and returns None if the photo checksum is already in the database under a different uid
-        or the photo checksum+source_path pair is already in the database.
+        Skips and returns None if the photo checksum is already in the database
+        under a different uid or the photo checksum+source_path pair is already
+        in the database.
 
         If uid is None, a new random uid will be generated.
 
@@ -482,7 +489,8 @@ class Database:
         )
         if num_skipped_photos or num_error_photos:
             print(
-                f"Skipped {num_skipped_photos} items and errored on {num_error_photos} items"
+                f"Skipped {num_skipped_photos} items and errored on "
+                f"{num_error_photos} items"
             )
         return num_added_photos + num_merged_photos
 
@@ -508,10 +516,11 @@ class Database:
     ) -> int:
         """Collects photos in the database into a directory
 
-        Collects only photos that have a store_path set or that have the highest priority
-        and whose checksum does not match any stored alternative photo
+        Collects only photos that have a store_path set or that have the highest
+        priority and whose checksum does not match any stored alternative photo
 
-        Updates the store_path for photos newly stored. Store_paths are relative to the storage directory.
+        Updates the store_path for photos newly stored. Store_paths are
+        relative to the storage directory.
         Stored photos have permissions set to read-only for all.
 
         :param directory the photo storage directory
@@ -583,7 +592,8 @@ class Database:
                 abs_store_path = directory / rel_store_path
             if logger.isEnabledFor(logging.DEBUG):
                 tqdm.write(
-                    f"{'Will copy' if dry_run else 'Copying'}: {photo.source_path} to {abs_store_path}"
+                    f"{'Will copy' if dry_run else 'Copying'}: {photo.source_path} "
+                    f"to {abs_store_path}"
                 )
             if not dry_run:
                 os.makedirs(abs_store_path.parent, exist_ok=True)
@@ -595,12 +605,15 @@ class Database:
         p_bar.close()
 
         print(
-            f"Copied {len(photos_to_copy)} items, estimated size: {sizeof_fmt(estimated_copy_size)}: "
-            f"{num_added_photos} new items and {num_transferred_photos} items marked as stored elsewhere"
+            f"Copied {len(photos_to_copy)} items, estimated size: "
+            f"{sizeof_fmt(estimated_copy_size)}: "
+            f"{num_added_photos} new items and {num_transferred_photos} "
+            f"items marked as stored elsewhere"
         )
         if num_stored_photos or num_missed_photos:
             print(
-                f"Skipped {num_stored_photos} items already stored and {num_missed_photos} missing items"
+                f"Skipped {num_stored_photos} items already stored "
+                f"and {num_missed_photos} missing items"
             )
         return num_added_photos + num_transferred_photos
 
@@ -672,7 +685,8 @@ class Database:
 
         :param directory: the photo storage directory
         :param subdirectory: verify only photos within subdirectory
-        :param storage_type: the type of media the photos are stored on (uses async if SSD)
+        :param storage_type: the type of media the photos are stored on
+            (uses async if SSD)
         :return: the number of errors found"""
         num_correct_photos = (
             num_incorrect_photos
@@ -732,7 +746,9 @@ class Database:
         p_bar.close()
 
         print(
-            f"Checked {num_correct_photos+num_incorrect_photos+num_missing_photos} items"
+            f"Checked "
+            f"{num_correct_photos+num_incorrect_photos+num_missing_photos}"
+            f"items"
         )
         if num_incorrect_photos or num_missing_photos:
             print(
@@ -774,7 +790,8 @@ class Database:
         instead denotes the hash by appending ':{algorithm}'
 
         :param new_algo the new algorithm to use
-        :param hash_map the map from old hashes to new hashes; will be updated with new mappings
+        :param hash_map the map from old hashes to new hashes; will be updated with
+            new mappings
         :return the hash map"""
         if hash_map is None:
             hash_map = {}
@@ -805,7 +822,8 @@ class Database:
             print(f"Skipped {num_skipped_photos} items")
         if num_incorrect_photos or num_missing_photos:
             print(
-                f"Found {num_incorrect_photos} incorrect and {num_missing_photos} missing items"
+                f"Found {num_incorrect_photos} incorrect and "
+                f"{num_missing_photos} missing items"
             )
         return hash_map
 
@@ -892,7 +910,8 @@ class Database:
             ):
                 if logger.isEnabledFor(logging.DEBUG):
                     tqdm.write(
-                        f"{'Will move' if dry_run else 'Moving'} {abs_store_path} to {new_abs_store_path}"
+                        f"{'Will move' if dry_run else 'Moving'} {abs_store_path} "
+                        f"to {new_abs_store_path}"
                     )
                 file_map[str(abs_store_path)] = str(new_abs_store_path)
                 if not dry_run:
@@ -907,6 +926,7 @@ class Database:
             print(f"Skipped {num_skipped_photos} items")
         if num_incorrect_photos or num_missing_photos:
             print(
-                f"Found {num_incorrect_photos} incorrect and {num_missing_photos} missing items"
+                f"Found {num_incorrect_photos} incorrect and "
+                f"{num_missing_photos} missing items"
             )
         return file_map

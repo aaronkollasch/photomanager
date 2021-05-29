@@ -141,9 +141,10 @@ def best_datetime(metadata):
     if "EXIF:DateTimeOriginal" in metadata and datetime_is_valid(
         metadata["EXIF:DateTimeOriginal"]
     ):
+        timestamp = metadata["EXIF:DateTimeOriginal"]
         subsec = metadata.get("EXIF:SubSecTimeOriginal", "")
         offset = metadata.get("EXIF:OffsetTimeOriginal", "")
-        return f"{metadata['EXIF:DateTimeOriginal']}{'.' if subsec else ''}{subsec}{offset}"
+        return f"{timestamp}{'.' if subsec else ''}{subsec}{offset}"
     for tag in metadata.keys():
         if "DateTimeOriginal" in tag and datetime_is_valid(metadata[tag]):
             return metadata[tag]
