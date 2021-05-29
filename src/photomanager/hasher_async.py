@@ -197,10 +197,10 @@ class AsyncFileHasher:
         chunk = list(init)
         for item in it:
             chunk.append(item)
-            if len(chunk) == size:
+            if len(chunk) - len(init) == size:
                 yield chunk
                 chunk = list(init)
-        if len(chunk) > len(init):
+        if len(chunk) - len(init) > 0:
             yield chunk
 
     @staticmethod
