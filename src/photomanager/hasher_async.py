@@ -204,13 +204,13 @@ class AsyncFileHasher:
             yield chunk
 
     @staticmethod
-    def encode(it: Iterable[str]) -> bytes:
+    def encode(it: Iterable[Union[str, PathLike]]) -> bytes:
         for item in it:
-            yield item.encode()
+            yield str(item).encode()
 
     def check_files(
         self,
-        file_paths: Iterable[str],
+        file_paths: Iterable[Union[str, PathLike]],
         pbar_unit: str = "it",
         file_sizes: Optional[Iterable[int]] = None,
     ) -> dict[str, str]:

@@ -1,4 +1,3 @@
-import pytest
 import orjson
 from photomanager import database
 

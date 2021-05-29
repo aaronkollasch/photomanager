@@ -1,5 +1,3 @@
-import pytest
-import click
 from click.testing import CliRunner
 import json
 from photomanager import photomanager, database
