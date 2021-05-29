@@ -8,6 +8,7 @@ import re
 from typing import Union, Optional, Iterable
 import logging
 import click
+from photomanager import version
 from photomanager.database import Database, DEFAULT_HASH_ALGO
 
 
@@ -267,6 +268,8 @@ def _stats(db: Union[str, PathLike]):
 
 
 @click.group()
+@click.version_option(version=version, prog_name='photomanager', message='%(prog)s %(version)s')
+@click.help_option('--help', '-h')
 def main():
     pass
 
