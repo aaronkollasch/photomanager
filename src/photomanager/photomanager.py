@@ -182,12 +182,14 @@ def _collect(
 ):
     config_logging(debug=debug)
     database = Database.from_file(db)
-    database.collect_to_directory(destination)
+    _, _, num_missed, _ = database.collect_to_directory(destination)
     database.add_command(shlex.join(sys.argv))
     if not dry_run:
         database.to_file(db)
         if collect_db:
             database.to_file(Path(destination) / "database" / Path(db).name)
+    if num_missed:
+        sys.exit(1)
 
 
 # fmt: off
@@ -235,12 +237,14 @@ def _import(
     database.index_photos(
         files=filtered_files, priority=priority, storage_type=storage_type
     )
-    database.collect_to_directory(destination)
+    _, _, num_missed, _ = database.collect_to_directory(destination)
     database.add_command(shlex.join(sys.argv))
     if not dry_run:
         database.to_file(db)
         if collect_db:
             database.to_file(Path(destination) / "database" / Path(db).name)
+    if num_missed:
+        sys.exit(1)
 
 
 # fmt: off

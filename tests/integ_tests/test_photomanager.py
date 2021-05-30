@@ -163,6 +163,7 @@ def test_photomanager_import(datafiles):
             assert photos[0].source_path == datafiles / rel_path
             assert photos[0].store_path != ""
             assert abs_path.exists()
+            assert (datafiles / "pm_store" / photos[0].store_path).exists()
         elif rel_path.startswith("B"):
             assert len(photos) == 2
             assert photos[1].source_path == datafiles / rel_path
@@ -172,6 +173,84 @@ def test_photomanager_import(datafiles):
             assert photos[0].source_path == datafiles / rel_path
             assert photos[0].store_path != ""
             assert abs_path.exists()
+            assert (datafiles / "pm_store" / photos[0].store_path).exists()
+
+    # Test behavior if photos are missing or marked as not stored
+    with open(datafiles / "test.json", "r+b") as f:
+        s = f.read()
+        db = database.Database.from_json(s)
+        img1_jpg = next(
+            pf
+            for photos in db.photo_db.values()
+            for pf in photos
+            if pf.store_path and pf.checksum == EXPECTED_HASHES["A/img1.jpg"]
+        )
+        img1_jpg.store_path = ""
+        img2_jpg = next(
+            pf
+            for photos in db.photo_db.values()
+            for pf in photos
+            if pf.store_path and pf.checksum == EXPECTED_HASHES["A/img2.jpg"]
+        )
+        os.remove(img2_jpg.source_path)
+        os.remove(datafiles / "pm_store" / img2_jpg.store_path)
+        img2_png = next(
+            pf
+            for photos in db.photo_db.values()
+            for pf in photos
+            if pf.store_path and pf.checksum == EXPECTED_HASHES["A/img1.png"]
+        )
+        os.remove(img2_png.source_path)
+        img3_tiff = next(
+            pf
+            for photos in db.photo_db.values()
+            for pf in photos
+            if pf.store_path and pf.checksum == EXPECTED_HASHES["C/img3.tiff"]
+        )
+        os.remove(datafiles / "pm_store" / img3_tiff.store_path)
+        f.seek(0)
+        f.write(db.json)
+        f.truncate()
+
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "collect",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+            "--debug",
+        ],
+    )
+    print(result.output)
+    print(result)
+    assert result.exit_code == 1
+
+    with open(datafiles / "test.json", "rb") as f:
+        s = f.read()
+        db = database.Database.from_json(s)
+    print(s.decode("utf-8"))
+
+    for rel_path, checksum in EXPECTED_HASHES.items():
+        assert checksum in db.hash_to_uid
+        assert db.hash_to_uid[checksum] in db.photo_db
+        photos = db.photo_db[db.hash_to_uid[checksum]]
+        if rel_path == "A/img2.jpg":
+            assert photos[0].source_path == datafiles / rel_path
+        elif rel_path.startswith("A"):
+            assert photos[0].source_path == datafiles / rel_path
+            assert photos[0].store_path != ""
+            assert (datafiles / "pm_store" / photos[0].store_path).exists()
+        elif rel_path.startswith("B"):
+            assert len(photos) == 2
+            assert photos[1].source_path == datafiles / rel_path
+            assert photos[1].store_path == ""
+        elif rel_path.startswith("C"):
+            assert len(photos) == 1
+            assert photos[0].source_path == datafiles / rel_path
+            assert photos[0].store_path != ""
+            assert (datafiles / "pm_store" / photos[0].store_path).exists()
 
 
 @ALL_IMG_DIRS
@@ -204,6 +283,24 @@ def test_photomanager_verify(datafiles):
             str(datafiles / "test.json"),
             "--destination",
             str(datafiles / "pm_store"),
+            "--storage-type",
+            "SSD",
+        ],
+    )
+    print("verify")
+    print(result.output)
+    assert result.exit_code == 0
+
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "verify",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+            "--subdir",
+            "2018",
         ],
     )
     print("verify")
@@ -232,5 +329,20 @@ def test_photomanager_verify(datafiles):
         ],
     )
     print("verify incorrect")
+    print(result.output)
+    assert result.exit_code == 1
+
+    os.remove(file_to_mod)
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "verify",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+        ],
+    )
+    print("verify missing")
     print(result.output)
     assert result.exit_code == 1

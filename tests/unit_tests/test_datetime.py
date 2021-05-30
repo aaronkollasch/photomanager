@@ -179,3 +179,12 @@ def test_datetime_to_timestamp(datetime_test):
     datetime_obj = datetime_str_to_object(datetime_test["timestamp_str"])
     assert datetime_obj == datetime_test["datetime_obj"]
     assert datetime_obj.timestamp() == datetime_test["timestamp"]
+
+
+def test_datetime_to_timestamp_errors():
+    with pytest.raises(ValueError):
+        datetime_str_to_object("2015:08:2704:09-0400")
+    with pytest.raises(ValueError):
+        datetime_str_to_object("2015:08:27 04:09a")
+    with pytest.raises(ValueError):
+        datetime_str_to_object("2015:08:27 04:09.a")

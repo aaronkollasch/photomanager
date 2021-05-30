@@ -1,4 +1,9 @@
+import os
+from datetime import datetime
+from pathlib import Path
 import orjson
+import pytest
+import zstandard
 from photomanager import database
 
 
@@ -81,6 +86,23 @@ def test_photofile_neq():
     )
 
 
+def test_sizeof_fmt():
+    assert database.sizeof_fmt(-1) is None
+    assert database.sizeof_fmt(0) == "0 bytes"
+    assert database.sizeof_fmt(1) == "1 byte"
+    assert database.sizeof_fmt(1023) == "1023 bytes"
+    assert database.sizeof_fmt(1024) == "1 kB"
+    assert database.sizeof_fmt(1024 ** 2 - 1) == "1024 kB"
+    assert database.sizeof_fmt(1024 ** 2) == "1.0 MB"
+    assert database.sizeof_fmt(1024 ** 3 - 1) == "1024.0 MB"
+    assert database.sizeof_fmt(1024 ** 3) == "1.00 GB"
+    assert database.sizeof_fmt(1024 ** 3 * 5.34) == "5.34 GB"
+    assert database.sizeof_fmt(1024 ** 4 - 1) == "1024.00 GB"
+    assert database.sizeof_fmt(1024 ** 4) == "1.00 TB"
+    assert database.sizeof_fmt(1024 ** 5 - 10) == "1024.00 TB"
+    assert database.sizeof_fmt(1024 ** 5) == "1.00 PB"
+
+
 def test_database_init():
     json_data = b"""{
 "version": 1,
@@ -95,6 +117,15 @@ def test_database_init():
             "file_size": 1024,
             "store_path": "/d/e/f.jpg",
             "priority": 11
+        },
+        {
+            "checksum": "deadbeef",
+            "source_path": "/g/b/c.jpg",
+            "datetime": "2015:08:27 04:09:36.50",
+            "timestamp": 1440662976.5,
+            "file_size": 1024,
+            "store_path": "",
+            "priority": 20
         }
     ]
 },
@@ -115,7 +146,18 @@ def test_database_init():
                     "store_path": "/d/e/f.jpg",
                     "priority": 11,
                 }
-            )
+            ),
+            database.PhotoFile.from_dict(
+                {
+                    "checksum": "deadbeef",
+                    "source_path": "/g/b/c.jpg",
+                    "datetime": "2015:08:27 04:09:36.50",
+                    "timestamp": 1440662976.5,
+                    "file_size": 1024,
+                    "store_path": "",
+                    "priority": 20,
+                }
+            ),
         ]
     }
     command_history_expected = {
@@ -132,10 +174,10 @@ def test_database_init():
     assert orjson.loads(db.json) == orjson.loads(json_data)
     assert db.db == db_expected
     assert db == database.Database.from_dict(orjson.loads(json_data))
+    assert db.get_stats() == (1, 2, 1, 1024)
 
 
-def test_database_save(tmpdir):
-    json_data = b"""{
+example_database_json_data = b"""{
 "version": 1,
 "hash_algorithm": "sha256",
 "photo_db": {
@@ -153,7 +195,10 @@ def test_database_save(tmpdir):
 },
 "command_history": {"2021-03-08_23-56-00Z": "photomanager create --db test.json"}
 }"""
-    db = database.Database.from_json(json_data)
+
+
+def test_database_save(tmpdir):
+    db = database.Database.from_json(example_database_json_data)
     db.to_file(tmpdir / "test.json")
     db2 = db.from_file(tmpdir / "test.json")
     assert db == db2
@@ -163,3 +208,62 @@ def test_database_save(tmpdir):
     db.to_file(tmpdir / "test.json.zst")
     db2 = db.from_file(tmpdir / "test.json.zst")
     assert db == db2
+
+
+def test_database_load_error(tmpdir, monkeypatch):
+    db = database.Database.from_json(example_database_json_data)
+    db.to_file(tmpdir / "test.json.zst")
+    with open(tmpdir / "test.json.zst", "r+b") as f:
+        f.seek(100)
+        c = f.read(1)
+        f.seek(100)
+        f.write(bytes([ord(c) ^ 0b1]))
+    with pytest.raises(zstandard.ZstdError):
+        db.from_file(tmpdir / "test.json.zst")
+    monkeypatch.setattr(
+        zstandard, "decompress", lambda _: db.json.replace(c, bytes([ord(c) ^ 0b1]))
+    )
+    with pytest.raises(database.DatabaseException):
+        db.from_file(tmpdir / "test.json.zst")
+
+
+def test_database_overwrite_error(tmpdir):
+    db = database.Database.from_json(example_database_json_data)
+    path = Path(tmpdir / "test.json")
+    db.to_file(path)
+    base_path = path
+    for _ in path.suffixes:
+        base_path = base_path.with_suffix("")
+    timestamp_str = datetime.fromtimestamp(path.stat().st_mtime).strftime(
+        "%Y-%m-%d_%H-%M-%S"
+    )
+    new_path = base_path.with_name(f"{base_path.name}_{timestamp_str}").with_suffix(
+        "".join(path.suffixes)
+    )
+    os.makedirs(new_path)
+    (new_path / "file.txt").touch()
+    db.to_file(path)
+    print(tmpdir.listdir())
+    assert (tmpdir / "test_1.json").exists()
+
+    Path(tmpdir / "test_0.json").touch()
+    Path(tmpdir / "test_a.json").touch()
+    db.to_file(path)
+    print(tmpdir.listdir())
+    assert (tmpdir / "test_2.json").exists()
+
+    path = Path(tmpdir / "test_2.json")
+    base_path = path
+    for _ in path.suffixes:
+        base_path = base_path.with_suffix("")
+    timestamp_str = datetime.fromtimestamp(path.stat().st_mtime).strftime(
+        "%Y-%m-%d_%H-%M-%S"
+    )
+    new_path = base_path.with_name(f"{base_path.name}_{timestamp_str}").with_suffix(
+        "".join(path.suffixes)
+    )
+    os.makedirs(new_path)
+    (new_path / "file.txt").touch()
+    db.to_file(path)
+    print(tmpdir.listdir())
+    assert (tmpdir / "test_3.json").exists()

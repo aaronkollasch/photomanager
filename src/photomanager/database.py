@@ -331,23 +331,41 @@ class Database:
             new_path = base_path.with_name(
                 f"{base_path.name}_{timestamp_str}"
             ).with_suffix("".join(path.suffixes))
-            if not new_path.exists():
-                logger.debug(f"Moving old database at {path} to {new_path}")
+            logger.debug(f"Moving old database at {path} to {new_path}")
+            try:
+                os.rename(path, new_path)
+            except OSError as e:
+                logger.warning(
+                    f"Could not move old database from {path} to {new_path}. "
+                    f"{type(e).__name__} {e}"
+                )
                 try:
-                    os.rename(path, new_path)
-                except OSError as e:
-                    logger.warning(
-                        f"Could not move old database from {path} to {new_path}. "
-                        f"{type(e).__name__} {e}"
+                    name, version = base_path.name.rsplit("_", 1)
+                    version = int(version)
+                    base_path = base_path.with_name(name + "_" + str(version + 1))
+                except ValueError:
+                    new_paths = list(
+                        base_path.parent.glob(
+                            base_path.name + "_*" + "".join(path.suffixes)
+                        )
                     )
-                    try:
-                        name, version = base_path.name.rsplit("_", 1)
-                        version = int(version)
-                        base_path = base_path.with_name(name + "_" + str(version + 1))
-                    except ValueError:
-                        base_path = base_path.with_name(base_path.name + "_1")
-                    path = base_path.with_name(base_path.name + "".join(path.suffixes))
-                    logger.info(f"Saving new database to alternate path {path}")
+                    max_version = 0
+                    for p in new_paths:
+                        bp = p
+                        for _ in p.suffixes:
+                            bp = bp.with_suffix("")
+                        try:
+                            version = int(bp.name.rsplit("_", 1)[1])
+                            if version > max_version:
+                                max_version = version
+                        except ValueError:
+                            pass
+                    version = max_version
+                    base_path = base_path.with_name(
+                        base_path.name + "_" + str(version + 1)
+                    )
+                path = base_path.with_name(base_path.name + "".join(path.suffixes))
+                logger.info(f"Saving new database to alternate path {path}")
 
         save_bytes = self.json
         if path.suffix == ".gz":
@@ -443,13 +461,13 @@ class Database:
         files: Collection[Union[str, PathLike]],
         priority: int = 10,
         storage_type: str = "HDD",
-    ) -> int:
+    ) -> (int, int, int, int):
         """Indexes photo files and adds them to the database with a designated priority
 
         :param files: the photo file paths to index
         :param priority: the photos' priority
         :param storage_type: the storage type being indexed (uses more async if SSD)
-        :return: the number of photos indexed"""
+        :return: the number of photos added, merged, skipped, or errored"""
         logger = logging.getLogger(__name__)
         num_added_photos = num_merged_photos = num_skipped_photos = num_error_photos = 0
         if storage_type in ("SSD", "RAID"):
@@ -511,28 +529,11 @@ class Database:
                 f"Skipped {num_skipped_photos} items and errored on "
                 f"{num_error_photos} items"
             )
-        return num_added_photos + num_merged_photos
-
-    def get_chosen_photos(self) -> list[PhotoFile]:
-        """Gets all photos this database has stored or would choose to store"""
-        chosen_photos = []
-        for uid, photos in self.photo_db.items():
-            highest_priority = min(photo.priority for photo in photos)
-            new_chosen_photos = list(photo for photo in photos if photo.store_path)
-            stored_checksums = set(photo.checksum for photo in new_chosen_photos)
-            for photo in photos:
-                if (
-                    photo.priority == highest_priority
-                    and photo.checksum not in stored_checksums
-                ):
-                    new_chosen_photos.append(photo)
-                    stored_checksums.add(photo.checksum)
-            chosen_photos.extend(new_chosen_photos)
-        return chosen_photos
+        return num_added_photos, num_merged_photos, num_skipped_photos, num_error_photos
 
     def collect_to_directory(
         self, directory: Union[str, PathLike], dry_run: bool = False
-    ) -> int:
+    ) -> (int, int, int, int):
         """Collects photos in the database into a directory
 
         Collects only photos that have a store_path set or that have the highest
@@ -544,12 +545,10 @@ class Database:
 
         :param directory the photo storage directory
         :param dry_run if True, do not copy photos
-        :return the number of photos collected"""
+        :return the number of photos that could not be collected"""
         logger = logging.getLogger(__name__)
         directory = Path(directory).expanduser().resolve()
-        num_transferred_photos = (
-            num_added_photos
-        ) = num_missed_photos = num_stored_photos = 0
+        num_copied_photos = num_added_photos = num_missed_photos = num_stored_photos = 0
         photos_to_copy = []
         logger.info("Checking stored photos")
         for uid, photos in tqdm(self.photo_db.items()):
@@ -569,9 +568,9 @@ class Database:
                 elif os.path.exists(photo.source_path):
                     photos_to_copy.append((photo, None))
                     stored_checksums.add(photo.checksum)
-                    num_transferred_photos += 1
+                    num_copied_photos += 1
                 else:
-                    logger.debug(f"Photo not found: {photo.source_path}")
+                    logger.warning(f"Photo not found: {photo.source_path}")
                     num_missed_photos += 1
             for photo in highest_priority_photos:
                 if photo.checksum in stored_checksums:
@@ -593,7 +592,7 @@ class Database:
                     stored_checksums.add(photo.checksum)
                     num_added_photos += 1
                 else:
-                    logger.debug(f"Photo not found: {photo.source_path}")
+                    logger.warning(f"Photo not found: {photo.source_path}")
                     num_missed_photos += 1
 
         estimated_copy_size = sum(photo.file_size for photo, _ in photos_to_copy)
@@ -626,7 +625,7 @@ class Database:
         print(
             f"Copied {len(photos_to_copy)} items, estimated size: "
             f"{sizeof_fmt(estimated_copy_size)}: "
-            f"{num_added_photos} new items and {num_transferred_photos} "
+            f"{num_added_photos} new items and {num_copied_photos} "
             f"items marked as stored elsewhere"
         )
         if num_stored_photos or num_missed_photos:
@@ -634,14 +633,14 @@ class Database:
                 f"Skipped {num_stored_photos} items already stored "
                 f"and {num_missed_photos} missing items"
             )
-        return num_added_photos + num_transferred_photos
+        return num_copied_photos, num_added_photos, num_missed_photos, num_stored_photos
 
     def clean_stored_photos(
         self,
         directory: Union[str, PathLike],
         subdirectory: Union[str, PathLike] = "",
         dry_run: bool = False,
-    ) -> int:
+    ) -> (int, int, float):
         """Removes lower-priority stored photos if a higher-priority version is stored
 
         :param directory the photo storage directory
@@ -692,7 +691,7 @@ class Database:
             f"{'Found' if dry_run else 'Removed'} {num_removed_photos} items "
             f"and skipped {num_missing_photos} missing items"
         )
-        return num_removed_photos
+        return num_removed_photos, num_missing_photos, total_file_size
 
     def verify_stored_photos(
         self,
