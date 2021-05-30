@@ -187,6 +187,6 @@ def test_async_file_hasher_error(tmpdir, monkeypatch, caplog):
         use_async=True,
         batch_size=10,
     ).check_files(files, pbar_unit="it")
-    print(caplog.records)
+    print([(r.levelname, r) for r in caplog.records])
     assert any(record.levelname == "WARNING" for record in caplog.records)
     assert len(checksum_cache) == 0

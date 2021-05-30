@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from pathlib import Path
 import pytest
@@ -16,13 +17,16 @@ EXPECTED_HASHES = {
     "A/img1.jpg": "d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb",
     "A/img2.jpg": "3b39f47d51f63e54c76417ee6e04c34bd3ff5ac47696824426dca9e200f03666",
     "A/img1.png": "1e10df2e3abe4c810551525b6cb2eb805886de240e04cc7c13c58ae208cabfb9",
+    "A/img4.jpg": "79ac4a89fb3d81ab1245b21b11ff7512495debca60f6abf9afbb1e1fbfe9d98c",
     "B/img1.jpg": "d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb",
     "B/img2.jpg": "e9fec87008fd240309b81c997e7ec5491fee8da7eb1a76fc39b8fcafa76bb583",
+    "B/img4.jpg": "2b0f304f86655ebd04272cc5e7e886e400b79a53ecfdc789f75dd380cbcc8317",
     "C/img3.tiff": "2aca4e78afbcebf2526ad8ac544d90b92991faae22499eec45831ef7be392391",
 }
 
 
-def test_photomanager_create(tmpdir):
+def test_photomanager_create(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmpdir) as td:
         result = runner.invoke(photomanager.main, ["create", "--db", "test.json"])
@@ -39,7 +43,8 @@ def test_photomanager_create(tmpdir):
 
 
 @ALL_IMG_DIRS
-def test_photomanager_import(datafiles):
+def test_photomanager_import(datafiles, caplog):
+    caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     result = runner.invoke(
         photomanager.main,
@@ -53,6 +58,7 @@ def test_photomanager_import(datafiles):
             str(datafiles / "A"),
         ],
     )
+    print("\nINDEX A")
     print(result.output)
     print(result)
     assert result.exit_code == 0
@@ -60,7 +66,7 @@ def test_photomanager_import(datafiles):
     with open(datafiles / "test.json", "rb") as f:
         s = f.read()
         db = database.Database.from_json(s)
-    print(s.decode("utf-8"))
+    print(db.db)
 
     for rel_path, checksum in EXPECTED_HASHES.items():
         if not rel_path.startswith("A"):
@@ -83,6 +89,7 @@ def test_photomanager_import(datafiles):
             str(datafiles / "B"),
         ],
     )
+    print("\nINDEX B")
     print(result.output)
     print(result)
     assert result.exit_code == 0
@@ -90,7 +97,7 @@ def test_photomanager_import(datafiles):
     with open(datafiles / "test.json", "rb") as f:
         s = f.read()
         db = database.Database.from_json(s)
-    print(s.decode("utf-8"))
+    print(db.db)
 
     for rel_path, checksum in EXPECTED_HASHES.items():
         if not rel_path.startswith("B"):
@@ -113,6 +120,7 @@ def test_photomanager_import(datafiles):
             str(datafiles / "C"),
         ],
     )
+    print("\nINDEX C")
     print(result.output)
     print(result)
     assert result.exit_code == 0
@@ -120,7 +128,7 @@ def test_photomanager_import(datafiles):
     with open(datafiles / "test.json", "rb") as f:
         s = f.read()
         db = database.Database.from_json(s)
-    print(s.decode("utf-8"))
+    print(db.db)
 
     for rel_path, checksum in EXPECTED_HASHES.items():
         if not rel_path.startswith("C"):
@@ -143,6 +151,7 @@ def test_photomanager_import(datafiles):
             "--debug",
         ],
     )
+    print("\nCOLLECT")
     print(result.output)
     print(result)
     assert result.exit_code == 0
@@ -152,7 +161,7 @@ def test_photomanager_import(datafiles):
     with open(datafiles / "test.json", "rb") as f:
         s = f.read()
         db = database.Database.from_json(s)
-    print(s.decode("utf-8"))
+    print(db.db)
 
     for rel_path, checksum in EXPECTED_HASHES.items():
         abs_path = datafiles / rel_path
@@ -223,6 +232,7 @@ def test_photomanager_import(datafiles):
             "--debug",
         ],
     )
+    print("\nCOLLECT missing")
     print(result.output)
     print(result)
     assert result.exit_code == 1
@@ -230,7 +240,7 @@ def test_photomanager_import(datafiles):
     with open(datafiles / "test.json", "rb") as f:
         s = f.read()
         db = database.Database.from_json(s)
-    print(s.decode("utf-8"))
+    print(db.db)
 
     for rel_path, checksum in EXPECTED_HASHES.items():
         assert checksum in db.hash_to_uid
@@ -254,7 +264,8 @@ def test_photomanager_import(datafiles):
 
 
 @ALL_IMG_DIRS
-def test_photomanager_verify(datafiles):
+def test_photomanager_verify(datafiles, caplog):
+    caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     os.makedirs(datafiles / "pm_store", exist_ok=True)
     result = runner.invoke(
@@ -271,7 +282,7 @@ def test_photomanager_verify(datafiles):
             str(datafiles / "A"),
         ],
     )
-    print("import")
+    print("\nIMPORT")
     print(result.output)
     assert result.exit_code == 0
 
@@ -287,7 +298,7 @@ def test_photomanager_verify(datafiles):
             "SSD",
         ],
     )
-    print("verify")
+    print("\nVERIFY")
     print(result.output)
     assert result.exit_code == 0
 
@@ -303,7 +314,7 @@ def test_photomanager_verify(datafiles):
             "2018",
         ],
     )
-    print("verify")
+    print("\nVERIFY subdir")
     print(result.output)
     assert result.exit_code == 0
 
@@ -328,7 +339,7 @@ def test_photomanager_verify(datafiles):
             str(datafiles / "pm_store"),
         ],
     )
-    print("verify incorrect")
+    print("\nVERIFY incorrect")
     print(result.output)
     assert result.exit_code == 1
 
@@ -343,6 +354,171 @@ def test_photomanager_verify(datafiles):
             str(datafiles / "pm_store"),
         ],
     )
-    print("verify missing")
+    print("\nVERIFY missing")
     print(result.output)
     assert result.exit_code == 1
+
+
+@ALL_IMG_DIRS
+def test_photomanager_clean(datafiles, caplog):
+    caplog.set_level(logging.DEBUG)
+    runner = CliRunner()
+    os.makedirs(datafiles / "pm_store", exist_ok=True)
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "import",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+            "--priority",
+            "20",
+            "--debug",
+            "--storage-type",
+            "RAID",
+            str(datafiles / "B"),
+        ],
+    )
+    print("\nIMPORT B")
+    print(result.output)
+    assert result.exit_code == 0
+
+    with open(datafiles / "test.json", "rb") as f:
+        s = f.read()
+        db = database.Database.from_json(s)
+    print(db.db)
+
+    for rel_path, checksum in EXPECTED_HASHES.items():
+        abs_path = datafiles / rel_path
+        if not rel_path.startswith("B"):
+            continue
+        assert checksum in db.hash_to_uid
+        assert db.hash_to_uid[checksum] in db.photo_db
+        photos = db.photo_db[db.hash_to_uid[checksum]]
+        assert len(photos) == 1
+        assert photos[0].source_path == datafiles / rel_path
+        assert photos[0].store_path != ""
+        assert abs_path.exists()
+        assert (datafiles / "pm_store" / photos[0].store_path).exists()
+
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "import",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+            "--priority",
+            "10",
+            "--debug",
+            str(datafiles / "A"),
+        ],
+    )
+    print("\nIMPORT A")
+    print(result.output)
+    assert result.exit_code == 0
+
+    with open(datafiles / "test.json", "rb") as f:
+        s = f.read()
+        db = database.Database.from_json(s)
+    print(db.db)
+
+    for rel_path, checksum in EXPECTED_HASHES.items():
+        if not rel_path.startswith("A") and not rel_path.startswith("B"):
+            continue
+        assert checksum in db.hash_to_uid
+        assert db.hash_to_uid[checksum] in db.photo_db
+        photos = db.photo_db[db.hash_to_uid[checksum]]
+        if rel_path.startswith("A"):
+            assert photos[0].source_path == datafiles / rel_path
+            print(rel_path)
+            assert photos[0].store_path != ""
+            assert (datafiles / "pm_store" / photos[0].store_path).exists()
+        elif rel_path.startswith("B"):
+            assert len(photos) == 2
+            assert photos[1].source_path == datafiles / rel_path
+            assert photos[1].store_path != ""
+            assert (datafiles / "pm_store" / photos[1].store_path).exists()
+
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "clean",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+            "--subdir",
+            "2018",
+            "--debug",
+        ],
+    )
+    print("\nCLEAN subdir")
+    print(result.output)
+    assert result.exit_code == 0
+
+    with open(datafiles / "test.json", "rb") as f:
+        s = f.read()
+        db = database.Database.from_json(s)
+    print(db.db)
+
+    for rel_path, checksum in EXPECTED_HASHES.items():
+        if not rel_path.startswith("A") and not rel_path.startswith("B"):
+            continue
+        assert checksum in db.hash_to_uid
+        assert db.hash_to_uid[checksum] in db.photo_db
+        photos = db.photo_db[db.hash_to_uid[checksum]]
+        if rel_path == "A/img4.jpg":
+            assert photos[0].source_path == datafiles / rel_path
+            assert photos[0].store_path != ""
+            assert (datafiles / "pm_store" / photos[0].store_path).exists()
+        elif rel_path == "B/img4.jpg":
+            assert photos[1].source_path == datafiles / rel_path
+            assert photos[1].store_path == ""
+        elif rel_path.startswith("A"):
+            assert photos[0].source_path == datafiles / rel_path
+            assert photos[0].store_path != ""
+            assert (datafiles / "pm_store" / photos[0].store_path).exists()
+        elif rel_path.startswith("B"):
+            assert len(photos) == 2
+            assert photos[1].source_path == datafiles / rel_path
+            assert photos[1].store_path != ""
+            assert (datafiles / "pm_store" / photos[1].store_path).exists()
+
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "clean",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+            "--debug",
+        ],
+    )
+    print("\nCLEAN")
+    print(result.output)
+    assert result.exit_code == 0
+
+    with open(datafiles / "test.json", "rb") as f:
+        s = f.read()
+        db = database.Database.from_json(s)
+    print(db.db)
+    print(list(Path(datafiles / "pm_store").glob("**/*.*")))
+
+    for rel_path, checksum in EXPECTED_HASHES.items():
+        if not rel_path.startswith("A") and not rel_path.startswith("B"):
+            continue
+        assert checksum in db.hash_to_uid
+        assert db.hash_to_uid[checksum] in db.photo_db
+        photos = db.photo_db[db.hash_to_uid[checksum]]
+        if rel_path.startswith("A"):
+            assert photos[0].source_path == datafiles / rel_path
+            assert photos[0].store_path != ""
+            assert (datafiles / "pm_store" / photos[0].store_path).exists()
+        elif rel_path.startswith("B"):
+            assert len(photos) == 2
+            assert photos[1].source_path == datafiles / rel_path
+            assert photos[1].store_path == ""
