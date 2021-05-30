@@ -5,4 +5,3 @@ Changelog for PhotoManager
 ------------------
 
 - [NEW] Initial package creation
-
