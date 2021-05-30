@@ -676,6 +676,12 @@ class Database:
                 for photo in photos
                 if photo.store_path and (directory / photo.store_path).exists()
             )
+            highest_priority_checksums = set(
+                photo.checksum
+                for photo in photos
+                if photo.priority == highest_stored_priority
+                and (directory / photo.store_path).exists()
+            )
             for photo in photos:
                 abs_store_path = directory / photo.store_path
                 if (
@@ -683,8 +689,16 @@ class Database:
                     and photo.store_path
                     and path_is_relative_to(abs_store_path, abs_subdirectory)
                 ):
-                    photos_to_remove.append(photo)
-                    total_file_size += photo.file_size
+                    if photo.checksum not in highest_priority_checksums:
+                        photos_to_remove.append(photo)
+                        total_file_size += photo.file_size
+                    else:
+                        logger.debug(
+                            f"{'Will de-list' if dry_run else 'De-listing'}: "
+                            f"entry {photo.source_path} stored in {abs_store_path}"
+                        )
+                        if not dry_run:
+                            photo.store_path = ""
         print(f"Identified {len(photos_to_remove)} lower-priority items for removal")
         print(f"Total file size: {sizeof_fmt(total_file_size)}")
         for photo in tqdm(photos_to_remove):
