@@ -553,7 +553,7 @@ class Database:
         logger.info("Checking stored photos")
         for uid, photos in tqdm(self.photo_db.items()):
             highest_priority = min(photo.priority for photo in photos)
-            stored_checksums = set()
+            stored_checksums = {}
             photos_marked_as_stored = [photo for photo in photos if photo.store_path]
             highest_priority_photos = [
                 photo
@@ -563,17 +563,26 @@ class Database:
             for photo in photos_marked_as_stored:
                 abs_store_path = directory / photo.store_path
                 if abs_store_path.exists():
-                    stored_checksums.add(photo.checksum)
+                    stored_checksums[photo.checksum] = min(
+                        stored_checksums.get(photo.checksum, photo.priority),
+                        photo.priority,
+                    )
                     num_stored_photos += 1
                 elif os.path.exists(photo.source_path):
                     photos_to_copy.append((photo, None))
-                    stored_checksums.add(photo.checksum)
+                    stored_checksums[photo.checksum] = min(
+                        stored_checksums.get(photo.checksum, photo.priority),
+                        photo.priority,
+                    )
                     num_copied_photos += 1
                 else:
                     logger.warning(f"Photo not found: {photo.source_path}")
                     num_missed_photos += 1
             for photo in highest_priority_photos:
-                if photo.checksum in stored_checksums:
+                if (
+                    photo.checksum in stored_checksums
+                    and photo.priority >= stored_checksums[photo.checksum]
+                ):
                     continue
                 photo_datetime = datetime_str_to_object(photo.datetime)
                 rel_store_path = (
@@ -585,11 +594,17 @@ class Database:
                 if abs_store_path.exists():
                     logger.debug(f"Photo already present: {abs_store_path}")
                     photo.store_path = rel_store_path
-                    stored_checksums.add(photo.checksum)
+                    stored_checksums[photo.checksum] = min(
+                        stored_checksums.get(photo.checksum, photo.priority),
+                        photo.priority,
+                    )
                     num_stored_photos += 1
                 elif os.path.exists(photo.source_path):
                     photos_to_copy.append((photo, rel_store_path))
-                    stored_checksums.add(photo.checksum)
+                    stored_checksums[photo.checksum] = min(
+                        stored_checksums.get(photo.checksum, photo.priority),
+                        photo.priority,
+                    )
                     num_added_photos += 1
                 else:
                     logger.warning(f"Photo not found: {photo.source_path}")
