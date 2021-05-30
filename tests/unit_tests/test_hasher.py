@@ -1,4 +1,5 @@
 from io import BytesIO
+from asyncio import subprocess as subprocess_async
 import random
 import pytest
 from photomanager.hasher_async import file_checksum, AsyncFileHasher
@@ -139,17 +140,53 @@ def test_file_hasher(tmpdir):
 
 
 def test_async_file_hasher(tmpdir):
-    files = []
+    files, sizes = ["asdf.bin"], [0]
     for i, (s, c) in enumerate(checksums):
         filename = tmpdir / f"{i}.bin"
         with open(filename, "wb") as f:
             f.write(s)
         files.append(filename)
+        sizes.append(len(s))
     checksum_cache = AsyncFileHasher(
         algorithm="blake2b-256", use_async=True, batch_size=10
-    ).check_files(files, pbar_unit="B")
+    ).check_files(files, pbar_unit="B", file_sizes=sizes)
     assert len(checksum_cache) == len(checksums)
     for i, (s, c) in enumerate(checksums):
         filename = tmpdir / f"{i}.bin"
         assert filename in checksum_cache
         assert checksum_cache[filename] == c
+
+    checksum_cache = AsyncFileHasher(
+        algorithm="blake2b-256", use_async=True, batch_size=5
+    ).check_files(files, pbar_unit="it")
+    assert len(checksum_cache) == len(checksums)
+    for i, (s, c) in enumerate(checksums):
+        filename = tmpdir / f"{i}.bin"
+        assert filename in checksum_cache
+        assert checksum_cache[filename] == c
+
+    checksum_cache = AsyncFileHasher(
+        algorithm="blake2b-256", use_async=False, batch_size=5
+    ).check_files(files, pbar_unit="it")
+    assert len(checksum_cache) == len(checksums)
+    for i, (s, c) in enumerate(checksums):
+        filename = tmpdir / f"{i}.bin"
+        assert filename in checksum_cache
+        assert checksum_cache[filename] == c
+
+
+def test_async_file_hasher_error(tmpdir, monkeypatch, caplog):
+    files = ["asdf.bin"]
+
+    async def communicate(_=None):
+        return b"f/\x9c checksum", b""
+
+    monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
+    checksum_cache = AsyncFileHasher(
+        algorithm="blake2b-256",
+        use_async=True,
+        batch_size=10,
+    ).check_files(files, pbar_unit="it")
+    print(caplog.records)
+    assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert len(checksum_cache) == 0

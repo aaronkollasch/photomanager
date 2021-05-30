@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import os
 import sys
 from io import IOBase
@@ -129,12 +130,11 @@ class AsyncFileHasher:
                 else:
                     self.pbar.update(len(job.file_paths))
             except (Exception,):
-                print(
+                logging.warning(
                     f"AsyncFileHasher worker encountered an exception!\n"
                     f"hasher command: {self.command}"
                     f"hasher job: {job}\n"
                     f"hasher output: {stdout}",
-                    file=sys.stderr,
                 )
                 traceback.print_exc(file=sys.stderr)
             finally:
