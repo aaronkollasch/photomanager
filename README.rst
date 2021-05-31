@@ -2,6 +2,14 @@
 PhotoManager
 ============
 
+.. image:: https://github.com/aaronkollasch/photomanager/workflows/CI/badge.svg?branch=main
+     :target: https://github.com/aaronkollasch/photomanager/actions?workflow=CI
+     :alt: CI Status
+
+.. image:: https://codecov.io/gh/aaronkollasch/photomanager/branch/main/graph/badge.svg?token=QLC34GSAMR
+     :target: https://codecov.io/gh/aaronkollasch/photomanager
+     :alt: Test Coverage
+
 A manager for photos and other media files,
 inspired by `elodie <https://github.com/jmathai/elodie>`_.
 
