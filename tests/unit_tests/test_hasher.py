@@ -1,5 +1,6 @@
 import asyncio
 from asyncio import subprocess as subprocess_async
+import logging
 from io import BytesIO
 import pytest
 from photomanager import hasher_async
@@ -120,11 +121,80 @@ def test_make_chunks(chunks_test):
     assert chunks == chunks_test["result"]
 
 
+async def nop_cse(*_, **kwargs):
+    loop = asyncio.events.get_event_loop()
+    loop.set_debug(True)
+
+    def protocol_factory():
+        return subprocess_async.SubprocessStreamProtocol(limit=2 ** 16, loop=loop)
+
+    transport, protocol = await loop.subprocess_exec(protocol_factory, "true", **kwargs)
+    return subprocess_async.Process(transport, protocol, loop)
+
+
+def test_async_file_hasher_img(monkeypatch, caplog):
+    async def communicate(_=None):
+        return b"ba4f25bf16ba4be6bc7d3276fafeb img1.jpg\n", b""
+
+    monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+    monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
+    caplog.set_level(logging.DEBUG)
+    checksum_cache = hasher_async.AsyncFileHasher(
+        algorithm="blake2b-256",
+        use_async=True,
+        batch_size=1,
+    ).check_files(["img1.jpg"], pbar_unit="it")
+    print([(r.levelname, r) for r in caplog.records])
+    print(checksum_cache)
+    assert not any(record.levelname == "WARNING" for record in caplog.records)
+    assert len(checksum_cache) == 1
+    assert "img1.jpg" in checksum_cache
+    assert checksum_cache["img1.jpg"] == "ba4f25bf16ba4be6bc7d3276fafeb"
+
+
+def test_async_file_hasher_empty(monkeypatch, caplog):
+    async def communicate(_=None):
+        return b"\n", b""
+
+    monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+    monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
+    caplog.set_level(logging.DEBUG)
+    checksum_cache = hasher_async.AsyncFileHasher(
+        algorithm="blake2b-256",
+        use_async=True,
+        batch_size=10,
+    ).check_files(["asdf.bin"], pbar_unit="it")
+    print([(r.levelname, r) for r in caplog.records])
+    print(checksum_cache)
+    assert not any(record.levelname == "WARNING" for record in caplog.records)
+    assert len(checksum_cache) == 0
+
+
+def test_async_file_hasher_unicode_error(monkeypatch, caplog):
+    async def communicate(_=None):
+        return b"f/\x9c file.txt\n", b""
+
+    monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+    monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
+    caplog.set_level(logging.DEBUG)
+    checksum_cache = hasher_async.AsyncFileHasher(
+        algorithm="blake2b-256",
+        use_async=True,
+        batch_size=10,
+    ).check_files(["asdf.bin"], pbar_unit="it")
+    print([(r.levelname, r) for r in caplog.records])
+    print(checksum_cache)
+    assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert any("UnicodeDecodeError" in record.message for record in caplog.records)
+    assert len(checksum_cache) == 0
+
+
 def test_async_file_hasher_interrupt(monkeypatch):
     async def communicate(_=None):
         await asyncio.sleep(5)
-        return b"img.jpg checksum\n", b""
+        return b"checksum img.jpg\n", b""
 
+    monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
     monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
     hasher = hasher_async.AsyncFileHasher(
         algorithm="blake2b-256",
@@ -139,4 +209,5 @@ def test_async_file_hasher_interrupt(monkeypatch):
     monkeypatch.setattr(asyncio.Queue, "join", join)
     all_jobs = [hasher_async.FileHasherJob(file_paths=[b"img.jpg"])]
     checksum_cache = asyncio.run(hasher.execute_queue(all_jobs=all_jobs))
+    print(checksum_cache)
     assert len(checksum_cache) == 0

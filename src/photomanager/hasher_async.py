@@ -115,15 +115,16 @@ class AsyncFileHasher:
 
     async def worker(self):
         while True:
+            stdout = None
             job = await self.queue.get()
-            process = await subprocess_async.create_subprocess_exec(
-                *self.command,
-                *job.file_paths,
-                stdout=subprocess_async.PIPE,
-                stderr=subprocess_async.DEVNULL,
-            )
-            stdout, stderr = await process.communicate()
             try:
+                process = await subprocess_async.create_subprocess_exec(
+                    *self.command,
+                    *job.file_paths,
+                    stdout=subprocess_async.PIPE,
+                    stderr=subprocess_async.DEVNULL,
+                )
+                stdout, stderr = await process.communicate()
                 for line in stdout.decode("utf-8").splitlines(keepends=False):
                     if line.strip():
                         checksum, path = line.split(maxsplit=1)

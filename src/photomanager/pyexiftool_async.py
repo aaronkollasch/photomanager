@@ -54,7 +54,7 @@ Example usage::
 """
 
 from __future__ import unicode_literals
-
+import pprint
 import logging
 import os
 import asyncio
@@ -108,27 +108,28 @@ class AsyncExifTool(object):
         process = None
         try:
             while True:
+                outputs = [b"None"]
                 params = await self.queue.get()
-                if process is None:
-                    process = await subprocess.create_subprocess_exec(
-                        self.executable,
-                        "-stay_open",
-                        "True",
-                        "-@",
-                        "-",
-                        "-common_args",
-                        "-G",
-                        "-n",
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.DEVNULL,
-                    )
-                process.stdin.write(b"\n".join(params + (b"-execute\n",)))
-                await process.stdin.drain()
-                outputs = [b""]
-                while not outputs[-1][-32:].strip().endswith(sentinel):
-                    outputs.append(await process.stdout.read(block_size))
                 try:
+                    if process is None:
+                        process = await subprocess.create_subprocess_exec(
+                            self.executable,
+                            "-stay_open",
+                            "True",
+                            "-@",
+                            "-",
+                            "-common_args",
+                            "-G",
+                            "-n",
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL,
+                        )
+                    process.stdin.write(b"\n".join(params + (b"-execute\n",)))
+                    await process.stdin.drain()
+                    outputs = [b""]
+                    while not outputs[-1][-32:].strip().endswith(sentinel):
+                        outputs.append(await process.stdout.read(block_size))
                     output = b"".join(outputs).strip()[: -len(sentinel)]
                     output = orjson.loads(output)
                     for d in output:
@@ -142,7 +143,7 @@ class AsyncExifTool(object):
                         f"AsyncExifTool worker encountered an exception!\n"
                         f"exiftool params: {self.executable} {params}\n"
                         f"exiftool output: {b''.join(outputs)}\n"
-                        f"{traceback.format_exc()}",
+                        f"{pprint.pformat(traceback.format_exc())}",
                     )
                 finally:
                     self.queue.task_done()

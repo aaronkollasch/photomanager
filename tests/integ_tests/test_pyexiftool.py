@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from asyncio import subprocess as subprocess_async
 import pytest
 from photomanager import pyexiftool, pyexiftool_async
 
@@ -56,32 +55,6 @@ def test_pyexiftool_nonexistent_file(tmpdir, caplog):
             tag="EXIF:DateTimeOriginal", filenames=[str(tmpdir / "asdf.jpg")]
         )
         assert any(record.levelname == "WARNING" for record in caplog.records)
-
-
-def test_async_pyexiftool_error(tmpdir, monkeypatch, caplog):
-    files = ["asdf.bin"]
-
-    async def communicate(_=None):
-        return b"\n", b""
-
-    monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
-    metadata = pyexiftool_async.AsyncExifTool(
-        batch_size=10,
-    ).get_metadata_batch(files)
-    print([(r.levelname, r) for r in caplog.records])
-    assert len(metadata) == 0
-    caplog.records.clear()
-
-    async def communicate(_=None):
-        return b"f/\x9c checksum\n", b""
-
-    monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
-    metadata = pyexiftool_async.AsyncExifTool(
-        batch_size=10,
-    ).get_metadata_batch(files)
-    print([(r.levelname, r) for r in caplog.records])
-    assert any(record.levelname == "WARNING" for record in caplog.records)
-    assert len(metadata) == 0
 
 
 @ALL_IMG_DIRS
