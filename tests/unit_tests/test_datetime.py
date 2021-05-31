@@ -87,12 +87,50 @@ best_datetime_expected_results = [
     },
     {
         "metadata": {
+            "SourceFile": "/images/img7.HEIC",
+            "XMP:DateTimeOriginal": "2021:02:08 21:45:02",
+            "XMP:CreateDate": "2021:02:08 21:45:01",
+            "File:FileCreateDate": "2021:02:08 23:19:05-05:00",
+            "File:FileModifyDate": "2021:02:08 23:19:05-05:00",
+        },
+        "best_datetime": "2021:02:08 21:45:02",
+    },
+    {
+        "metadata": {
+            "SourceFile": "/images/img7.HEIC",
+            "EXIF:CreationDate": "2021:02:08 21:45:02",
+            "XMP:CreateDate": "2021:02:08 21:45:01",
+            "File:FileCreateDate": "2021:02:08 23:19:05-05:00",
+            "File:FileModifyDate": "2021:02:08 23:19:05-05:00",
+        },
+        "best_datetime": "2021:02:08 21:45:02",
+    },
+    {
+        "metadata": {
             "SourceFile": "/images/img8.MP4",
             "QuickTime:CreateDate": "2020:05:20 17:39:39",
             "File:FileCreateDate": "2020:05:20 12:39:39-04:00",
             "File:FileModifyDate": "2020:05:20 12:39:39-04:00",
         },
         "best_datetime": "2020:05:20 17:39:39",
+    },
+    {
+        "metadata": {
+            "SourceFile": "/images/img8.MP4",
+            "QuickTime:CreateDate": "0000:05:20 12:39:39",
+            "File:FileCreateDate": "2020:05:20 12:39:39-04:00",
+            "File:FileModifyDate": "2020:05:20 12:39:39-04:00",
+        },
+        "best_datetime": "2020:05:20 12:39:39-04:00",
+    },
+    {
+        "metadata": {
+            "SourceFile": "/images/img8.MP4",
+            "QuickTime:CreateDate": "0000:00:00 00:00:00",
+            "File:FileCreateDate": "0000:05:20 12:39:39",
+            "File:FileModifyDate": "2020:05:20 12:39:39-04:00",
+        },
+        "best_datetime": "2020:05:20 12:39:39-04:00",
     },
     {
         "metadata": {

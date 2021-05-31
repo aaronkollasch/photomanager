@@ -142,6 +142,10 @@ class Singleton(type):
             cls.instance = super(Singleton, cls).__call__(*args, **kwargs)
         return cls.instance
 
+    def clear(cls):
+        # del cls.instance
+        cls.instance = None
+
 
 class ExifTool(object, metaclass=Singleton):
     """Run the `exiftool` command-line tool and communicate to it.
@@ -180,10 +184,7 @@ class ExifTool(object, metaclass=Singleton):
     """
 
     def __init__(self, executable_=None):
-        if executable_ is None:
-            self.executable = executable
-        else:
-            self.executable = executable_
+        self.executable = executable if executable_ is None else executable_
         self.running = False
         self._process = None
 
@@ -198,22 +199,21 @@ class ExifTool(object, metaclass=Singleton):
         if self.running:
             warnings.warn("ExifTool already running; doing nothing.")
             return
-        with open(os.devnull, "w") as devnull:
-            self._process = subprocess.Popen(
-                [
-                    self.executable,
-                    "-stay_open",
-                    "True",
-                    "-@",
-                    "-",
-                    "-common_args",
-                    "-G",
-                    "-n",
-                ],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=devnull,
-            )
+        self._process = subprocess.Popen(
+            [
+                self.executable,
+                "-stay_open",
+                "True",
+                "-@",
+                "-",
+                "-common_args",
+                "-G",
+                "-n",
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
         self.running = True
 
     def terminate(self):

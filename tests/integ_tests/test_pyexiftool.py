@@ -34,10 +34,12 @@ def test_pyexiftool_get_tag(datafiles, tag, caplog):
     caplog.set_level(logging.DEBUG)
     print(datafiles.listdir())
     with pyexiftool.ExifTool() as exiftool:
-        assert (
-            exiftool.get_tag(tag=tag["tag"], filename=str(datafiles / tag["filename"]))
-            == tag["value"]
-        )
+        filename = str(datafiles / tag["filename"])
+        new_tag = exiftool.get_tag(tag=tag["tag"], filename=filename)
+        assert new_tag == tag["value"]
+        new_tags = exiftool.get_tags(tags=[tag["tag"]], filename=filename)
+        print(new_tags)
+        assert new_tags == {"SourceFile": filename, tag["tag"]: tag["value"]}
 
 
 def test_pyexiftool_nonexistent_file(tmpdir, caplog):
@@ -55,6 +57,9 @@ def test_pyexiftool_nonexistent_file(tmpdir, caplog):
             tag="EXIF:DateTimeOriginal", filenames=[str(tmpdir / "asdf.jpg")]
         )
         assert any(record.levelname == "WARNING" for record in caplog.records)
+    with pytest.raises(ValueError):
+        exiftool.execute()
+    pyexiftool.Singleton.clear(pyexiftool.ExifTool)
 
 
 @ALL_IMG_DIRS
@@ -80,3 +85,5 @@ def test_async_pyexiftool_nonexistent_file(tmpdir, caplog):
     )
     assert tags == {}
     assert any(record.levelname == "WARNING" for record in caplog.records)
+    exiftool.terminate()
+    exiftool.terminate()
