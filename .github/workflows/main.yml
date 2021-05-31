@@ -41,6 +41,18 @@ jobs:
 
       - name: "Run tox targets for ${{ matrix.python-version }}"
         run: "python -m tox"
+      
+      - name: "Combine coverage"
+        run: |
+          set -xe
+          python -m coverage combine
+          python -m coverage xml          
+        if: "contains(env.USING_COVERAGE, matrix.python-version)"
+      - name: "Upload coverage to Codecov"
+        if: "contains(env.USING_COVERAGE, matrix.python-version)"
+        uses: "codecov/codecov-action@v1"
+        with:
+          fail_ci_if_error: true
 
   package:
     name: "Build & verify package"
