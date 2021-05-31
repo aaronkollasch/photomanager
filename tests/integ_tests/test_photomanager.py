@@ -128,6 +128,7 @@ def test_photomanager_import(datafiles, caplog):
         assert len(photos) == 2
         assert photos[1].source_path == datafiles / rel_path
 
+    s_prev = s
     result = runner.invoke(
         photomanager.main,
         [
@@ -136,7 +137,27 @@ def test_photomanager_import(datafiles, caplog):
             str(datafiles / "test.json"),
             "--priority",
             "10",
-            "--debug",
+            "--dry-run",
+            str(datafiles / "C"),
+        ],
+    )
+    print("\nINDEX C dry-run")
+    print(result.output)
+    print(result)
+    assert result.exit_code == 0
+
+    with open(datafiles / "test.json", "rb") as f:
+        s = f.read()
+        assert s == s_prev
+
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "index",
+            "--db",
+            str(datafiles / "test.json"),
+            "--priority",
+            "10",
             str(datafiles / "C"),
         ],
     )
@@ -168,6 +189,7 @@ def test_photomanager_import(datafiles, caplog):
             str(datafiles / "test.json"),
             "--destination",
             str(datafiles / "pm_store"),
+            "--collect-db",
             "--debug",
         ],
     )
@@ -204,6 +226,25 @@ def test_photomanager_import(datafiles, caplog):
             assert abs_path.exists()
             assert (datafiles / "pm_store" / photos[0].store_path).exists()
 
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "stats",
+            "--db",
+            str(datafiles / "test.json"),
+        ],
+    )
+    print("\nSTATS")
+    print(repr(result.output))
+    print(result)
+    assert result.exit_code == 0
+    assert result.output == (
+        "Total items:        8\n"
+        "Total unique items: 5\n"
+        "Total stored items: 5\n"
+        "Total file size:    3 kB\n"
+    )
+
     # Test behavior if photos are missing or marked as not stored
     with open(datafiles / "test.json", "r+b") as f:
         s = f.read()
@@ -238,8 +279,33 @@ def test_photomanager_import(datafiles, caplog):
         )
         os.remove(datafiles / "pm_store" / img3_tiff.store_path)
         f.seek(0)
-        f.write(db.json)
+        s = db.json
+        f.write(s)
         f.truncate()
+
+    s_prev = s
+    f_prev = set(Path(datafiles / "pm_store").glob("**/*"))
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "collect",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+            "--dry-run",
+            "--debug",
+        ],
+    )
+    print("\nCOLLECT dry-run")
+    print(result.output)
+    print(result)
+    assert result.exit_code == 1
+
+    with open(datafiles / "test.json", "rb") as f:
+        s = f.read()
+        assert s == s_prev
+    assert set(Path(datafiles / "pm_store").glob("**/*")) == f_prev
 
     result = runner.invoke(
         photomanager.main,
@@ -298,6 +364,7 @@ def test_photomanager_verify(datafiles, caplog):
             str(datafiles / "pm_store"),
             "--priority",
             "10",
+            "--collect-db",
             "--debug",
             str(datafiles / "A"),
         ],
@@ -338,7 +405,7 @@ def test_photomanager_verify(datafiles, caplog):
     print(result.output)
     assert result.exit_code == 0
 
-    file_to_mod = next(iter(Path(datafiles / "pm_store").glob("**/*.*")))
+    file_to_mod = next(iter(Path(datafiles / "pm_store").glob("**/*.jpg")))
     file_to_mod.chmod(0o666)
     with open(file_to_mod, "r+b") as f:
         print(file_to_mod)
@@ -421,6 +488,32 @@ def test_photomanager_clean(datafiles, caplog):
         assert photos[0].store_path != ""
         assert abs_path.exists()
         assert (datafiles / "pm_store" / photos[0].store_path).exists()
+
+    s_prev = s
+    f_prev = set(Path(datafiles / "pm_store").glob("**/*"))
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "import",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+            "--priority",
+            "10",
+            "--dry-run",
+            "--debug",
+            str(datafiles / "A"),
+        ],
+    )
+    print("\nIMPORT A dry-run")
+    print(result.output)
+    assert result.exit_code == 0
+
+    with open(datafiles / "test.json", "rb") as f:
+        s = f.read()
+        assert s == s_prev
+    assert set(Path(datafiles / "pm_store").glob("**/*")) == f_prev
 
     result = runner.invoke(
         photomanager.main,
@@ -506,6 +599,29 @@ def test_photomanager_clean(datafiles, caplog):
             assert photos[1].source_path == datafiles / rel_path
             assert photos[1].store_path != ""
             assert (datafiles / "pm_store" / photos[1].store_path).exists()
+
+    s_prev = s
+    f_prev = set(Path(datafiles / "pm_store").glob("**/*"))
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "clean",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+            "--dry-run",
+            "--debug",
+        ],
+    )
+    print("\nCLEAN dry-run")
+    print(result.output)
+    assert result.exit_code == 0
+
+    with open(datafiles / "test.json", "rb") as f:
+        s = f.read()
+        assert s == s_prev
+    assert set(Path(datafiles / "pm_store").glob("**/*")) == f_prev
 
     result = runner.invoke(
         photomanager.main,

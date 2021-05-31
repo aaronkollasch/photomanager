@@ -30,6 +30,16 @@ def test_photomanager_list_files_source(datafiles, caplog):
     assert len(files) == 1
 
 
+@pytest.mark.datafiles(
+    FIXTURE_DIR / "A",
+    keep_top_dir=True,
+)
+def test_photomanager_list_files_paths_exclude(datafiles, caplog):
+    caplog.set_level(logging.DEBUG)
+    files = photomanager.list_files(paths=[str(datafiles / "A")], exclude=["img1"])
+    assert len(files) == 2
+
+
 @pytest.mark.datafiles(FIXTURE_DIR / "A" / "img1.png")
 def test_photomanager_list_files_file(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
@@ -57,5 +67,11 @@ def test_photomanager_main(monkeypatch):
     monkeypatch.setattr(__main__, "__name__", "__main__")
     monkeypatch.setattr(sys, "argv", ["photomanager", "--version"])
     with pytest.raises(SystemExit) as exit_type:
-        __main__.init()
+        __main__._init()
+    assert exit_type.value.code == 0
+
+    monkeypatch.setattr(photomanager, "__name__", "__main__")
+    monkeypatch.setattr(sys, "argv", ["photomanager", "--version"])
+    with pytest.raises(SystemExit) as exit_type:
+        photomanager._init()
     assert exit_type.value.code == 0

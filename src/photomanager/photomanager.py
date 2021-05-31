@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import annotations
+import os
 import sys
 from os import PathLike
 from pathlib import Path
@@ -183,14 +184,14 @@ def _collect(
 ):
     config_logging(debug=debug)
     database = Database.from_file(db)
-    _, _, num_missed, _ = database.collect_to_directory(destination)
+    _, _, num_missed, _ = database.collect_to_directory(destination, dry_run=dry_run)
     database.add_command(shlex.join(sys.argv))
     if not dry_run:
         database.to_file(db)
         if collect_db:
+            os.makedirs(Path(destination) / "database", exist_ok=True)
             database.to_file(Path(destination) / "database" / Path(db).name)
-    if num_missed:
-        sys.exit(1)
+    sys.exit(1 if num_missed else 0)
 
 
 # fmt: off
@@ -238,14 +239,14 @@ def _import(
     database.index_photos(
         files=filtered_files, priority=priority, storage_type=storage_type
     )
-    _, _, num_missed, _ = database.collect_to_directory(destination)
+    _, _, num_missed, _ = database.collect_to_directory(destination, dry_run=dry_run)
     database.add_command(shlex.join(sys.argv))
     if not dry_run:
         database.to_file(db)
         if collect_db:
+            os.makedirs(Path(destination) / "database", exist_ok=True)
             database.to_file(Path(destination) / "database" / Path(db).name)
-    if num_missed:
-        sys.exit(1)
+    sys.exit(1 if num_missed else 0)
 
 
 # fmt: off
@@ -297,8 +298,7 @@ def _verify(
     num_errors = database.verify_stored_photos(
         destination, subdirectory=subdir, storage_type=storage_type
     )
-    if num_errors:
-        sys.exit(1)
+    sys.exit(1 if num_errors else 0)
 
 
 # fmt: off
@@ -332,5 +332,9 @@ main.add_command(_verify)
 main.add_command(_stats)
 
 
-if __name__ == "__main__":
-    main()
+def _init():
+    if __name__ == "__main__":
+        main()
+
+
+_init()

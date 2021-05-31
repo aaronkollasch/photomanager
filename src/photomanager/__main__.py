@@ -1,9 +1,9 @@
 from photomanager.photomanager import main
 
 
-def init():
+def _init():
     if __name__ == "__main__":
         main()
 
 
-init()
+_init()
