@@ -43,6 +43,26 @@ def test_photomanager_create(tmpdir, caplog):
 
 
 @ALL_IMG_DIRS
+def test_photomanager_index_nothing(datafiles, caplog):
+    caplog.set_level(logging.DEBUG)
+    runner = CliRunner()
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "index",
+            "--db",
+            str(datafiles / "test1.json"),
+            "--priority",
+            "10",
+        ],
+    )
+    print("\nINDEX nothing")
+    print(result.output)
+    print(result)
+    assert result.exit_code == 1
+
+
+@ALL_IMG_DIRS
 def test_photomanager_import(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
