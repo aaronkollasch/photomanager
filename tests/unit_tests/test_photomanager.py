@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 import logging
 import pytest
@@ -15,9 +16,7 @@ def test_photomanager_list_files_stdin_source(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     with runner.isolation(input=str(datafiles / "A") + "\n"):
-        files = photomanager.list_files(
-            source='-'
-        )
+        files = photomanager.list_files(source="-")
         assert len(files) == 4
 
 
@@ -27,18 +26,14 @@ def test_photomanager_list_files_stdin_source(datafiles, caplog):
 )
 def test_photomanager_list_files_source(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
-    files = photomanager.list_files(
-        source=str(datafiles / "C")
-    )
+    files = photomanager.list_files(source=str(datafiles / "C"))
     assert len(files) == 1
 
 
 @pytest.mark.datafiles(FIXTURE_DIR / "A" / "img1.png")
 def test_photomanager_list_files_file(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
-    files = photomanager.list_files(
-        file=str(datafiles / "img1.png")
-    )
+    files = photomanager.list_files(file=str(datafiles / "img1.png"))
     assert len(files) == 1
 
 
@@ -49,8 +44,18 @@ def test_photomanager_list_files_file(datafiles, caplog):
 def test_photomanager_list_files_stdin_file(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
-    with runner.isolation(input=str(datafiles / "img1.png") + "\n" + str(datafiles / "img1.jpg") + "\n"):
-        files = photomanager.list_files(
-            file="-"
-        )
+    with runner.isolation(
+        input=str(datafiles / "img1.png") + "\n" + str(datafiles / "img1.jpg") + "\n"
+    ):
+        files = photomanager.list_files(file="-")
     assert len(files) == 2
+
+
+def test_photomanager_main(monkeypatch):
+    from photomanager import __main__
+
+    monkeypatch.setattr(__main__, "__name__", "__main__")
+    monkeypatch.setattr(sys, "argv", ["photomanager", "--version"])
+    with pytest.raises(SystemExit) as exit_type:
+        __main__.init()
+    assert exit_type.value.code == 0
