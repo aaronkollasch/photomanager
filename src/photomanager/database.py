@@ -5,7 +5,7 @@ import stat
 from math import log
 from uuid import uuid4
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, tzinfo
 import shutil
 from dataclasses import dataclass, asdict
 import gzip
@@ -51,17 +51,20 @@ class PhotoFile:
         cls: Type[PF],
         source_path: Union[str, PathLike],
         algorithm: str = DEFAULT_HASH_ALGO,
+        tz_default: Optional[tzinfo] = None,
         priority: int = 10,
     ) -> PF:
         """Create a PhotoFile for a given file
 
         :param source_path: The path to the file
         :param algorithm: The hashing algorithm to use
+        :param tz_default: The time zone to use if none is set
+            (defaults to local time)
         :param priority: The photo's priority
         """
         photo_hash: str = file_checksum(source_path, algorithm)
         dt = get_media_datetime(source_path)
-        timestamp = datetime_str_to_object(dt).timestamp()
+        timestamp = datetime_str_to_object(dt, tz_default=tz_default).timestamp()
         file_size = os.path.getsize(source_path)
         return cls(
             checksum=photo_hash,
@@ -80,6 +83,7 @@ class PhotoFile:
         checksum_cache: dict[str, str],
         datetime_cache: dict[str, str],
         algorithm: str = DEFAULT_HASH_ALGO,
+        tz_default: Optional[tzinfo] = None,
         priority: int = 10,
     ) -> PF:
         """Create a PhotoFile for a given file
@@ -91,6 +95,8 @@ class PhotoFile:
         :param checksum_cache: A mapping of source paths to known checksums
         :param datetime_cache: A mapping of source paths to datetime strings
         :param algorithm: The hashing algorithm to use for new checksums
+        :param tz_default: The time zone to use if none is set
+            (defaults to local time)
         :param priority: The photo's priority
         """
         photo_hash: str = (
@@ -103,7 +109,7 @@ class PhotoFile:
             if source_path in datetime_cache
             else get_media_datetime(source_path)
         )
-        timestamp = datetime_str_to_object(dt).timestamp()
+        timestamp = datetime_str_to_object(dt, tz_default=tz_default).timestamp()
         file_size = os.path.getsize(source_path)
         return cls(
             checksum=photo_hash,
@@ -123,12 +129,13 @@ class PhotoFile:
         return asdict(self)
 
 
-def datetime_str_to_object(ts_str: str) -> datetime:
+def datetime_str_to_object(ts_str: str, tz_default: tzinfo = None) -> datetime:
     """Parses a datetime string into a datetime object"""
+    dt = None
     if "." in ts_str:
         for fmt in ("%Y:%m:%d %H:%M:%S.%f%z", "%Y:%m:%d %H:%M:%S.%f"):
             try:
-                return datetime.strptime(ts_str, fmt)
+                dt = datetime.strptime(ts_str, fmt)
             except ValueError:
                 pass
     else:
@@ -139,9 +146,13 @@ def datetime_str_to_object(ts_str: str) -> datetime:
             "%Y:%m:%d %H:%M",
         ):
             try:
-                return datetime.strptime(ts_str, fmt)
+                dt = datetime.strptime(ts_str, fmt)
             except ValueError:
                 pass
+    if dt is not None:
+        if dt.tzinfo is None:
+            dt.replace(tzinfo=tz_default)
+        return dt
     raise ValueError(f"Could not parse datetime str: {repr(ts_str)}")
 
 
@@ -500,6 +511,7 @@ class Database:
                     checksum_cache=checksum_cache,
                     datetime_cache=datetime_cache,
                     algorithm=self.hash_algorithm,
+                    # TODO add tz_default option
                     priority=priority,
                 )
                 uid = self.find_photo(photo=pf)

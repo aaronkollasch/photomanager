@@ -1,4 +1,5 @@
 from pathlib import Path
+import datetime
 import pytest
 from photomanager import database, pyexiftool
 
@@ -62,5 +63,10 @@ def test_photofile_from_file(datafiles):
             pf = database.PhotoFile.from_dict(pf.to_dict())
             rel_path = pf.source_path
             pf.source_path = str(datafiles / rel_path)
-            new_pf = database.PhotoFile.from_file(pf.source_path)
+            new_pf = database.PhotoFile.from_file(
+                pf.source_path,
+                tz_default=datetime.timezone(
+                    datetime.timedelta(days=-1, seconds=72000)
+                ),
+            )
             assert new_pf == pf

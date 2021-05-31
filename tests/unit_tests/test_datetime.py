@@ -176,7 +176,10 @@ datetime_ts_expected_results = [
 
 @pytest.mark.parametrize("datetime_test", datetime_ts_expected_results)
 def test_datetime_to_timestamp(datetime_test):
-    datetime_obj = datetime_str_to_object(datetime_test["timestamp_str"])
+    datetime_obj = datetime_str_to_object(
+        datetime_test["timestamp_str"],
+        tz_default=datetime.timezone(datetime.timedelta(days=-1, seconds=72000)),
+    )
     assert datetime_obj == datetime_test["datetime_obj"]
     assert datetime_obj.timestamp() == datetime_test["timestamp"]
 

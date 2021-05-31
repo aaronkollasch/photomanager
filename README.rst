@@ -55,8 +55,8 @@ Extras
 ------
 
 The database JSON file can optionally be compressed as a zstd
-or gzip file. 
-Zstd is available in most package managers, e.g. ``brew install zstd``.
+or gzip file. Zstandard is available in most package managers,
+e.g. ``brew install zstd``.
 Filenames ending in ``.gz`` will be read as gzip archives and
 names ending in ``.zst`` will be read as zstd archives.
 
