@@ -122,20 +122,23 @@ def test_best_datetime(datetime_test):
     assert best_datetime(datetime_test["metadata"]) == datetime_test["best_datetime"]
 
 
+DEFAULT_TZ = datetime.timezone(datetime.timedelta(days=-1, seconds=72000))
 datetime_ts_expected_results = [
     {
         "timestamp_str": "2015:08:27 04:09:36.50",
-        "datetime_obj": datetime.datetime(2015, 8, 27, 4, 9, 36, 500000),
+        "datetime_obj": datetime.datetime(
+            2015, 8, 27, 4, 9, 36, 500000, tzinfo=DEFAULT_TZ
+        ),
         "timestamp": 1440662976.5,
     },
     {
         "timestamp_str": "2015:08:27 04:09:36",
-        "datetime_obj": datetime.datetime(2015, 8, 27, 4, 9, 36),
+        "datetime_obj": datetime.datetime(2015, 8, 27, 4, 9, 36, tzinfo=DEFAULT_TZ),
         "timestamp": 1440662976.0,
     },
     {
         "timestamp_str": "2015:08:27 04:09",
-        "datetime_obj": datetime.datetime(2015, 8, 27, 4, 9),
+        "datetime_obj": datetime.datetime(2015, 8, 27, 4, 9, tzinfo=DEFAULT_TZ),
         "timestamp": 1440662940.0,
     },
     {
@@ -160,16 +163,16 @@ datetime_ts_expected_results = [
         "timestamp": 1440662976.5,
     },
     {
-        "timestamp_str": "2015:08:27 04:09-0400",
+        "timestamp_str": "2015:08:27 04:09-0300",
         "datetime_obj": datetime.datetime(
             2015,
             8,
             27,
             4,
             9,
-            tzinfo=datetime.timezone(datetime.timedelta(days=-1, seconds=72000)),
+            tzinfo=datetime.timezone(datetime.timedelta(days=-1, seconds=75600)),
         ),
-        "timestamp": 1440662940.0,
+        "timestamp": 1440659340.0,
     },
 ]
 
@@ -178,7 +181,7 @@ datetime_ts_expected_results = [
 def test_datetime_to_timestamp(datetime_test):
     datetime_obj = datetime_str_to_object(
         datetime_test["timestamp_str"],
-        tz_default=datetime.timezone(datetime.timedelta(days=-1, seconds=72000)),
+        tz_default=DEFAULT_TZ,
     )
     assert datetime_obj == datetime_test["datetime_obj"]
     assert datetime_obj.timestamp() == datetime_test["timestamp"]

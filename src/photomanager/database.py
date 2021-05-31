@@ -151,7 +151,7 @@ def datetime_str_to_object(ts_str: str, tz_default: tzinfo = None) -> datetime:
                 pass
     if dt is not None:
         if dt.tzinfo is None:
-            dt.replace(tzinfo=tz_default)
+            dt = dt.replace(tzinfo=tz_default)
         return dt
     raise ValueError(f"Could not parse datetime str: {repr(ts_str)}")
 
