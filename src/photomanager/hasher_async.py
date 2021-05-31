@@ -104,11 +104,15 @@ class AsyncFileHasher:
         except FileNotFoundError:
             return False
 
+    def __del__(self):
+        self.terminate()
+
     def terminate(self):
-        for task in self.workers:
+        for task in getattr(self, "workers", []):
             task.cancel()
-        if self.pbar:
-            self.pbar.close()
+        pbar = getattr(self, "pbar", None)
+        if pbar:
+            pbar.close()
 
     async def worker(self):
         while True:

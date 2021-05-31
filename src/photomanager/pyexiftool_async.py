@@ -98,7 +98,7 @@ def _fscodec():
         else:
             errors = "surrogateescape"
 
-    def fsencode(filename):
+    def fsencode_fn(filename):
         """
         Encode filename to the filesystem encoding with 'surrogateescape' error
         handler, return bytes unchanged. On Windows, use 'strict' error handler if
@@ -109,7 +109,7 @@ def _fscodec():
         else:
             return filename.encode(encoding, errors)
 
-    return fsencode
+    return fsencode_fn
 
 
 fsencode = _fscodec()

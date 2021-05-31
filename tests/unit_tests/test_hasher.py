@@ -2,7 +2,7 @@ from io import BytesIO
 from asyncio import subprocess as subprocess_async
 import random
 import pytest
-from photomanager.hasher_async import file_checksum, AsyncFileHasher
+from photomanager.hasher_async import file_checksum, AsyncFileHasher, HasherException
 
 checksum_expected_results = [
     {
@@ -32,6 +32,24 @@ checksum_expected_results = [
 def test_file_checksum(checksum):
     with BytesIO(checksum["bytes"]) as f:
         assert file_checksum(f, algorithm=checksum["algorithm"]) == checksum["checksum"]
+
+
+def test_file_checksum_bad_algorithm():
+    with pytest.raises(HasherException):
+        file_checksum("asdf.txt", algorithm="md5")
+
+
+def test_file_hasher_bad_algorithm():
+    with pytest.raises(HasherException):
+        AsyncFileHasher(algorithm="md5")
+
+
+def test_file_hasher_command_available():
+    assert AsyncFileHasher.cmd_available("b2sum")
+    assert AsyncFileHasher.cmd_available(("b2sum", "-l", "256"))
+    assert AsyncFileHasher.cmd_available(("sha256sum",))
+    assert not AsyncFileHasher.cmd_available("nonexistent")
+    assert not AsyncFileHasher.cmd_available(("sh", "-c", "exit 1"))
 
 
 chunker_expected_results = [
@@ -140,13 +158,24 @@ def test_file_hasher(tmpdir):
 
 
 def test_async_file_hasher(tmpdir):
-    files, sizes = ["asdf.bin"], [0]
+    files, sizes = [], []
     for i, (s, c) in enumerate(checksums):
         filename = tmpdir / f"{i}.bin"
         with open(filename, "wb") as f:
             f.write(s)
         files.append(filename)
         sizes.append(len(s))
+    checksum_cache = AsyncFileHasher(
+        algorithm="blake2b-256", use_async=True, batch_size=10
+    ).check_files(files, pbar_unit="B")
+    assert len(checksum_cache) == len(checksums)
+    for i, (s, c) in enumerate(checksums):
+        filename = tmpdir / f"{i}.bin"
+        assert filename in checksum_cache
+        assert checksum_cache[filename] == c
+
+    files.append("asdf.bin")
+    sizes.append(0)
     checksum_cache = AsyncFileHasher(
         algorithm="blake2b-256", use_async=True, batch_size=10
     ).check_files(files, pbar_unit="B", file_sizes=sizes)
@@ -179,7 +208,19 @@ def test_async_file_hasher_error(tmpdir, monkeypatch, caplog):
     files = ["asdf.bin"]
 
     async def communicate(_=None):
-        return b"f/\x9c checksum", b""
+        return b"\n", b""
+
+    monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
+    checksum_cache = AsyncFileHasher(
+        algorithm="blake2b-256",
+        use_async=True,
+        batch_size=10,
+    ).check_files(files, pbar_unit="it")
+    print([(r.levelname, r) for r in caplog.records])
+    assert len(checksum_cache) == 0
+
+    async def communicate(_=None):
+        return b"f/\x9c checksum\n", b""
 
     monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
     checksum_cache = AsyncFileHasher(

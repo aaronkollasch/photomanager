@@ -511,7 +511,7 @@ class Database:
                     num_added_photos += 1
                 else:
                     num_merged_photos += 1
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 tqdm.write(f"Error indexing {current_file}")
                 tb_str = traceback.format_exception(
                     etype=type(e), value=e, tb=e.__traceback__
@@ -829,7 +829,7 @@ class Database:
 
     def make_hash_map(
         self, new_algo: str, hash_map: Optional[dict[str, str]] = None
-    ) -> dict[str, str]:
+    ) -> dict[str, str]:  # pragma: no cover
         """Make a map of file checksums in order to migrate hashing algorithms
 
         Checks source file hashes using the old algorithm to make sure the new hashes
@@ -876,7 +876,7 @@ class Database:
 
     def map_hashes(
         self, new_algo: str, hash_map: dict[str, str], map_all: bool = False
-    ) -> Optional[int]:
+    ) -> Optional[int]:  # pragma: no cover
         """Map the database's checksums to a new algorithm
 
         If a checksum cannot be mapped, it is appended by ':{algorithm}'
@@ -914,7 +914,7 @@ class Database:
         directory: Union[str, PathLike],
         verify: bool = True,
         dry_run: bool = False,
-    ) -> dict[str, str]:
+    ) -> dict[str, str]:  # pragma: no cover
         """Updates filenames to match checksums
         Run after mapping hashes to new algorithm.
         Skips files whose filename checksum matches the stored checksum
