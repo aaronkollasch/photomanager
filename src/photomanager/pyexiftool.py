@@ -56,12 +56,10 @@ Example usage::
 from __future__ import unicode_literals
 
 import logging
-import sys
 import subprocess
 import os
 import orjson
 import warnings
-import codecs
 
 basestring = (bytes, str)
 
@@ -80,37 +78,6 @@ sentinel = b"{ready}"
 # should be fine, though other values might give better performance in
 # some cases.
 block_size = 4096
-
-
-# This code has been adapted from Lib/os.py in the Python source tree
-# (sha1 265e36e277f3)
-def _fscodec():
-    encoding = sys.getfilesystemencoding()
-    errors = "strict"
-    if encoding != "mbcs":
-        try:
-            codecs.lookup_error("surrogateescape")
-        except LookupError:
-            pass
-        else:
-            errors = "surrogateescape"
-
-    def do_fsencode(filename):
-        """
-        Encode filename to the filesystem encoding with 'surrogateescape' error
-        handler, return bytes unchanged. On Windows, use 'strict' error handler if
-        the file system encoding is 'mbcs' (which is the default encoding).
-        """
-        if isinstance(filename, bytes):
-            return filename
-        else:
-            return filename.encode(encoding, errors)
-
-    return do_fsencode
-
-
-fsencode = _fscodec()
-del _fscodec
 
 
 def datetime_is_valid(timestamp: str) -> bool:
@@ -323,7 +290,7 @@ class ExifTool(object, metaclass=Singleton):
         respective Python version – as raw strings in Python 2.x and
         as Unicode strings in Python 3.x.
         """
-        params = map(fsencode, params)
+        params = map(os.fsencode, params)
         s = self.execute(b"-j", *params)
         if len(s) == 0:
             return {}

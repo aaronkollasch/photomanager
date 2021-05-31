@@ -209,7 +209,7 @@ class AsyncFileHasher:
     @staticmethod
     def encode(it: Iterable[Union[str, PathLike]]) -> bytes:
         for item in it:
-            yield str(item).encode()
+            yield os.fsencode(item)
 
     def check_files(
         self,

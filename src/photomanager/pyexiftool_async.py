@@ -57,11 +57,9 @@ from __future__ import unicode_literals
 
 import logging
 import os
-import sys
 import asyncio
 from asyncio import subprocess
 import orjson
-import codecs
 import time
 import traceback
 from tqdm import tqdm
@@ -84,37 +82,6 @@ sentinel = b"{ready}"
 # should be fine, though other values might give better performance in
 # some cases.
 block_size = 4096
-
-
-# This code has been adapted from Lib/os.py in the Python source tree
-# (sha1 265e36e277f3)
-def _fscodec():
-    encoding = sys.getfilesystemencoding()
-    errors = "strict"
-    if encoding != "mbcs":
-        try:
-            codecs.lookup_error("surrogateescape")
-        except LookupError:
-            pass
-        else:
-            errors = "surrogateescape"
-
-    def fsencode_fn(filename):
-        """
-        Encode filename to the filesystem encoding with 'surrogateescape' error
-        handler, return bytes unchanged. On Windows, use 'strict' error handler if
-        the file system encoding is 'mbcs' (which is the default encoding).
-        """
-        if isinstance(filename, bytes):
-            return filename
-        else:
-            return filename.encode(encoding, errors)
-
-    return fsencode_fn
-
-
-fsencode = _fscodec()
-del _fscodec
 
 
 class AsyncExifTool(object):
@@ -187,7 +154,7 @@ class AsyncExifTool(object):
                 await process.communicate(b"-stay_open\nFalse\n")
 
     async def execute_json(self, *params):
-        params = map(fsencode, params)
+        params = map(os.fsencode, params)
         await self.queue.put((b"-j", *params))
 
     async def execute_queue(self, all_params, num_files, mode=None):
