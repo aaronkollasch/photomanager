@@ -55,6 +55,7 @@ Example usage::
 
 from __future__ import unicode_literals
 
+import logging
 import os
 import sys
 import asyncio
@@ -173,13 +174,12 @@ class AsyncExifTool(object):
                             self.output_dict[d["SourceFile"]] = d
                     self.pbar.update(n=len(output))
                 except (Exception,):
-                    print(
+                    logging.warning(
                         f"AsyncExifTool worker encountered an exception!\n"
                         f"exiftool params: {self.executable} {params}\n"
-                        f"exiftool output: {b''.join(outputs)}",
-                        file=sys.stderr,
+                        f"exiftool output: {b''.join(outputs)}\n"
+                        f"{traceback.format_exc()}",
                     )
-                    traceback.print_exc(file=sys.stderr)
                 finally:
                     self.queue.task_done()
         finally:

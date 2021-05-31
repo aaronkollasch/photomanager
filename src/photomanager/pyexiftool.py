@@ -55,6 +55,7 @@ Example usage::
 
 from __future__ import unicode_literals
 
+import logging
 import sys
 import subprocess
 import os
@@ -323,7 +324,10 @@ class ExifTool(object, metaclass=Singleton):
         as Unicode strings in Python 3.x.
         """
         params = map(fsencode, params)
-        return orjson.loads(self.execute(b"-j", *params))
+        s = self.execute(b"-j", *params)
+        if len(s) == 0:
+            return {}
+        return orjson.loads(s)
 
     def get_metadata_batch(self, filenames):
         """Return all meta-data for the given files.
@@ -362,7 +366,10 @@ class ExifTool(object, metaclass=Singleton):
             )
         params = ["-" + t for t in tags]
         params.extend(filenames)
-        return self.execute_json(*params)
+        response = self.execute_json(*params)
+        if len(response) != len(filenames):
+            logging.warning(f"PyExifTool had a missing response in {filenames}")
+        return response
 
     def get_tags(self, tags, filename):
         """Return only specified tags for a single file.

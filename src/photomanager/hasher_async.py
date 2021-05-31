@@ -1,7 +1,6 @@
 from __future__ import annotations
 import logging
 import os
-import sys
 from io import IOBase
 import traceback
 import hashlib
@@ -138,9 +137,9 @@ class AsyncFileHasher:
                     f"AsyncFileHasher worker encountered an exception!\n"
                     f"hasher command: {self.command}"
                     f"hasher job: {job}\n"
-                    f"hasher output: {stdout}",
+                    f"hasher output: {stdout}\n"
+                    f"{traceback.format_exc()}",
                 )
-                traceback.print_exc(file=sys.stderr)
             finally:
                 self.queue.task_done()
 
