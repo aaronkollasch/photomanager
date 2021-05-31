@@ -1,3 +1,5 @@
+import asyncio
+from asyncio import subprocess as subprocess_async
 import pytest
 from photomanager import pyexiftool_async
 
@@ -66,3 +68,23 @@ def test_make_chunks(chunks_test):
     )
     print(chunks)
     assert chunks == chunks_test["result"]
+
+
+def test_async_pyexiftool_interrupt(monkeypatch):
+    async def communicate(_=None):
+        await asyncio.sleep(5)
+        return b"img.jpg checksum\n", b""
+
+    monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
+    tool = pyexiftool_async.AsyncExifTool(
+        batch_size=10,
+    )
+
+    async def join(_=None):
+        await asyncio.sleep(0.01)
+        tool.terminate()
+
+    monkeypatch.setattr(asyncio.Queue, "join", join)
+    all_jobs = [[b"img.jpg"]]
+    checksum_cache = asyncio.run(tool.execute_queue(all_params=all_jobs, num_files=1))
+    assert len(checksum_cache) == 0

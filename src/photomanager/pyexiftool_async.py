@@ -86,10 +86,7 @@ block_size = 4096
 
 class AsyncExifTool(object):
     def __init__(self, executable_=None, num_workers=os.cpu_count(), batch_size=20):
-        if executable_ is None:
-            self.executable = executable
-        else:
-            self.executable = executable_
+        self.executable = executable if executable_ is None else executable_
         self.running = False
         self.output_dict = {}
         self.queue = None

@@ -1,5 +1,8 @@
+import asyncio
+from asyncio import subprocess as subprocess_async
 from io import BytesIO
 import pytest
+from photomanager import hasher_async
 from photomanager.hasher_async import file_checksum, AsyncFileHasher, HasherException
 
 checksum_expected_results = [
@@ -115,3 +118,25 @@ def test_make_chunks(chunks_test):
     )
     print(chunks)
     assert chunks == chunks_test["result"]
+
+
+def test_async_file_hasher_interrupt(monkeypatch):
+    async def communicate(_=None):
+        await asyncio.sleep(5)
+        return b"img.jpg checksum\n", b""
+
+    monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
+    hasher = hasher_async.AsyncFileHasher(
+        algorithm="blake2b-256",
+        use_async=True,
+        batch_size=10,
+    )
+
+    async def join(_=None):
+        await asyncio.sleep(0.01)
+        hasher.terminate()
+
+    monkeypatch.setattr(asyncio.Queue, "join", join)
+    all_jobs = [hasher_async.FileHasherJob(file_paths=[b"img.jpg"])]
+    checksum_cache = asyncio.run(hasher.execute_queue(all_jobs=all_jobs))
+    assert len(checksum_cache) == 0

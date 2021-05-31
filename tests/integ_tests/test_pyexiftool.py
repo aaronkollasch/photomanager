@@ -70,6 +70,7 @@ def test_async_pyexiftool_error(tmpdir, monkeypatch, caplog):
     ).get_metadata_batch(files)
     print([(r.levelname, r) for r in caplog.records])
     assert len(metadata) == 0
+    caplog.records.clear()
 
     async def communicate(_=None):
         return b"f/\x9c checksum\n", b""
@@ -86,7 +87,7 @@ def test_async_pyexiftool_error(tmpdir, monkeypatch, caplog):
 @ALL_IMG_DIRS
 def test_async_pyexiftool_get_tags(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
-    exiftool = pyexiftool_async.AsyncExifTool()
+    exiftool = pyexiftool_async.AsyncExifTool(num_workers=2, batch_size=1)
     tags = exiftool.get_tags_batch(
         tags=list(set(d["tag"] for d in expected_tags)),
         filenames=list(set(str(datafiles / d["filename"]) for d in expected_tags)),

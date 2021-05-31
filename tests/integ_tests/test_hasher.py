@@ -1,4 +1,3 @@
-import asyncio
 from asyncio import subprocess as subprocess_async
 import random
 from io import BytesIO
@@ -117,23 +116,3 @@ def test_async_file_hasher_error(tmpdir, monkeypatch, caplog):
     assert any(record.levelname == "WARNING" for record in caplog.records)
     assert len(checksum_cache) == 0
     caplog.records.clear()
-
-    async def communicate(_=None):
-        await asyncio.sleep(5)
-        return b"img.jpg checksum\n", b""
-
-    monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
-    hasher = hasher_async.AsyncFileHasher(
-        algorithm="blake2b-256",
-        use_async=True,
-        batch_size=10,
-    )
-
-    async def join(_=None):
-        await asyncio.sleep(0.01)
-        hasher.terminate()
-
-    monkeypatch.setattr(asyncio.Queue, "join", join)
-    all_jobs = [hasher_async.FileHasherJob(file_paths=[b"img.jpg"])]
-    checksum_cache = asyncio.run(hasher.execute_queue(all_jobs=all_jobs))
-    assert len(checksum_cache) == 0
