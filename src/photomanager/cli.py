@@ -46,7 +46,8 @@ def config_logging(debug: bool = False):
 @click.option("--hash-algorithm", type=str, default=DEFAULT_HASH_ALGO,
               help=f"Hash algorithm (default={DEFAULT_HASH_ALGO})")
 @click.option("--timezone-default", type=str, default="local",
-              help="Timezone to use when indexing naive photos (default=local)")
+              help="Timezone to use when indexing timezone-naive photos "
+                   "(example=\"-0400\", default=\"local\")")
 # fmt: on
 def _create(
     db: Union[str, PathLike],

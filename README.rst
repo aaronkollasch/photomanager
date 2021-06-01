@@ -10,14 +10,15 @@ PhotoManager
      :target: https://codecov.io/gh/aaronkollasch/photomanager
      :alt: Test Coverage
 
-A manager for photos and other media files,
-inspired by `elodie <https://github.com/jmathai/elodie>`_.
+A manager for photos and other media files.
 
 Indexes photos, adds them to a database, and 
 collects them in a specified directory.
-Verifies stored photos based on their checksum.
+Verifies stored photos against bitrot or modification
+based on their checksum.
 Database is stored in a non-proprietary, human-readable JSON format.
-Will not modify any photos.
+PhotoManager is inspired by `elodie <https://github.com/jmathai/elodie>`_,
+but it is intended for archiving and will not modify any file contents.
 
 Photos are organized by the best available date
 obtained from metadata or file information.
@@ -97,6 +98,7 @@ The database takes this form:
     {
       "version": 1,
       "hash_algorithm": "blake2b-256",
+      "timezone_default": "local",
       "photo_db": {
         "<uid>": [
           "<photo>",
@@ -201,8 +203,8 @@ Use the ``--help`` argument to see instructions for each command
 
 Create database
 ---------------
-`This command is only needed if you want to use a
-non-default hashing algorithm.`
+`This command is only needed if you want to specify a
+non-default hashing algorithm or timezone.`
 
 ::
 
@@ -211,10 +213,12 @@ non-default hashing algorithm.`
       Create an empty database
 
     Options:
-      --db FILE              PhotoManager database path (.json). Add
-                             extensions .zst or .gz to compress.  [required]
-      --hash-algorithm TEXT  Hash algorithm (default=blake2b-256)
-      --help                 Show this message and exit.
+      --db FILE                PhotoManager database path (.json). Add
+                               extensions .zst or .gz to compress.  [required]
+      --hash-algorithm TEXT    Hash algorithm (default=blake2b-256)
+      --timezone-default TEXT  Timezone to use when indexing timezone-naive photos
+                               (example="-0400", default="local")
+      --help                   Show this message and exit.
 
 Index photos
 ------------
