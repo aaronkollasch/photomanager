@@ -31,9 +31,20 @@ checksum_expected_results = [
 
 
 @pytest.mark.parametrize("checksum", checksum_expected_results)
-def test_file_checksum(checksum):
+def test_file_checksum_fd(checksum):
     with BytesIO(checksum["bytes"]) as f:
         assert file_checksum(f, algorithm=checksum["algorithm"]) == checksum["checksum"]
+        assert not f.closed
+
+
+@pytest.mark.parametrize("checksum", checksum_expected_results)
+def test_file_checksum_path(checksum, tmpdir):
+    with open(tmpdir / "test.bin", "wb") as f:
+        f.write(checksum["bytes"])
+    assert (
+        file_checksum(tmpdir / "test.bin", algorithm=checksum["algorithm"])
+        == checksum["checksum"]
+    )
 
 
 def test_file_checksum_bad_algorithm():
@@ -41,12 +52,12 @@ def test_file_checksum_bad_algorithm():
         file_checksum("asdf.txt", algorithm="md5")
 
 
-def test_file_hasher_bad_algorithm():
+def test_async_file_hasher_bad_algorithm():
     with pytest.raises(HasherException):
         AsyncFileHasher(algorithm="md5")
 
 
-def test_file_hasher_command_available():
+def test_async_file_hasher_command_available():
     assert AsyncFileHasher.cmd_available("b2sum")
     assert AsyncFileHasher.cmd_available(("b2sum", "-l", "256"))
     assert AsyncFileHasher.cmd_available(("sha256sum",))

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import logging
 import os
 from io import IOBase
@@ -38,26 +39,23 @@ class HasherException(PhotoManagerBaseException):
     pass
 
 
+def _update_hash_obj(hash_obj, fd):
+    while block := fd.read(BLOCK_SIZE):
+        hash_obj.update(block)
+
+
 def file_checksum(
-    path: Union[str, PathLike, IOBase], algorithm: str = DEFAULT_HASH_ALGO
+    file: Union[bytes, str, PathLike, IOBase], algorithm: str = DEFAULT_HASH_ALGO
 ) -> str:
     if algorithm in HASH_ALGO_DEFINITIONS:
         hash_obj = HASH_ALGO_DEFINITIONS[algorithm]["factory"]()
     else:
         raise HasherException(f"Hash algorithm not supported: {algorithm}")
-    if isinstance(path, IOBase):
-
-        def file_obj():
-            return path
-
+    if isinstance(file, IOBase):
+        _update_hash_obj(hash_obj, file)
     else:
-
-        def file_obj():
-            return open(path, "rb")
-
-    with file_obj() as f:
-        while block := f.read(BLOCK_SIZE):
-            hash_obj.update(block)
+        with open(file, "rb") as f:
+            _update_hash_obj(hash_obj, f)
     return hash_obj.hexdigest()
 
 
