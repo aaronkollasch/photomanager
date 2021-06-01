@@ -128,6 +128,7 @@ def test_photomanager_import(datafiles, caplog):
         assert len(photos) == 2
         assert photos[1].source_path == datafiles / rel_path
 
+    caplog.set_level(logging.INFO)
     s_prev = s
     result = runner.invoke(
         photomanager.main,
@@ -145,6 +146,7 @@ def test_photomanager_import(datafiles, caplog):
     print(result.output)
     print(result)
     assert result.exit_code == 0
+    caplog.set_level(logging.DEBUG)
 
     with open(datafiles / "test.json", "rb") as f:
         s = f.read()
@@ -158,6 +160,7 @@ def test_photomanager_import(datafiles, caplog):
             str(datafiles / "test.json"),
             "--priority",
             "10",
+            "--debug",
             str(datafiles / "C"),
         ],
     )
@@ -179,6 +182,30 @@ def test_photomanager_import(datafiles, caplog):
         photos = db.photo_db[db.hash_to_uid[checksum]]
         assert len(photos) == 1
         assert photos[0].source_path == datafiles / rel_path
+
+    db_prev = db
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "index",
+            "--db",
+            str(datafiles / "test.json"),
+            "--priority",
+            "10",
+            "--debug",
+            str(datafiles / "C"),
+        ],
+    )
+    print("\nINDEX C re-run")
+    print(result.output)
+    print(result)
+    assert result.exit_code == 0
+
+    with open(datafiles / "test.json", "rb") as f:
+        s = f.read()
+        db = database.Database.from_json(s)
+    print(db.db)
+    assert db.photo_db == db_prev.photo_db
 
     os.makedirs(datafiles / "pm_store", exist_ok=True)
     result = runner.invoke(
@@ -278,6 +305,15 @@ def test_photomanager_import(datafiles, caplog):
             if pf.store_path and pf.checksum == EXPECTED_HASHES["C/img3.tiff"]
         )
         os.remove(datafiles / "pm_store" / img3_tiff.store_path)
+        img4_jpg = next(
+            pf
+            for photos in db.photo_db.values()
+            for pf in photos
+            if pf.store_path and pf.checksum == EXPECTED_HASHES["A/img4.jpg"]
+        )
+        os.remove(img4_jpg.source_path)
+        os.remove(datafiles / "pm_store" / img4_jpg.store_path)
+        img4_jpg.store_path = ""
         f.seek(0)
         s = db.json
         f.write(s)
@@ -334,6 +370,11 @@ def test_photomanager_import(datafiles, caplog):
         photos = db.photo_db[db.hash_to_uid[checksum]]
         if rel_path == "A/img2.jpg":
             assert photos[0].source_path == datafiles / rel_path
+            assert photos[0].store_path != ""
+            assert not (datafiles / "pm_store" / photos[0].store_path).exists()
+        elif rel_path == "A/img4.jpg":
+            assert photos[0].source_path == datafiles / rel_path
+            assert photos[0].store_path == ""
         elif rel_path.startswith("A"):
             assert photos[0].source_path == datafiles / rel_path
             assert photos[0].store_path != ""
@@ -445,10 +486,26 @@ def test_photomanager_verify(datafiles, caplog):
     print(result.output)
     assert result.exit_code == 1
 
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "verify",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+            "--storage-type",
+            "RAID",
+        ],
+    )
+    print("\nVERIFY missing async")
+    print(result.output)
+    assert result.exit_code == 1
+
 
 @ALL_IMG_DIRS
 def test_photomanager_clean(datafiles, caplog):
-    caplog.set_level(logging.DEBUG)
+    caplog.set_level(logging.INFO)
     runner = CliRunner()
     os.makedirs(datafiles / "pm_store", exist_ok=True)
     result = runner.invoke(
@@ -461,7 +518,6 @@ def test_photomanager_clean(datafiles, caplog):
             str(datafiles / "pm_store"),
             "--priority",
             "20",
-            "--debug",
             "--storage-type",
             "RAID",
             str(datafiles / "B"),
@@ -470,6 +526,7 @@ def test_photomanager_clean(datafiles, caplog):
     print("\nIMPORT B")
     print(result.output)
     assert result.exit_code == 0
+    caplog.set_level(logging.DEBUG)
 
     with open(datafiles / "test.json", "rb") as f:
         s = f.read()
@@ -555,6 +612,10 @@ def test_photomanager_clean(datafiles, caplog):
             assert photos[1].store_path != ""
             assert (datafiles / "pm_store" / photos[1].store_path).exists()
 
+    assert any(
+        p.name == "2018-08-01_20-28-36-2b0f304-img4.jpg"
+        for p in Path(datafiles / "pm_store").glob("**/*.*")
+    )
     result = runner.invoke(
         photomanager.main,
         [
@@ -570,7 +631,12 @@ def test_photomanager_clean(datafiles, caplog):
     )
     print("\nCLEAN subdir")
     print(result.output)
+    print(list(Path(datafiles / "pm_store").glob("**/*.*")))
     assert result.exit_code == 0
+    assert not any(
+        p.name == "2018-08-01_20-28-36-2b0f304-img4.jpg"
+        for p in Path(datafiles / "pm_store").glob("**/*.*")
+    )
 
     with open(datafiles / "test.json", "rb") as f:
         s = f.read()
@@ -602,6 +668,32 @@ def test_photomanager_clean(datafiles, caplog):
 
     s_prev = s
     f_prev = set(Path(datafiles / "pm_store").glob("**/*"))
+    caplog.set_level(logging.INFO)
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "clean",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+            "--dry-run",
+        ],
+    )
+    caplog.set_level(logging.DEBUG)
+    print("\nCLEAN dry-run")
+    print(result.output)
+    assert result.exit_code == 0
+
+    with open(datafiles / "test.json", "rb") as f:
+        s = f.read()
+        assert s == s_prev
+    assert set(Path(datafiles / "pm_store").glob("**/*")) == f_prev
+
+    os.rename(
+        datafiles / "pm_store" / "2015/08-Aug/2015-08-01_18-28-36-e9fec87-img2.jpg",
+        datafiles / "temp.jpg",
+    )
     result = runner.invoke(
         photomanager.main,
         [
@@ -616,13 +708,34 @@ def test_photomanager_clean(datafiles, caplog):
     )
     print("\nCLEAN dry-run")
     print(result.output)
-    assert result.exit_code == 0
+    assert result.exit_code == 1
+    assert "Missing photo" in result.output
 
-    with open(datafiles / "test.json", "rb") as f:
-        s = f.read()
-        assert s == s_prev
-    assert set(Path(datafiles / "pm_store").glob("**/*")) == f_prev
+    caplog.set_level(logging.INFO)
+    result = runner.invoke(
+        photomanager.main,
+        [
+            "clean",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+            "--dry-run",
+        ],
+    )
+    caplog.set_level(logging.DEBUG)
+    print("\nCLEAN dry-run")
+    print(result.output)
+    assert result.exit_code == 1
+    os.rename(
+        datafiles / "temp.jpg",
+        datafiles / "pm_store" / "2015/08-Aug/2015-08-01_18-28-36-e9fec87-img2.jpg",
+    )
 
+    assert any(
+        p.name == "2015-08-01_18-28-36-e9fec87-img2.jpg"
+        for p in Path(datafiles / "pm_store").glob("**/*.*")
+    )
     result = runner.invoke(
         photomanager.main,
         [
@@ -636,7 +749,12 @@ def test_photomanager_clean(datafiles, caplog):
     )
     print("\nCLEAN")
     print(result.output)
+    print(list(Path(datafiles / "pm_store").glob("**/*.*")))
     assert result.exit_code == 0
+    assert not any(
+        p.name == "2015-08-01_18-28-36-e9fec87-img2.jpg"
+        for p in Path(datafiles / "pm_store").glob("**/*.*")
+    )
 
     with open(datafiles / "test.json", "rb") as f:
         s = f.read()

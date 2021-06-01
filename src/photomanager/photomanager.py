@@ -271,10 +271,13 @@ def _clean(
 ):
     config_logging(debug=debug)
     database = Database.from_file(db)
-    database.clean_stored_photos(destination, subdirectory=subdir, dry_run=dry_run)
+    _, num_missed, _ = database.clean_stored_photos(
+        destination, subdirectory=subdir, dry_run=dry_run
+    )
     database.add_command(shlex.join(sys.argv))
     if not dry_run:
         database.to_file(db)
+    sys.exit(1 if num_missed else 0)
 
 
 # fmt: off

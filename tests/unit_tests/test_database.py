@@ -1,4 +1,5 @@
 import os
+import logging
 from datetime import datetime
 from pathlib import Path
 import orjson
@@ -267,3 +268,136 @@ def test_database_overwrite_error(tmpdir):
     db.to_file(path)
     print(tmpdir.listdir())
     assert (tmpdir / "test_3.json").exists()
+
+
+example_database_json_data2 = b"""{
+"version": 1,
+"hash_algorithm": "sha256",
+"photo_db": {
+    "uid1": [
+        {
+            "checksum": "deadbeef",
+            "source_path": "/a/b/c.jpg",
+            "datetime": "2015:08:27 04:09:36.50",
+            "timestamp": 1440662976.5,
+            "file_size": 1024,
+            "store_path": "/d/e/c.jpg",
+            "priority": 11
+        }
+    ],
+    "uid2": [
+        {
+            "checksum": "aedfaedf",
+            "source_path": "/a/c/c.jpg",
+            "datetime": "2015:08:27 04:09:36.50",
+            "timestamp": 1440662976.5,
+            "file_size": 1024,
+            "store_path": "/d/f/c.jpg",
+            "priority": 11
+        }
+    ]
+},
+"command_history": {"2021-03-08_23-56-00Z": "photomanager create --db test.json"}
+}"""
+
+
+def test_database_find_photo_ambiguous(caplog):
+    caplog.set_level(logging.DEBUG)
+    db = database.Database.from_json(example_database_json_data2)
+    uid = db.find_photo(
+        database.PhotoFile(
+            checksum="not_a_match",
+            source_path="/x/y/c.jpg",
+            datetime="2015:08:27 04:09:36.50",
+            timestamp=1440662976.5,
+            file_size=1024,
+            store_path="",
+            priority=10,
+        )
+    )
+    print([(r.levelname, r) for r in caplog.records])
+    print(uid)
+    assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert any(
+        "ambiguous timestamp+name match" in record.msg for record in caplog.records
+    )
+    assert uid == "uid1"
+
+
+def test_database_add_photo_wrong_uid(caplog):
+    caplog.set_level(logging.DEBUG)
+    db = database.Database.from_json(example_database_json_data2)
+    uid = db.add_photo(
+        database.PhotoFile(
+            checksum="deadbeef",
+            source_path="/x/y/c.jpg",
+            datetime="2015:08:27 04:09:36.50",
+            timestamp=1440662976.5,
+            file_size=1024,
+            store_path="",
+            priority=10,
+        ),
+        uid="uid2",
+    )
+    print([(r.levelname, r) for r in caplog.records])
+    print(uid)
+    assert uid is None
+
+
+def test_database_add_photo_already_present(caplog):
+    caplog.set_level(logging.DEBUG)
+    db = database.Database.from_json(example_database_json_data2)
+    uid = db.add_photo(
+        database.PhotoFile(
+            checksum="deadbeef",
+            source_path="/a/b/c.jpg",
+            datetime="2015:08:27 04:09:36.50",
+            timestamp=1440662976.5,
+            file_size=1024,
+            store_path="",
+            priority=10,
+        ),
+        uid="uid1",
+    )
+    print([(r.levelname, r) for r in caplog.records])
+    print(uid)
+    assert uid is None
+
+
+def test_database_add_photo_same_source_new_checksum(caplog):
+    caplog.set_level(logging.DEBUG)
+    db = database.Database.from_json(example_database_json_data2)
+    uid = db.add_photo(
+        database.PhotoFile(
+            checksum="not_a_match",
+            source_path="/a/b/c.jpg",
+            datetime="2015:08:27 04:09:36.50",
+            timestamp=1440662976.5,
+            file_size=1024,
+            store_path="",
+            priority=10,
+        ),
+        uid="uid1",
+    )
+    print([(r.levelname, r) for r in caplog.records])
+    print(uid)
+    assert uid == "uid1"
+    assert db.hash_to_uid["not_a_match"] == "uid1"
+    print(db.photo_db["uid1"])
+    print([(r.levelname, r) for r in caplog.records])
+    assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert any(
+        "Adding already stored photo with new checksum" in record.msg
+        for record in caplog.records
+    )
+
+
+def test_database_clean_verify_absolute_subdir(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
+    db = database.Database.from_json(example_database_json_data2)
+    with pytest.raises(database.DatabaseException):
+        db.clean_stored_photos(tmpdir / "a", subdirectory=tmpdir / "b")
+    with pytest.raises(database.DatabaseException):
+        db.verify_stored_photos(tmpdir / "a", subdirectory=tmpdir / "b")
+    with pytest.raises(NotImplementedError):
+        db.verify_indexed_photos()
