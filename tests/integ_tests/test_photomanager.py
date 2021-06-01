@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import pytest
 from click.testing import CliRunner
-from photomanager import photomanager, database
+from photomanager import cli, database
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"
 ALL_IMG_DIRS = pytest.mark.datafiles(
@@ -29,7 +29,7 @@ def test_photomanager_create(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmpdir) as td:
-        result = runner.invoke(photomanager.main, ["create", "--db", "test.json"])
+        result = runner.invoke(cli.main, ["create", "--db", "test.json"])
         print(result.output)
         print(list(Path(td).glob("**/*")))
         assert result.exit_code == 0
@@ -47,7 +47,7 @@ def test_photomanager_index_nothing(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "index",
             "--db",
@@ -67,7 +67,7 @@ def test_photomanager_import(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "index",
             "--db",
@@ -98,7 +98,7 @@ def test_photomanager_import(datafiles, caplog):
         assert photos[0].source_path == datafiles / rel_path
 
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "index",
             "--db",
@@ -131,7 +131,7 @@ def test_photomanager_import(datafiles, caplog):
     caplog.set_level(logging.INFO)
     s_prev = s
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "index",
             "--db",
@@ -153,7 +153,7 @@ def test_photomanager_import(datafiles, caplog):
         assert s == s_prev
 
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "index",
             "--db",
@@ -185,7 +185,7 @@ def test_photomanager_import(datafiles, caplog):
 
     db_prev = db
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "index",
             "--db",
@@ -209,7 +209,7 @@ def test_photomanager_import(datafiles, caplog):
 
     os.makedirs(datafiles / "pm_store", exist_ok=True)
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "collect",
             "--db",
@@ -254,7 +254,7 @@ def test_photomanager_import(datafiles, caplog):
             assert (datafiles / "pm_store" / photos[0].store_path).exists()
 
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "stats",
             "--db",
@@ -322,7 +322,7 @@ def test_photomanager_import(datafiles, caplog):
     s_prev = s
     f_prev = set(Path(datafiles / "pm_store").glob("**/*"))
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "collect",
             "--db",
@@ -344,7 +344,7 @@ def test_photomanager_import(datafiles, caplog):
     assert set(Path(datafiles / "pm_store").glob("**/*")) == f_prev
 
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "collect",
             "--db",
@@ -396,7 +396,7 @@ def test_photomanager_verify(datafiles, caplog):
     runner = CliRunner()
     os.makedirs(datafiles / "pm_store", exist_ok=True)
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "import",
             "--db",
@@ -415,7 +415,7 @@ def test_photomanager_verify(datafiles, caplog):
     assert result.exit_code == 0
 
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "verify",
             "--db",
@@ -431,7 +431,7 @@ def test_photomanager_verify(datafiles, caplog):
     assert result.exit_code == 0
 
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "verify",
             "--db",
@@ -458,7 +458,7 @@ def test_photomanager_verify(datafiles, caplog):
     file_to_mod.chmod(0o444)
 
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "verify",
             "--db",
@@ -473,7 +473,7 @@ def test_photomanager_verify(datafiles, caplog):
 
     os.remove(file_to_mod)
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "verify",
             "--db",
@@ -487,7 +487,7 @@ def test_photomanager_verify(datafiles, caplog):
     assert result.exit_code == 1
 
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "verify",
             "--db",
@@ -509,7 +509,7 @@ def test_photomanager_clean(datafiles, caplog):
     runner = CliRunner()
     os.makedirs(datafiles / "pm_store", exist_ok=True)
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "import",
             "--db",
@@ -549,7 +549,7 @@ def test_photomanager_clean(datafiles, caplog):
     s_prev = s
     f_prev = set(Path(datafiles / "pm_store").glob("**/*"))
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "import",
             "--db",
@@ -573,7 +573,7 @@ def test_photomanager_clean(datafiles, caplog):
     assert set(Path(datafiles / "pm_store").glob("**/*")) == f_prev
 
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "import",
             "--db",
@@ -617,7 +617,7 @@ def test_photomanager_clean(datafiles, caplog):
         for p in Path(datafiles / "pm_store").glob("**/*.*")
     )
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "clean",
             "--db",
@@ -670,7 +670,7 @@ def test_photomanager_clean(datafiles, caplog):
     f_prev = set(Path(datafiles / "pm_store").glob("**/*"))
     caplog.set_level(logging.INFO)
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "clean",
             "--db",
@@ -695,7 +695,7 @@ def test_photomanager_clean(datafiles, caplog):
         datafiles / "temp.jpg",
     )
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "clean",
             "--db",
@@ -713,7 +713,7 @@ def test_photomanager_clean(datafiles, caplog):
 
     caplog.set_level(logging.INFO)
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "clean",
             "--db",
@@ -737,7 +737,7 @@ def test_photomanager_clean(datafiles, caplog):
         for p in Path(datafiles / "pm_store").glob("**/*.*")
     )
     result = runner.invoke(
-        photomanager.main,
+        cli.main,
         [
             "clean",
             "--db",

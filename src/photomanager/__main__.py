@@ -1,4 +1,4 @@
-from photomanager.photomanager import main
+from photomanager.cli import main
 
 
 def _init():

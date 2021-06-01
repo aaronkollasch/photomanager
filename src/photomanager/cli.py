@@ -10,7 +10,7 @@ from typing import Union, Optional, Iterable
 import logging
 import click
 from photomanager.database import Database, DEFAULT_HASH_ALGO
-from . import version
+from photomanager import version
 
 
 # fmt: off
