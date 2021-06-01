@@ -1,9 +1,11 @@
 import sys
 from pathlib import Path
 import logging
+import subprocess
+import json
 import pytest
 from click.testing import CliRunner
-from photomanager import cli
+from photomanager import cli, database, version
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"
 
@@ -92,3 +94,84 @@ def test_cli_exit_codes(monkeypatch):
 
 def test_cli_exit_code_no_files(tmpdir):
     assert cli._index(["--db", str(tmpdir / "none.json")], standalone_mode=False) == 1
+
+
+def test_photomanager_bin_install():
+    p = subprocess.Popen(
+        ["photomanager", "--version"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = p.communicate()
+    print(stdout, stderr)
+    print("exit", p.returncode)
+    assert p.returncode == 0
+    assert stdout.strip() == f"photomanager {version}".encode()
+
+
+def test_photomanager_bin_error(tmpdir):
+    p = subprocess.Popen(
+        ["photomanager", "stats", "--db", str(tmpdir / "none.json")],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = p.communicate()
+    print(stdout, stderr)
+    print("exit", p.returncode)
+    assert p.returncode == 1
+    assert b"FileNotFoundError" in stderr
+
+
+def test_cli_create(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmpdir) as td:
+        result = runner.invoke(cli.main, ["create", "--db", "test.json"])
+        print(result.output)
+        print(list(Path(td).glob("**/*")))
+        assert result.exit_code == 0
+        with open(Path(td) / "test.json") as f:
+            s = f.read()
+        print(s)
+        d = json.loads(s)
+        assert d["photo_db"] == {}
+        assert d["version"] == database.Database.VERSION
+        assert d["hash_algorithm"] == database.DEFAULT_HASH_ALGO
+
+
+def test_cli_index_directory_db(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.main,
+        [
+            "index",
+            "--db",
+            str(tmpdir),
+        ],
+    )
+    print("\nINDEX directory db")
+    print(result.output)
+    print(result)
+    assert result.exit_code == 2
+    assert "is a directory" in result.output
+
+
+def test_cli_index_nothing(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.main,
+        [
+            "index",
+            "--db",
+            str(tmpdir / "test1.json"),
+            "--priority",
+            "10",
+        ],
+    )
+    print("\nINDEX nothing")
+    print(result.output)
+    print(result)
+    assert result.exit_code == 1
+    assert "Nothing to index" in result.output
