@@ -447,17 +447,29 @@ class Database:
             if uid is not None and uid != self.hash_to_uid[photo.checksum]:
                 return None
             if any(
-                photo.checksum == pf.checksum and photo.source_path == pf.source_path
-                for pf in self.photo_db[self.hash_to_uid[photo.checksum]]
+                photo.checksum == p.checksum and photo.source_path == p.source_path
+                for p in self.photo_db[self.hash_to_uid[photo.checksum]]
             ):
                 return None
         if uid is None:
             uid = self.hash_to_uid.get(photo.checksum, uuid4().hex)
-        photos = self.photo_db.get(uid, None)
-        if photos is not None:
-            if photo.source_path not in (p.source_path for p in photos):
-                photos.append(photo)
-                photos.sort(key=lambda pf: pf.priority)
+        if uid in self.photo_db:
+            photos = self.photo_db[uid]
+            assert not any(
+                photo.checksum == p.checksum and photo.source_path == p.source_path
+                for p in photos
+            )
+            if checksums := set(
+                p.checksum
+                for p in photos
+                if photo.source_path == p.source_path and photo.checksum != p.checksum
+            ):
+                logging.warning(
+                    f"Adding already stored photo with new checksum: "
+                    f"{repr(photo.checksum)} not in {checksums}"
+                )
+            photos.append(photo)
+            photos.sort(key=lambda pf: pf.priority)
         else:
             self.photo_db[uid] = [photo]
         self.hash_to_uid[photo.checksum] = uid
@@ -591,11 +603,10 @@ class Database:
                     logger.warning(f"Photo not found: {photo.source_path}")
                     num_missed_photos += 1
             for photo in highest_priority_photos:
-                if (
+                assert not (
                     photo.checksum in stored_checksums
                     and photo.priority >= stored_checksums[photo.checksum]
-                ):
-                    continue
+                )
                 photo_datetime = datetime_str_to_object(photo.datetime)
                 rel_store_path = (
                     f"{photo_datetime.strftime('%Y/%m-%b/%Y-%m-%d_%H-%M-%S')}-"
