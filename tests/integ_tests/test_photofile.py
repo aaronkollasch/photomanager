@@ -1,5 +1,5 @@
 from pathlib import Path
-import datetime
+from datetime import timezone, timedelta
 import pytest
 from photomanager import database, pyexiftool
 
@@ -33,6 +33,13 @@ photofile_expected_results = [
         file_size=382,
     ),
     database.PhotoFile(
+        checksum="79ac4a89fb3d81ab1245b21b11ff7512495debca60f6abf9afbb1e1fbfe9d98c",
+        source_path="A/img4.jpg",
+        datetime="2018:08:01 20:28:36",
+        timestamp=1533169716.0,
+        file_size=759,
+    ),
+    database.PhotoFile(
         checksum="d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb",
         source_path="B/img1.jpg",
         datetime="2015:08:01 18:28:36.90",
@@ -45,6 +52,13 @@ photofile_expected_results = [
         datetime="2015:08:01 18:28:36.99",
         timestamp=1438468116.99,
         file_size=789,
+    ),
+    database.PhotoFile(
+        checksum="2b0f304f86655ebd04272cc5e7e886e400b79a53ecfdc789f75dd380cbcc8317",
+        source_path="B/img4.jpg",
+        datetime="2018:08:01 20:28:36",
+        timestamp=1533169716.0,
+        file_size=777,
     ),
     database.PhotoFile(
         checksum="2aca4e78afbcebf2526ad8ac544d90b92991faae22499eec45831ef7be392391",
@@ -65,8 +79,6 @@ def test_photofile_from_file(datafiles):
             pf.source_path = str(datafiles / rel_path)
             new_pf = database.PhotoFile.from_file(
                 pf.source_path,
-                tz_default=datetime.timezone(
-                    datetime.timedelta(days=-1, seconds=72000)
-                ),
+                tz_default=timezone(timedelta(days=-1, seconds=72000)),
             )
             assert new_pf == pf
