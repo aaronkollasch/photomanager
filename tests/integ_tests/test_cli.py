@@ -87,8 +87,7 @@ def test_cli_index_directory_db(tmpdir, caplog):
     assert "is a directory" in result.output
 
 
-@ALL_IMG_DIRS
-def test_cli_index_nothing(datafiles, caplog):
+def test_cli_index_nothing(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     result = runner.invoke(
@@ -96,7 +95,7 @@ def test_cli_index_nothing(datafiles, caplog):
         [
             "index",
             "--db",
-            str(datafiles / "test1.json"),
+            str(tmpdir / "test1.json"),
             "--priority",
             "10",
         ],
@@ -105,6 +104,7 @@ def test_cli_index_nothing(datafiles, caplog):
     print(result.output)
     print(result)
     assert result.exit_code == 1
+    assert "Nothing to index" in result.output
 
 
 @ALL_IMG_DIRS
@@ -277,6 +277,11 @@ def test_cli_import(datafiles, caplog):
         db = database.Database.from_json(s)
     print(db.db)
 
+    collected_dbs = list(Path(datafiles / "pm_store" / "database").glob("test*.json"))
+    assert len(collected_dbs) == 1
+    with open(collected_dbs[0], "rb") as f:
+        assert f.read() == s
+
     for rel_path, checksum in EXPECTED_HASHES.items():
         abs_path = datafiles / rel_path
         assert checksum in db.hash_to_uid
@@ -433,6 +438,97 @@ def test_cli_import(datafiles, caplog):
             assert photos[0].source_path == datafiles / rel_path
             assert photos[0].store_path != ""
             assert (datafiles / "pm_store" / photos[0].store_path).exists()
+
+
+@pytest.mark.datafiles(FIXTURE_DIR / "C", keep_top_dir=True)
+def test_cli_import_no_overwrite(datafiles, caplog):
+    caplog.set_level(logging.DEBUG)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.main,
+        [
+            "index",
+            "--db",
+            str(datafiles / "test.json"),
+            "--priority",
+            "10",
+            "--debug",
+            str(datafiles / "C"),
+        ],
+    )
+    print("\nINDEX C")
+    print(result.output)
+    print(result)
+    assert result.exit_code == 0
+
+    with open(datafiles / "test.json", "rb") as f:
+        s = f.read()
+        db = database.Database.from_json(s)
+    print(db.db)
+
+    os.makedirs(datafiles / "pm_store" / "2018" / "08-Aug", exist_ok=True)
+    with open(
+        datafiles
+        / "pm_store"
+        / "2018"
+        / "08-Aug"
+        / "2018-08-01_19-28-36-2aca4e7-img3.tiff",
+        "w",
+    ) as f:
+        f.write("test_message")
+
+    result = runner.invoke(
+        cli.main,
+        [
+            "collect",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+            "--collect-db",
+            "--debug",
+        ],
+    )
+    print("\nCOLLECT")
+    print(result.output)
+    print(result)
+    assert result.exit_code == 0
+
+    print(list(Path(datafiles / "pm_store").glob("**/*")))
+    with open(
+        datafiles
+        / "pm_store"
+        / "2018"
+        / "08-Aug"
+        / "2018-08-01_19-28-36-2aca4e7-img3.tiff",
+        "r",
+    ) as f:
+        assert f.read() == "test_message"
+
+    with open(datafiles / "test.json", "rb") as f:
+        s = f.read()
+        db = database.Database.from_json(s)
+    print(db.db)
+
+    assert (
+        next(iter(db.photo_db.values()))[0].store_path
+        == "2018/08-Aug/2018-08-01_19-28-36-2aca4e7-img3.tiff"
+    )
+
+    result = runner.invoke(
+        cli.main,
+        [
+            "verify",
+            "--db",
+            str(datafiles / "test.json"),
+            "--destination",
+            str(datafiles / "pm_store"),
+        ],
+    )
+    print("\nVERIFY")
+    print(result.output)
+    print(result)
+    assert result.exit_code == 1
 
 
 @ALL_IMG_DIRS
@@ -736,7 +832,11 @@ def test_cli_clean(datafiles, caplog):
     assert set(Path(datafiles / "pm_store").glob("**/*")) == f_prev
 
     os.rename(
-        datafiles / "pm_store" / "2015/08-Aug/2015-08-01_18-28-36-e9fec87-img2.jpg",
+        datafiles
+        / "pm_store"
+        / "2015"
+        / "08-Aug"
+        / "2015-08-01_18-28-36-e9fec87-img2.jpg",
         datafiles / "temp.jpg",
     )
     result = runner.invoke(
@@ -774,7 +874,11 @@ def test_cli_clean(datafiles, caplog):
     assert result.exit_code == 1
     os.rename(
         datafiles / "temp.jpg",
-        datafiles / "pm_store" / "2015/08-Aug/2015-08-01_18-28-36-e9fec87-img2.jpg",
+        datafiles
+        / "pm_store"
+        / "2015"
+        / "08-Aug"
+        / "2015-08-01_18-28-36-e9fec87-img2.jpg",
     )
 
     assert any(

@@ -833,7 +833,7 @@ class Database:
 
         print(
             f"Checked "
-            f"{num_correct_photos+num_incorrect_photos+num_missing_photos}"
+            f"{num_correct_photos+num_incorrect_photos+num_missing_photos} "
             f"items"
         )
         if num_incorrect_photos or num_missing_photos:
