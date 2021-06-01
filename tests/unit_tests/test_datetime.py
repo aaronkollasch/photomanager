@@ -1,7 +1,7 @@
 import datetime
 import pytest
 from photomanager.pyexiftool import best_datetime
-from photomanager.database import datetime_str_to_object
+from photomanager.database import Database, datetime_str_to_object
 
 
 best_datetime_expected_results = [
@@ -232,3 +232,19 @@ def test_datetime_to_timestamp_errors():
         datetime_str_to_object("2015:08:27 04:09a")
     with pytest.raises(ValueError):
         datetime_str_to_object("2015:08:27 04:09.a")
+
+
+expected_tzinfo = [
+    ("local", None),
+    ("-0400", datetime.timezone(datetime.timedelta(days=-1, seconds=72000))),
+    ("Z", datetime.timezone.utc),
+    ("+1000", datetime.timezone(datetime.timedelta(seconds=36000))),
+    ("wrong", None),
+]
+
+
+@pytest.mark.parametrize("tz_str,tz_info", expected_tzinfo)
+def test_database_timezone_default(tz_str, tz_info):
+    db = Database()
+    db._db["timezone_default"] = tz_str
+    assert db.timezone_default == tz_info

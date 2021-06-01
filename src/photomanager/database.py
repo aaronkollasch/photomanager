@@ -207,13 +207,20 @@ DB = TypeVar("DB", bound="Database")
 
 
 class Database:
-    VERSION = 1
-    DB_KEY_ORDER = ("version", "hash_algorithm", "photo_db", "command_history")
+    VERSION = 2
+    DB_KEY_ORDER = (
+        "version",
+        "hash_algorithm",
+        "timezone_default",
+        "photo_db",
+        "command_history",
+    )
 
     def __init__(self):
         self._db: dict = {
             "version": self.VERSION,
             "hash_algorithm": DEFAULT_HASH_ALGO,
+            "timezone_default": "local",
             "photo_db": {},
             "command_history": {},
         }
@@ -240,6 +247,15 @@ class Database:
         return self.db["photo_db"]
 
     @property
+    def timezone_default(self) -> Optional[tzinfo]:
+        tz_default = self.db.get("timezone_default", "local")
+        if tz_default != "local":
+            try:
+                return datetime.strptime(tz_default, "%z").tzinfo
+            except ValueError:
+                pass
+
+    @property
     def command_history(self) -> dict[str, str]:
         return self.db["command_history"]
 
@@ -249,11 +265,13 @@ class Database:
 
     @db.setter
     def db(self, db: dict):
-        db.setdefault("version", "1")  # legacy dbs are version 1
+        db.setdefault("version", 1)  # legacy dbs are version 1
         db.setdefault("hash_algorithm", "sha256")  # legacy dbs use sha256
+        db.setdefault("timezone_default", "local")  # legacy dbs are in local time
         db = {k: db[k] for k in self.DB_KEY_ORDER}
         for uid in db["photo_db"].keys():
             db["photo_db"][uid] = [PhotoFile.from_dict(d) for d in db["photo_db"][uid]]
+        db["version"] = self.VERSION
         self._db = db
 
         for uid, photos in self.photo_db.items():
@@ -523,7 +541,7 @@ class Database:
                     checksum_cache=checksum_cache,
                     datetime_cache=datetime_cache,
                     algorithm=self.hash_algorithm,
-                    # TODO add tz_default option
+                    tz_default=self.timezone_default,
                     priority=priority,
                 )
                 uid = self.find_photo(photo=pf)

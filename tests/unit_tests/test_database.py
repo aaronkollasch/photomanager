@@ -1,6 +1,6 @@
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import orjson
 import pytest
@@ -104,7 +104,7 @@ def test_sizeof_fmt():
     assert database.sizeof_fmt(1024 ** 5) == "1.00 PB"
 
 
-def test_database_init():
+def test_database_init_v1():
     json_data = b"""{
 "version": 1,
 "hash_algorithm": "sha256",
@@ -133,8 +133,11 @@ def test_database_init():
 "command_history": {"2021-03-08_23-56-00Z": "photomanager create --db test.json"}
 }"""
     db = database.Database.from_json(json_data)
-    assert db.version == 1
+    print(db.db)
+    assert db.version == database.Database.VERSION
     assert db.hash_algorithm == "sha256"
+    assert db.db["timezone_default"] == "local"
+    assert db.timezone_default is None
     photo_db_expected = {
         "d239210f00534b76a2b215e073f75832": [
             database.PhotoFile.from_dict(
@@ -165,17 +168,32 @@ def test_database_init():
         "2021-03-08_23-56-00Z": "photomanager create --db test.json"
     }
     db_expected = {
-        "version": 1,
+        "version": database.Database.VERSION,
         "hash_algorithm": "sha256",
+        "timezone_default": "local",
         "photo_db": photo_db_expected,
         "command_history": command_history_expected,
     }
     assert db.photo_db == photo_db_expected
     assert db.command_history == command_history_expected
-    assert orjson.loads(db.json) == orjson.loads(json_data)
+    assert orjson.loads(db.json) != orjson.loads(json_data)
     assert db.db == db_expected
     assert db == database.Database.from_dict(orjson.loads(json_data))
     assert db.get_stats() == (1, 2, 1, 1024)
+
+
+def test_database_init_v2():
+    json_data = b"""{
+"version": 2,
+"hash_algorithm": "sha256",
+"timezone_default": "-0400",
+"photo_db": {},
+"command_history": {}
+}"""
+    db = database.Database.from_json(json_data)
+    print(db.db)
+    assert db.db["timezone_default"] == "-0400"
+    assert db.timezone_default == timezone(timedelta(days=-1, seconds=72000))
 
 
 example_database_json_data = b"""{
@@ -211,13 +229,13 @@ def test_database_save(tmpdir):
     assert db == db2
 
 
-def test_database_load_error(tmpdir, monkeypatch):
+def test_database_load_zstd_checksum_error(tmpdir, monkeypatch):
     db = database.Database.from_json(example_database_json_data)
     db.to_file(tmpdir / "test.json.zst")
     with open(tmpdir / "test.json.zst", "r+b") as f:
-        f.seek(100)
+        f.seek(4)
         c = f.read(1)
-        f.seek(100)
+        f.seek(4)
         f.write(bytes([ord(c) ^ 0b1]))
     with pytest.raises(zstandard.ZstdError):
         db.from_file(tmpdir / "test.json.zst")

@@ -45,13 +45,17 @@ def config_logging(debug: bool = False):
                    "Add extensions .zst or .gz to compress.")
 @click.option("--hash-algorithm", type=str, default=DEFAULT_HASH_ALGO,
               help=f"Hash algorithm (default={DEFAULT_HASH_ALGO})")
+@click.option("--timezone-default", type=str, default="local",
+              help="Timezone to use when indexing naive photos (default=local)")
 # fmt: on
 def _create(
     db: Union[str, PathLike],
     hash_algorithm: str = DEFAULT_HASH_ALGO,
+    timezone_default: str = "local",
 ):
     database = Database()
     database.hash_algorithm = hash_algorithm
+    database.db["timezone_default"] = timezone_default
     database.add_command(shlex.join(sys.argv))
     database.to_file(db)
 
