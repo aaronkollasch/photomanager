@@ -3,7 +3,7 @@ from pathlib import Path
 import logging
 import pytest
 from click.testing import CliRunner
-from photomanager import photomanager
+from photomanager import cli
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"
 
@@ -12,11 +12,11 @@ FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"
     FIXTURE_DIR / "A",
     keep_top_dir=True,
 )
-def test_photomanager_list_files_stdin_source(datafiles, caplog):
+def test_cli_list_files_stdin_source(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     with runner.isolation(input=str(datafiles / "A") + "\n"):
-        files = photomanager.list_files(source="-")
+        files = cli.list_files(source="-")
         assert len(files) == 4
 
 
@@ -24,9 +24,9 @@ def test_photomanager_list_files_stdin_source(datafiles, caplog):
     FIXTURE_DIR / "C",
     keep_top_dir=True,
 )
-def test_photomanager_list_files_source(datafiles, caplog):
+def test_cli_list_files_source(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
-    files = photomanager.list_files(source=str(datafiles / "C"))
+    files = cli.list_files(source=str(datafiles / "C"))
     assert len(files) == 1
 
 
@@ -34,16 +34,16 @@ def test_photomanager_list_files_source(datafiles, caplog):
     FIXTURE_DIR / "A",
     keep_top_dir=True,
 )
-def test_photomanager_list_files_paths_exclude(datafiles, caplog):
+def test_cli_list_files_paths_exclude(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
-    files = photomanager.list_files(paths=[str(datafiles / "A")], exclude=["img1"])
+    files = cli.list_files(paths=[str(datafiles / "A")], exclude=["img1"])
     assert len(files) == 2
 
 
 @pytest.mark.datafiles(FIXTURE_DIR / "A" / "img1.png")
-def test_photomanager_list_files_file(datafiles, caplog):
+def test_cli_list_files_file(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
-    files = photomanager.list_files(file=str(datafiles / "img1.png"))
+    files = cli.list_files(file=str(datafiles / "img1.png"))
     assert len(files) == 1
 
 
@@ -51,17 +51,17 @@ def test_photomanager_list_files_file(datafiles, caplog):
     FIXTURE_DIR / "A" / "img1.png",
     FIXTURE_DIR / "A" / "img1.jpg",
 )
-def test_photomanager_list_files_stdin_file(datafiles, caplog):
+def test_cli_list_files_stdin_file(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     with runner.isolation(
         input=str(datafiles / "img1.png") + "\n" + str(datafiles / "img1.jpg") + "\n"
     ):
-        files = photomanager.list_files(file="-")
+        files = cli.list_files(file="-")
     assert len(files) == 2
 
 
-def test_photomanager_main(monkeypatch):
+def test_cli_main(monkeypatch):
     from photomanager import __main__
 
     monkeypatch.setattr(__main__, "__name__", "__main__")
@@ -70,8 +70,8 @@ def test_photomanager_main(monkeypatch):
         __main__._init()
     assert exit_type.value.code == 0
 
-    monkeypatch.setattr(photomanager, "__name__", "__main__")
+    monkeypatch.setattr(cli, "__name__", "__main__")
     monkeypatch.setattr(sys, "argv", ["photomanager", "--version"])
     with pytest.raises(SystemExit) as exit_type:
-        photomanager._init()
+        cli._init()
     assert exit_type.value.code == 0

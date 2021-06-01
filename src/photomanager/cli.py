@@ -9,8 +9,8 @@ import re
 from typing import Union, Optional, Iterable
 import logging
 import click
-from photomanager import version
 from photomanager.database import Database, DEFAULT_HASH_ALGO
+from photomanager import version
 
 
 # fmt: off
