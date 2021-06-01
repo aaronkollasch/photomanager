@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import os
 from os import PathLike
 import stat
@@ -17,6 +18,7 @@ from tqdm import tqdm
 import orjson
 import zstandard as zstd
 import xxhash
+from photomanager import PhotoManagerBaseException
 from photomanager.pyexiftool import ExifTool
 from photomanager.pyexiftool_async import AsyncExifTool
 from photomanager.hasher_async import AsyncFileHasher, file_checksum, DEFAULT_HASH_ALGO
@@ -189,10 +191,6 @@ def path_is_relative_to(
         return subpath.is_relative_to(path)
     else:
         return path in subpath.parents
-
-
-class PhotoManagerBaseException(Exception):
-    pass
 
 
 class PhotoManagerException(PhotoManagerBaseException):

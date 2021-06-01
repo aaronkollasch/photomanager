@@ -14,11 +14,7 @@ from collections.abc import Collection, Iterable
 from os import PathLike
 import time
 from tqdm import tqdm
-
-try:
-    from photomanager.database import PhotoManagerBaseException
-except ImportError:
-    PhotoManagerBaseException = Exception
+from photomanager import PhotoManagerBaseException
 
 
 BLOCK_SIZE = 65536

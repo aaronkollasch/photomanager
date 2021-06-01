@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 from __future__ import annotations
-import os
+
 import sys
-from os import PathLike
+from os import makedirs, PathLike
 from pathlib import Path
 import shlex
 import re
@@ -193,7 +193,7 @@ def _collect(
     if not dry_run:
         database.to_file(db)
         if collect_db:
-            os.makedirs(Path(destination) / "database", exist_ok=True)
+            makedirs(Path(destination) / "database", exist_ok=True)
             database.to_file(Path(destination) / "database" / Path(db).name)
     sys.exit(1 if num_missed else 0)
 
@@ -248,7 +248,7 @@ def _import(
     if not dry_run:
         database.to_file(db)
         if collect_db:
-            os.makedirs(Path(destination) / "database", exist_ok=True)
+            makedirs(Path(destination) / "database", exist_ok=True)
             database.to_file(Path(destination) / "database" / Path(db).name)
     sys.exit(1 if num_missed else 0)
 
