@@ -12,7 +12,7 @@ FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"
     FIXTURE_DIR / "A",
     keep_top_dir=True,
 )
-def test_photomanager_list_files_stdin_source(datafiles, caplog):
+def test_cli_list_files_stdin_source(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     with runner.isolation(input=str(datafiles / "A") + "\n"):
@@ -24,7 +24,7 @@ def test_photomanager_list_files_stdin_source(datafiles, caplog):
     FIXTURE_DIR / "C",
     keep_top_dir=True,
 )
-def test_photomanager_list_files_source(datafiles, caplog):
+def test_cli_list_files_source(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     files = cli.list_files(source=str(datafiles / "C"))
     assert len(files) == 1
@@ -34,14 +34,14 @@ def test_photomanager_list_files_source(datafiles, caplog):
     FIXTURE_DIR / "A",
     keep_top_dir=True,
 )
-def test_photomanager_list_files_paths_exclude(datafiles, caplog):
+def test_cli_list_files_paths_exclude(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     files = cli.list_files(paths=[str(datafiles / "A")], exclude=["img1"])
     assert len(files) == 2
 
 
 @pytest.mark.datafiles(FIXTURE_DIR / "A" / "img1.png")
-def test_photomanager_list_files_file(datafiles, caplog):
+def test_cli_list_files_file(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     files = cli.list_files(file=str(datafiles / "img1.png"))
     assert len(files) == 1
@@ -51,7 +51,7 @@ def test_photomanager_list_files_file(datafiles, caplog):
     FIXTURE_DIR / "A" / "img1.png",
     FIXTURE_DIR / "A" / "img1.jpg",
 )
-def test_photomanager_list_files_stdin_file(datafiles, caplog):
+def test_cli_list_files_stdin_file(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     with runner.isolation(
@@ -61,7 +61,7 @@ def test_photomanager_list_files_stdin_file(datafiles, caplog):
     assert len(files) == 2
 
 
-def test_photomanager_main(monkeypatch):
+def test_cli_main(monkeypatch):
     from photomanager import __main__
 
     monkeypatch.setattr(__main__, "__name__", "__main__")

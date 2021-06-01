@@ -25,7 +25,7 @@ EXPECTED_HASHES = {
 }
 
 
-def test_photomanager_create(tmpdir, caplog):
+def test_cli_create(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmpdir) as td:
@@ -43,7 +43,7 @@ def test_photomanager_create(tmpdir, caplog):
 
 
 @ALL_IMG_DIRS
-def test_photomanager_index_nothing(datafiles, caplog):
+def test_cli_index_nothing(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     result = runner.invoke(
@@ -63,7 +63,7 @@ def test_photomanager_index_nothing(datafiles, caplog):
 
 
 @ALL_IMG_DIRS
-def test_photomanager_import(datafiles, caplog):
+def test_cli_import(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     result = runner.invoke(
@@ -391,7 +391,7 @@ def test_photomanager_import(datafiles, caplog):
 
 
 @ALL_IMG_DIRS
-def test_photomanager_verify(datafiles, caplog):
+def test_cli_verify(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     os.makedirs(datafiles / "pm_store", exist_ok=True)
@@ -504,7 +504,7 @@ def test_photomanager_verify(datafiles, caplog):
 
 
 @ALL_IMG_DIRS
-def test_photomanager_clean(datafiles, caplog):
+def test_cli_clean(datafiles, caplog):
     caplog.set_level(logging.INFO)
     runner = CliRunner()
     os.makedirs(datafiles / "pm_store", exist_ok=True)
