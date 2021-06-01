@@ -2,9 +2,10 @@ import json
 import logging
 import os
 from pathlib import Path
+import subprocess
 import pytest
 from click.testing import CliRunner
-from photomanager import cli, database
+from photomanager import cli, database, version
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"
 ALL_IMG_DIRS = pytest.mark.datafiles(
@@ -23,6 +24,17 @@ EXPECTED_HASHES = {
     "B/img4.jpg": "2b0f304f86655ebd04272cc5e7e886e400b79a53ecfdc789f75dd380cbcc8317",
     "C/img3.tiff": "2aca4e78afbcebf2526ad8ac544d90b92991faae22499eec45831ef7be392391",
 }
+
+
+def test_photomanager_bin_install():
+    p = subprocess.Popen(
+        ["photomanager", "--version"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = p.communicate()
+    print(stdout, stderr)
+    assert stdout.strip() == f"photomanager {version}".encode()
 
 
 def test_cli_create(tmpdir, caplog):

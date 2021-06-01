@@ -1,4 +1,8 @@
-from photomanager.cli import main
+from photomanager.cli import main as cli_main
+
+
+def main():
+    cli_main()
 
 
 def _init():
