@@ -104,7 +104,7 @@ def test_sizeof_fmt():
     assert database.sizeof_fmt(1024 ** 5) == "1.00 PB"
 
 
-def test_database_init_v1():
+def test_database_init1():
     json_data = b"""{
 "version": 1,
 "hash_algorithm": "sha256",
@@ -182,9 +182,9 @@ def test_database_init_v1():
     assert db.get_stats() == (1, 2, 1, 1024)
 
 
-def test_database_init_v2():
+def test_database_init2():
     json_data = b"""{
-"version": 2,
+"version": 1,
 "hash_algorithm": "sha256",
 "timezone_default": "-0400",
 "photo_db": {},

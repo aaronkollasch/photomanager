@@ -207,7 +207,7 @@ DB = TypeVar("DB", bound="Database")
 
 
 class Database:
-    VERSION = 2
+    VERSION = 1
     DB_KEY_ORDER = (
         "version",
         "hash_algorithm",
