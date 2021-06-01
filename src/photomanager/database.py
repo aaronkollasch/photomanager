@@ -305,10 +305,10 @@ class Database:
         return db
 
     @classmethod
-    def from_file(cls: Type[DB], path: Union[str, PathLike]) -> DB:
+    def from_file(cls: Type[DB], path: Union[str, PathLike], create_new=False) -> DB:
         """Loads a Database from a path"""
         path = Path(path)
-        if not path.exists():
+        if not path.exists() and create_new:
             logger = logging.getLogger(__name__)
             logger.warning(
                 "Database file does not exist. Starting with blank database."

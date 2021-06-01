@@ -37,6 +37,11 @@ def config_logging(debug: bool = False):
         logging.basicConfig(level=logging.INFO)
 
 
+def click_exit(value: int = 0):
+    ctx = click.get_current_context()
+    ctx.exit(value)
+
+
 # fmt: off
 @click.command("create", help="Create an empty database")
 @click.option("--db", type=click.Path(dir_okay=False), required=True,
@@ -97,9 +102,9 @@ def _index(
     if not source and not file and not paths:
         print("Nothing to index")
         print(click.get_current_context().get_help())
-        sys.exit(1)
+        click_exit(1)
     config_logging(debug=debug)
-    database = Database.from_file(db)
+    database = Database.from_file(db, create_new=True)
     filtered_files = list_files(source=source, file=file, exclude=exclude, paths=paths)
     database.index_photos(
         files=filtered_files, priority=priority, storage_type=storage_type
@@ -196,7 +201,7 @@ def _collect(
         if collect_db:
             makedirs(Path(destination) / "database", exist_ok=True)
             database.to_file(Path(destination) / "database" / Path(db).name)
-    sys.exit(1 if num_missed else 0)
+    click_exit(1 if num_missed else 0)
 
 
 # fmt: off
@@ -239,7 +244,7 @@ def _import(
     collect_db: bool = False,
 ):
     config_logging(debug=debug)
-    database = Database.from_file(db)
+    database = Database.from_file(db, create_new=True)
     filtered_files = list_files(source=source, file=file, exclude=exclude, paths=paths)
     database.index_photos(
         files=filtered_files, priority=priority, storage_type=storage_type
@@ -251,7 +256,7 @@ def _import(
         if collect_db:
             makedirs(Path(destination) / "database", exist_ok=True)
             database.to_file(Path(destination) / "database" / Path(db).name)
-    sys.exit(1 if num_missed else 0)
+    click_exit(1 if num_missed else 0)
 
 
 # fmt: off
@@ -282,7 +287,7 @@ def _clean(
     database.add_command(shlex.join(sys.argv))
     if not dry_run:
         database.to_file(db)
-    sys.exit(1 if num_missed else 0)
+    click_exit(1 if num_missed else 0)
 
 
 # fmt: off
@@ -306,7 +311,7 @@ def _verify(
     num_errors = database.verify_stored_photos(
         destination, subdirectory=subdir, storage_type=storage_type
     )
-    sys.exit(1 if num_errors else 0)
+    click_exit(1 if num_errors else 0)
 
 
 # fmt: off

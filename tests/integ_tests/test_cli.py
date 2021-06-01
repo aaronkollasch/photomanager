@@ -34,7 +34,22 @@ def test_photomanager_bin_install():
     )
     stdout, stderr = p.communicate()
     print(stdout, stderr)
+    print("exit", p.returncode)
+    assert p.returncode == 0
     assert stdout.strip() == f"photomanager {version}".encode()
+
+
+def test_photomanager_bin_error(tmpdir):
+    p = subprocess.Popen(
+        ["photomanager", "stats", "--db", str(tmpdir / "none.json")],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = p.communicate()
+    print(stdout, stderr)
+    print("exit", p.returncode)
+    assert p.returncode == 1
+    assert b"FileNotFoundError" in stderr
 
 
 def test_cli_create(tmpdir, caplog):
@@ -52,6 +67,24 @@ def test_cli_create(tmpdir, caplog):
         assert d["photo_db"] == {}
         assert d["version"] == database.Database.VERSION
         assert d["hash_algorithm"] == database.DEFAULT_HASH_ALGO
+
+
+def test_cli_index_directory_db(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.main,
+        [
+            "index",
+            "--db",
+            str(tmpdir),
+        ],
+    )
+    print("\nINDEX directory db")
+    print(result.output)
+    print(result)
+    assert result.exit_code == 2
+    assert "is a directory" in result.output
 
 
 @ALL_IMG_DIRS

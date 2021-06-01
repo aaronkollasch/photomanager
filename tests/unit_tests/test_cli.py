@@ -70,8 +70,25 @@ def test_cli_main(monkeypatch):
         __main__._init()
     assert exit_type.value.code == 0
 
+    monkeypatch.setattr(sys, "argv", ["photomanager", "--version"])
+    with pytest.raises(SystemExit) as exit_type:
+        __main__.main()
+    assert exit_type.value.code == 0
+
     monkeypatch.setattr(cli, "__name__", "__main__")
     monkeypatch.setattr(sys, "argv", ["photomanager", "--version"])
     with pytest.raises(SystemExit) as exit_type:
         cli._init()
     assert exit_type.value.code == 0
+
+
+def test_cli_exit_codes(monkeypatch):
+    monkeypatch.setattr(cli, "__name__", "__main__")
+    monkeypatch.setattr(sys, "argv", ["photomanager", "index"])
+    with pytest.raises(SystemExit) as exit_type:
+        cli._init()
+    assert exit_type.value.code == 1
+
+
+def test_cli_exit_code_no_files(tmpdir):
+    assert cli._index(["--db", str(tmpdir / "none.json")], standalone_mode=False) == 1
