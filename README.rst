@@ -183,6 +183,11 @@ If the photos are stored on an SSD or RAID array,
 use ``--storage-type SSD`` or ``--storage-type RAID`` and
 multiple files will be verified in parallel.
 
+Note that this can only detect unexpected modifications;
+it cannot undo changes it detects.
+Therefore, backing up the storage directory to at least one
+external backup is recommended.
+
 Usage instructions
 ==================
 
