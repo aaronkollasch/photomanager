@@ -4,6 +4,8 @@ import logging
 import subprocess
 import json
 import pytest
+from typing import cast
+from click import Group
 from click.testing import CliRunner
 from photomanager import cli, database, version
 
@@ -126,7 +128,7 @@ def test_cli_create(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmpdir) as td:
-        result = runner.invoke(cli.main, ["create", "--db", "test.json"])
+        result = runner.invoke(cast(Group, cli.main), ["create", "--db", "test.json"])
         print(result.output)
         print(list(Path(td).glob("**/*")))
         assert result.exit_code == 0
@@ -143,7 +145,7 @@ def test_cli_index_directory_db(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     result = runner.invoke(
-        cli.main,
+        cast(Group, cli.main),
         [
             "index",
             "--db",
@@ -161,7 +163,7 @@ def test_cli_index_nothing(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
     result = runner.invoke(
-        cli.main,
+        cast(Group, cli.main),
         [
             "index",
             "--db",
