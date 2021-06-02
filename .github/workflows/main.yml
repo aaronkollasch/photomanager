@@ -60,12 +60,19 @@ jobs:
 
     steps:
       - uses: "actions/checkout@v2"
+        with:
+          all_tags: true
+#         # pulls all commits (needed for lerna / semantic release to correctly version)
+#         fetch-depth: "0"
+#       - run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
       - uses: "actions/setup-python@v2"
         with:
           python-version: "3.9"
 
-      - name: "Check package version"
-        run: "python setup.py version"
+      - name: "Check git version"
+        run: 
+          git describe --tags --dirty --always
+          python setup.py version
       - name: "Install build and twine"
         run: "python -m pip install build twine"
       - name: "Build package"
