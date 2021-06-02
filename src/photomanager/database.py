@@ -439,10 +439,7 @@ class Database:
                         f"{photo.source_path}: {name_matches}"
                     )
                 return name_matches[0]
-            else:
-                return None
-        else:
-            return None
+        return None
 
     def add_photo(self, photo: PhotoFile, uid: Optional[str]) -> Optional[str]:
         """Adds a photo into the database with specified uid (can be None)
@@ -471,14 +468,14 @@ class Database:
                 photo.checksum == p.checksum and photo.source_path == p.source_path
                 for p in photos
             )
-            if checksums := set(
+            if non_matching_checksums := set(
                 p.checksum
                 for p in photos
                 if photo.source_path == p.source_path and photo.checksum != p.checksum
             ):
                 logging.warning(
-                    f"Adding already stored photo with new checksum: "
-                    f"{repr(photo.checksum)} not in {checksums}"
+                    f"Checksum of previously-indexed source photo has changed: "
+                    f"{repr(photo.checksum)} not in {non_matching_checksums}"
                 )
             photos.append(photo)
             photos.sort(key=lambda pf: pf.priority)

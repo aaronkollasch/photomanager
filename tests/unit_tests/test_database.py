@@ -216,7 +216,8 @@ example_database_json_data = b"""{
 }"""
 
 
-def test_database_save(tmpdir):
+def test_database_save(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
     db = database.Database.from_json(example_database_json_data)
     db.to_file(tmpdir / "test.json")
     db2 = db.from_file(tmpdir / "test.json")
@@ -229,7 +230,8 @@ def test_database_save(tmpdir):
     assert db == db2
 
 
-def test_database_load_zstd_checksum_error(tmpdir, monkeypatch):
+def test_database_load_zstd_checksum_error(tmpdir, monkeypatch, caplog):
+    caplog.set_level(logging.DEBUG)
     db = database.Database.from_json(example_database_json_data)
     db.to_file(tmpdir / "test.json.zst")
     with open(tmpdir / "test.json.zst", "r+b") as f:
@@ -246,7 +248,8 @@ def test_database_load_zstd_checksum_error(tmpdir, monkeypatch):
         db.from_file(tmpdir / "test.json.zst")
 
 
-def test_database_overwrite_error(tmpdir):
+def test_database_overwrite_error(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
     db = database.Database.from_json(example_database_json_data)
     path = Path(tmpdir / "test.json")
     db.to_file(path)
@@ -286,6 +289,53 @@ def test_database_overwrite_error(tmpdir):
     db.to_file(path)
     print(tmpdir.listdir())
     assert (tmpdir / "test_3.json").exists()
+
+
+def test_database_add_photo_sort(caplog):
+    caplog.set_level(logging.DEBUG)
+    db = database.Database.from_json(example_database_json_data)
+    uid = db.add_photo(
+        database.PhotoFile(
+            checksum="deadbeef",
+            source_path="/x/y/c.jpg",
+            datetime="2015:08:27 04:09:36.50",
+            timestamp=1440662976.5,
+            file_size=1024,
+            store_path="",
+            priority=20,
+        ),
+        uid=None,
+    )
+    db.add_photo(
+        database.PhotoFile(
+            checksum="deadbeef",
+            source_path="/z/y/c.jpg",
+            datetime="2015:08:27 04:09:36.50",
+            timestamp=1440662976.5,
+            file_size=1024,
+            store_path="",
+            priority=11,
+        ),
+        uid=None,
+    )
+    db.add_photo(
+        database.PhotoFile(
+            checksum="deadbeef",
+            source_path="/0/1/c.jpg",
+            datetime="2015:08:27 04:09:36.50",
+            timestamp=1440662976.5,
+            file_size=1024,
+            store_path="",
+            priority=10,
+        ),
+        uid=None,
+    )
+    assert list(p.source_path for p in db.photo_db[uid]) == [
+        "/0/1/c.jpg",
+        "/a/b/c.jpg",
+        "/z/y/c.jpg",
+        "/x/y/c.jpg",
+    ]
 
 
 example_database_json_data2 = b"""{
@@ -405,7 +455,7 @@ def test_database_add_photo_same_source_new_checksum(caplog):
     print([(r.levelname, r) for r in caplog.records])
     assert any(record.levelname == "WARNING" for record in caplog.records)
     assert any(
-        "Adding already stored photo with new checksum" in record.msg
+        "Checksum of previously-indexed source photo has changed" in record.msg
         for record in caplog.records
     )
 
