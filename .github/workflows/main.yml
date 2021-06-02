@@ -60,11 +60,10 @@ jobs:
 
     steps:
       - uses: "actions/checkout@v2"
-        with:
-          all_tags: true
+#         with:
 #         # pulls all commits (needed for lerna / semantic release to correctly version)
 #         fetch-depth: "0"
-#       - run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+      - run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
       - uses: "actions/setup-python@v2"
         with:
           python-version: "3.9"
