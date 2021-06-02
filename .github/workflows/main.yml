@@ -67,9 +67,9 @@ jobs:
           git fetch --depth=1 origin +refs/tags/*:refs/tags/*
           last_tag="$(git describe --tags --abbrev=0 --always)"
           echo "last tag: $last_tag"
-          last_tag_date="$(git for-each-ref --format="%(creatordate:unix)" "refs/tags/$last_tag")"
+          last_tag_date="$(git for-each-ref --format="%(creatordate:unix)" "refs/tags/*" | head -n 1)"
           echo "last tag date: $last_tag_date"
-          git fetch --shallow-since $last_tag_date origin
+          git fetch --shallow-since $((last_tag_date-10000)) origin
       - uses: "actions/setup-python@v2"
         with:
           python-version: "3.9"
