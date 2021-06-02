@@ -10,6 +10,10 @@ PhotoManager
      :target: https://codecov.io/gh/aaronkollasch/photomanager
      :alt: Test Coverage
 
+.. image:: https://img.shields.io/lgtm/grade/python/g/aaronkollasch/photomanager.svg?logo=lgtm&logoWidth=18
+     :target: https://lgtm.com/projects/g/aaronkollasch/photomanager/context:python
+     :alt: Language grade: Python
+
 A manager for photos and other media files.
 
 Indexes photos, adds them to a database, and 

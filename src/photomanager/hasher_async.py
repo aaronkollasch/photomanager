@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import logging
-import os
 from io import IOBase
 import traceback
 import hashlib
 from dataclasses import dataclass
-import asyncio
+from asyncio import Queue, gather, create_task, run
 from asyncio import subprocess as subprocess_async
 import subprocess as subprocess_std
 from typing import Union, Optional
 from collections.abc import Collection, Iterable
-from os import PathLike
+from os import PathLike, cpu_count, fsencode
+from os.path import getsize
 import time
 from tqdm import tqdm
 from photomanager import PhotoManagerBaseException
@@ -66,7 +66,7 @@ class AsyncFileHasher:
     def __init__(
         self,
         algorithm: str = DEFAULT_HASH_ALGO,
-        num_workers: int = os.cpu_count(),
+        num_workers: int = cpu_count(),
         batch_size: int = 50,
         use_async: bool = True,
     ):
@@ -143,14 +143,12 @@ class AsyncFileHasher:
         all_jobs: list[FileHasherJob],
         pbar_unit="it",
     ) -> dict[str, str]:
-        self.queue = asyncio.Queue()
+        self.queue = Queue()
         self.workers = []
         if pbar_unit == "B":
             for job in all_jobs:
                 if job.total_size is None:
-                    job.total_size = sum(
-                        os.path.getsize(path) for path in job.file_paths
-                    )
+                    job.total_size = sum(getsize(path) for path in job.file_paths)
             self.pbar = tqdm(
                 total=sum(job.total_size for job in all_jobs),
                 unit="B",
@@ -162,7 +160,7 @@ class AsyncFileHasher:
 
         # Create worker tasks to process the queue concurrently.
         for i in range(self.num_workers):
-            task = asyncio.create_task(self.worker())
+            task = create_task(self.worker())
             self.workers.append(task)
 
         for job in all_jobs:
@@ -178,7 +176,7 @@ class AsyncFileHasher:
         for task in self.workers:
             task.cancel()
         # Wait until all worker tasks are cancelled.
-        await asyncio.gather(*self.workers, return_exceptions=True)
+        await gather(*self.workers, return_exceptions=True)
         self.workers = []
         self.queue = None
         self.pbar.close()
@@ -204,7 +202,7 @@ class AsyncFileHasher:
     @staticmethod
     def encode(it: Iterable[Union[str, PathLike]]) -> bytes:
         for item in it:
-            yield os.fsencode(item)
+            yield fsencode(item)
 
     def check_files(
         self,
@@ -228,7 +226,7 @@ class AsyncFileHasher:
                     total_size=sum(all_sizes[i]) if file_sizes is not None else None,
                 )
                 all_jobs.append(job)
-            return asyncio.run(self.execute_queue(all_jobs, pbar_unit=pbar_unit))
+            return run(self.execute_queue(all_jobs, pbar_unit=pbar_unit))
         else:
             for path in tqdm(file_paths):
                 try:

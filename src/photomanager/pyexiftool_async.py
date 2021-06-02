@@ -57,8 +57,7 @@ from __future__ import unicode_literals
 import pprint
 import logging
 import os
-import asyncio
-from asyncio import subprocess
+from asyncio import subprocess, Task, Queue, gather, run, create_task
 import orjson
 import time
 import traceback
@@ -90,7 +89,7 @@ class AsyncExifTool(object):
         self.running = False
         self.output_dict = {}
         self.queue = None
-        self.workers: list[asyncio.Task] = []
+        self.workers: list[Task] = []
         self.num_workers = num_workers
         self.batch_size = batch_size
         self.pbar = None
@@ -157,12 +156,12 @@ class AsyncExifTool(object):
 
     async def execute_queue(self, all_params, num_files, mode=None):
         self.output_dict = {}
-        self.queue = asyncio.Queue()
+        self.queue = Queue()
         self.pbar = tqdm(total=num_files)
 
         # Create worker tasks to process the queue concurrently.
         for i in range(self.num_workers):
-            task = asyncio.create_task(self.worker(mode=mode))
+            task = create_task(self.worker(mode=mode))
             self.workers.append(task)
 
         for params in all_params:
@@ -177,7 +176,7 @@ class AsyncExifTool(object):
         for task in self.workers:
             task.cancel()
         # Wait until all worker tasks are cancelled.
-        await asyncio.gather(*self.workers, return_exceptions=True)
+        await gather(*self.workers, return_exceptions=True)
         self.workers = []
         self.queue = None
         self.pbar.close()
@@ -207,7 +206,7 @@ class AsyncExifTool(object):
         documentation of :py:meth:`execute_json()`.
         """
         all_params = list(self.make_chunks(filenames, self.batch_size))
-        return asyncio.run(self.execute_queue(all_params, len(filenames)))
+        return run(self.execute_queue(all_params, len(filenames)))
 
     def get_tags_batch(self, tags, filenames):
         """Return only specified tags for the given files.
@@ -222,11 +221,9 @@ class AsyncExifTool(object):
         """
         params = tuple("-" + t for t in tags)
         all_params = list(self.make_chunks(filenames, self.batch_size, init=params))
-        return asyncio.run(self.execute_queue(all_params, len(filenames)))
+        return run(self.execute_queue(all_params, len(filenames)))
 
     def get_best_datetime_batch(self, filenames):
         params = tuple("-" + t for t in datetime_tags)
         all_params = list(self.make_chunks(filenames, self.batch_size, init=params))
-        return asyncio.run(
-            self.execute_queue(all_params, len(filenames), mode="best_datetime")
-        )
+        return run(self.execute_queue(all_params, len(filenames), mode="best_datetime"))
