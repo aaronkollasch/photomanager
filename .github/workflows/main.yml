@@ -72,7 +72,7 @@ jobs:
           last_tag_date="$(git for-each-ref --format="%(creatordate:unix)" "refs/tags/*" | head -n 1)"
           echo "last tag $last_tag_name date: $last_tag_date"
           git fetch --shallow-since $((last_tag_date-1000)) origin
-          git log --date=unix | cat
+          git rev-list --all --remotes --pretty
           git describe --tags  # --always  # fail if no tag found
       - uses: "actions/setup-python@v2"
         with:
