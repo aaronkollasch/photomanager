@@ -1695,7 +1695,7 @@ def get_cmdclass(cmdclass=None):
     # we override different "sdist" commands for both environments
     if 'sdist' in cmds:
         _sdist = cmds['sdist']
-    else: # elif "setuptools" in sys.modules:
+    else:  # elif "setuptools" in sys.modules:
         from setuptools.command.sdist import sdist as _sdist
     # else:
     #     from distutils.command.sdist import sdist as _sdist
@@ -1859,7 +1859,7 @@ def scan_setup_py():
     """Validate the contents of setup.py against Versioneer's expectations."""
     found = set()
     setters = False
-    errors = 0
+    num_errors = 0
     with open("setup.py", "r") as f:
         for line in f.readlines():
             if "import versioneer" in line:
@@ -1882,14 +1882,14 @@ def scan_setup_py():
         print(" setup( version=versioneer.get_version(),")
         print("        cmdclass=versioneer.get_cmdclass(),  ...)")
         print("")
-        errors += 1
+        num_errors += 1
     if setters:
         print("You should remove lines like 'versioneer.VCS = ' and")
         print("'versioneer.versionfile_source = ' . This configuration")
         print("now lives in setup.cfg, and should be removed from setup.py")
         print("")
-        errors += 1
-    return errors
+        num_errors += 1
+    return num_errors
 
 
 if __name__ == "__main__":
