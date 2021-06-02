@@ -13,6 +13,9 @@ from photomanager.database import Database, DEFAULT_HASH_ALGO
 from photomanager import version
 
 
+DEFAULT_DB = "photos.json"
+
+
 # fmt: off
 photo_extensions = {
     "jpeg", "jpg", "png", "apng", "gif", "nef", "cr2", "orf", "tif", "tiff", "ico",
@@ -45,7 +48,7 @@ def click_exit(value: int = 0):
 # fmt: off
 @click.command("create", help="Create an empty database")
 @click.option("--db", type=click.Path(dir_okay=False), required=True,
-              default="./photos.json",
+              default=DEFAULT_DB,
               help="PhotoManager database filepath (.json). "
                    "Add extensions .zst or .gz to compress.")
 @click.option("--hash-algorithm", type=str, default=DEFAULT_HASH_ALGO,
@@ -69,7 +72,7 @@ def _create(
 # fmt: off
 @click.command("index", help="Index and add items to database")
 @click.option("--db", type=click.Path(dir_okay=False), required=True,
-              default="./photos.json",
+              default=DEFAULT_DB,
               help="PhotoManager database filepath (.json). "
                    "Add extensions .zst or .gz to compress.")
 @click.option("--source", type=click.Path(file_okay=False),
@@ -175,7 +178,7 @@ def list_files(
 # fmt: off
 @click.command("collect", help="Collect highest-priority items into storage")
 @click.option("--db", type=click.Path(dir_okay=False), required=True,
-              default="./photos.json", help="PhotoManager database path")
+              default=DEFAULT_DB, help="PhotoManager database path")
 @click.option("--destination", type=click.Path(file_okay=False), required=True,
               help="Photo storage base directory")
 @click.option("--debug", default=False, is_flag=True,
@@ -207,7 +210,7 @@ def _collect(
 # fmt: off
 @click.command("import", help="Index items and collect to directory")
 @click.option("--db", type=click.Path(dir_okay=False), required=True,
-              default="./photos.json",
+              default=DEFAULT_DB,
               help="PhotoManager database filepath (.json). "
                    "Add extensions .zst or .gz to compress.")
 @click.option("--destination", type=click.Path(file_okay=False), required=True,
@@ -262,7 +265,7 @@ def _import(
 # fmt: off
 @click.command("clean", help="Remove lower-priority alternatives of stored items")
 @click.option("--db", type=click.Path(dir_okay=False), required=True,
-              default="./photos.json", help="PhotoManager database path")
+              default=DEFAULT_DB, help="PhotoManager database path")
 @click.option("--destination", type=click.Path(file_okay=False), required=True,
               help="Photo storage base directory")
 @click.option("--subdir", type=str, default="",
@@ -293,7 +296,7 @@ def _clean(
 # fmt: off
 @click.command("verify", help="Verify checksums of stored items")
 @click.option("--db", type=click.Path(dir_okay=False), required=True,
-              default="./photos.json", help="PhotoManager database path")
+              default=DEFAULT_DB, help="PhotoManager database path")
 @click.option("--destination", type=click.Path(file_okay=False), required=True,
               help="Photo storage base directory")
 @click.option("--subdir", type=str, default="",
@@ -317,7 +320,7 @@ def _verify(
 # fmt: off
 @click.command("stats", help="Get database statistics")
 @click.option("--db", type=click.Path(dir_okay=False), required=True,
-              default="./photos.json", help="PhotoManager database path")
+              default=DEFAULT_DB, help="PhotoManager database path")
 # fmt: on
 def _stats(db: Union[str, PathLike]):
     database = Database.from_file(db)

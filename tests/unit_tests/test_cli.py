@@ -177,3 +177,71 @@ def test_cli_index_nothing(tmpdir, caplog):
     print(result)
     assert result.exit_code == 1
     assert "Nothing to index" in result.output
+
+
+def test_cli_no_db(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
+    CliRunner.isolated_filesystem(tmpdir)
+    print(tmpdir.listdir())
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "index",
+                "--priority",
+                "10",
+                "./",
+            ],
+        )
+        print("\nINDEX no-db")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 0
+        assert (Path(fs) / cli.DEFAULT_DB).is_file()
+
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "collect",
+                "--destination",
+                "dest",
+            ],
+        )
+        print("\nCOLLECT no-db")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 0
+
+    with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "import",
+                "--destination",
+                "dest",
+                "--priority",
+                "10",
+                "./",
+            ],
+        )
+        print("\nIMPORT no-db")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 0
+        assert (Path(fs) / cli.DEFAULT_DB).is_file()
+
+    with runner.isolated_filesystem(temp_dir=tmpdir):
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "collect",
+                "--destination",
+                "dest",
+            ],
+        )
+        print("\nCOLLECT no-db")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 1
+        assert isinstance(result.exception, FileNotFoundError)
