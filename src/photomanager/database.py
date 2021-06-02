@@ -193,10 +193,6 @@ def path_is_relative_to(
         return path in subpath.parents
 
 
-class PhotoManagerException(PhotoManagerBaseException):
-    pass
-
-
 class DatabaseException(PhotoManagerBaseException):
     pass
 
