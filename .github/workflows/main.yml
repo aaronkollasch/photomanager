@@ -69,7 +69,7 @@ jobs:
           python-version: "3.9"
 
       - name: "Check git version"
-        run: 
+        run: |
           git describe --tags --dirty --always
           python setup.py version
       - name: "Install build and twine"
