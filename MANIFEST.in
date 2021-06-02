@@ -1,4 +1,4 @@
-include *.rst *.toml
+include LICENSE *.rst *.toml
 graft .github
 recursive-include src *.py
 recursive-include tests *.py
