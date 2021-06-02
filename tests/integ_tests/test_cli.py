@@ -293,7 +293,7 @@ def test_cli_import(datafiles, caplog):
             os.remove(datafiles / "pm_store" / img4_jpg.store_path)
             img4_jpg.store_path = ""
             f.seek(0)
-            s = db.json
+            s = db.to_json(pretty=True)
             f.write(s)
             f.truncate()
 

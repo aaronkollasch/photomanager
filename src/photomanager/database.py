@@ -285,13 +285,20 @@ class Database:
 
     @property
     def json(self) -> bytes:
-        return orjson.dumps(self.db, option=orjson.OPT_INDENT_2)
+        return orjson.dumps(self.db)
 
     @json.setter
     def json(self, json_data: bytes):
         """Sets Database parameters from json data"""
         db = orjson.loads(json_data)
         self.db = db
+
+    def to_json(self, pretty=False) -> bytes:
+        """Get the Database parameters as json data.
+
+        :param pretty: If True, pretty-print the json output.
+        """
+        return orjson.dumps(self.db, option=orjson.OPT_INDENT_2 if pretty else 0)
 
     @classmethod
     def from_json(cls: Type[DB], json_data: bytes) -> DB:
@@ -390,7 +397,7 @@ class Database:
                 path = base_path.with_name(base_path.name + "".join(path.suffixes))
                 logger.info(f"Saving new database to alternate path {path}")
 
-        save_bytes = self.json
+        save_bytes = self.to_json(pretty=True)
         if path.suffix == ".gz":
             with gzip.open(path, "wb", compresslevel=5) as f:
                 f.write(save_bytes)
