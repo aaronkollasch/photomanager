@@ -12,6 +12,12 @@ from photomanager import cli, database, version
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"
 
 
+def check_dir_empty(dir_path):
+    cwd_files = list(Path(dir_path).glob("*"))
+    print(cwd_files)
+    assert len(cwd_files) == 0
+
+
 @pytest.mark.datafiles(
     FIXTURE_DIR / "A",
     keep_top_dir=True,
@@ -98,85 +104,97 @@ def test_cli_exit_code_no_files(tmpdir):
     assert cli._index(["--db", str(tmpdir / "none.json")], standalone_mode=False) == 1
 
 
-def test_photomanager_bin_install():
-    p = subprocess.Popen(
-        ["photomanager", "--version"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    stdout, stderr = p.communicate()
-    print(stdout, stderr)
-    print("exit", p.returncode)
-    assert p.returncode == 0
-    assert stdout.strip() == f"photomanager {version}".encode()
+def test_photomanager_bin_install(tmpdir):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
+        p = subprocess.Popen(
+            ["photomanager", "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdout, stderr = p.communicate()
+        print(stdout, stderr)
+        print("exit", p.returncode)
+        assert p.returncode == 0
+        assert stdout.strip() == f"photomanager {version}".encode()
+        check_dir_empty(fs)
 
 
 def test_photomanager_bin_error(tmpdir):
-    p = subprocess.Popen(
-        ["photomanager", "stats", "--db", str(tmpdir / "none.json")],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    stdout, stderr = p.communicate()
-    print(stdout, stderr)
-    print("exit", p.returncode)
-    assert p.returncode == 1
-    assert b"FileNotFoundError" in stderr
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
+        p = subprocess.Popen(
+            ["photomanager", "stats", "--db", str(tmpdir / "none.json")],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdout, stderr = p.communicate()
+        print(stdout, stderr)
+        print("exit", p.returncode)
+        assert p.returncode == 1
+        assert b"FileNotFoundError" in stderr
+        check_dir_empty(fs)
 
 
 def test_cli_create(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
-    with runner.isolated_filesystem(temp_dir=tmpdir) as td:
-        result = runner.invoke(cast(Group, cli.main), ["create", "--db", "test.json"])
+    with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
+        result = runner.invoke(
+            cast(Group, cli.main), ["create", "--db", str(tmpdir / "test.json")]
+        )
         print(result.output)
-        print(list(Path(td).glob("**/*")))
         assert result.exit_code == 0
-        with open(Path(td) / "test.json") as f:
+        with open(Path(tmpdir) / "test.json") as f:
             s = f.read()
         print(s)
         d = json.loads(s)
         assert d["photo_db"] == {}
         assert d["version"] == database.Database.VERSION
         assert d["hash_algorithm"] == database.DEFAULT_HASH_ALGO
+        check_dir_empty(fs)
 
 
 def test_cli_index_directory_db(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
-    result = runner.invoke(
-        cast(Group, cli.main),
-        [
-            "index",
-            "--db",
-            str(tmpdir),
-        ],
-    )
-    print("\nINDEX directory db")
-    print(result.output)
-    print(result)
-    assert result.exit_code == 2
-    assert "is a directory" in result.output
+    with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "index",
+                "--db",
+                str(tmpdir),
+            ],
+        )
+        print("\nINDEX directory db")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 2
+        assert "is a directory" in result.output
+        check_dir_empty(fs)
 
 
 def test_cli_index_nothing(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
-    result = runner.invoke(
-        cast(Group, cli.main),
-        [
-            "index",
-            "--db",
-            str(tmpdir / "test1.json"),
-            "--priority",
-            "10",
-        ],
-    )
-    print("\nINDEX nothing")
-    print(result.output)
-    print(result)
-    assert result.exit_code == 1
-    assert "Nothing to index" in result.output
+    with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "index",
+                "--db",
+                str(tmpdir / "test1.json"),
+                "--priority",
+                "10",
+            ],
+        )
+        print("\nINDEX nothing")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 1
+        assert "Nothing to index" in result.output
+        check_dir_empty(fs)
 
 
 def test_cli_no_db(tmpdir, caplog):
