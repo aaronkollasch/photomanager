@@ -63,14 +63,20 @@ jobs:
 #         with:
 #         # pulls all commits (needed for lerna / semantic release to correctly version)
 #         fetch-depth: "0"
-      - run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+      - run: |
+          git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+          last_tag="$(git describe --tags --abbrev=0 --always)"
+          echo "last tag: $last_tag"
+          last_tag_date="$(git for-each-ref --format="%(creatordate:unix)" "refs/tags/$last_tag")"
+          echo "last tag date: $last_tag_date"
+          git fetch --shallow-since $last_tag_date origin
       - uses: "actions/setup-python@v2"
         with:
           python-version: "3.9"
 
       - name: "Check git version"
         run: |
-          git describe --tags --dirty --always
+          git describe --tags --always
           python setup.py version
       - name: "Install build and twine"
         run: "python -m pip install build twine"
