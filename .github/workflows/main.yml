@@ -64,7 +64,7 @@ jobs:
 #         # pulls all commits (needed for lerna / semantic release to correctly version)
 #         fetch-depth: "0"
       - run: |
-          git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+          git fetch --all --depth=1 --tags
           # last_tag="$(git describe --tags --abbrev=0 --always)"
           # echo "last tag: $last_tag"
           git for-each-ref --format="%(refname:short) | %(creatordate:unix)" "refs/tags/*"
@@ -72,6 +72,7 @@ jobs:
           last_tag_date="$(git for-each-ref --format="%(creatordate:unix)" "refs/tags/*" | head -n 1)"
           echo "last tag $last_tag_name date: $last_tag_date"
           git fetch --shallow-since $((last_tag_date-1000)) origin
+          git log --date=unix
           git describe --tags  # --always  # fail if no tag found
       - uses: "actions/setup-python@v2"
         with:
