@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
-from os import PathLike
+from os import PathLike, rename, cpu_count, makedirs, chmod, remove
+from os.path import exists, getsize
 import stat
 from math import log
 from uuid import uuid4
@@ -67,7 +67,7 @@ class PhotoFile:
         photo_hash: str = file_checksum(source_path, algorithm)
         dt = get_media_datetime(source_path)
         timestamp = datetime_str_to_object(dt, tz_default=tz_default).timestamp()
-        file_size = os.path.getsize(source_path)
+        file_size = getsize(source_path)
         return cls(
             checksum=photo_hash,
             source_path=str(source_path),
@@ -112,7 +112,7 @@ class PhotoFile:
             else get_media_datetime(source_path)
         )
         timestamp = datetime_str_to_object(dt, tz_default=tz_default).timestamp()
-        file_size = os.path.getsize(source_path)
+        file_size = getsize(source_path)
         return cls(
             checksum=photo_hash,
             source_path=str(source_path),
@@ -356,7 +356,7 @@ class Database:
             ).with_suffix("".join(path.suffixes))
             logger.debug(f"Moving old database at {path} to {new_path}")
             try:
-                os.rename(path, new_path)
+                rename(path, new_path)
             except OSError as e:
                 logger.warning(
                     f"Could not move old database from {path} to {new_path}. "
@@ -507,13 +507,13 @@ class Database:
         num_added_photos = num_merged_photos = num_skipped_photos = num_error_photos = 0
         if storage_type in ("SSD", "RAID"):
             async_hashes = True
-            async_exif = os.cpu_count()
+            async_exif = cpu_count()
         else:
             async_hashes = (
                 False  # concurrent reads of sequential files can lead to thrashing
             )
             async_exif = min(
-                4, os.cpu_count()
+                4, cpu_count()
             )  # exiftool is partially CPU-bound and benefits from async
         logger.info("Collecting media hashes")
         checksum_cache = AsyncFileHasher(
@@ -604,7 +604,7 @@ class Database:
                         photo.priority,
                     )
                     num_stored_photos += 1
-                elif os.path.exists(photo.source_path):
+                elif exists(photo.source_path):
                     photos_to_copy.append((photo, None))
                     stored_checksums[photo.checksum] = min(
                         stored_checksums.get(photo.checksum, photo.priority),
@@ -634,7 +634,7 @@ class Database:
                         photo.priority,
                     )
                     num_stored_photos += 1
-                elif os.path.exists(photo.source_path):
+                elif exists(photo.source_path):
                     photos_to_copy.append((photo, rel_store_path))
                     stored_checksums[photo.checksum] = min(
                         stored_checksums.get(photo.checksum, photo.priority),
@@ -664,9 +664,9 @@ class Database:
                     f"to {abs_store_path}"
                 )
             if not dry_run:
-                os.makedirs(abs_store_path.parent, exist_ok=True)
+                makedirs(abs_store_path.parent, exist_ok=True)
                 shutil.copy2(photo.source_path, abs_store_path)
-                os.chmod(abs_store_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+                chmod(abs_store_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
                 if rel_store_path is not None:
                     photo.store_path = rel_store_path
             p_bar.update(photo.file_size)
@@ -744,7 +744,7 @@ class Database:
                         f"{'Will remove' if dry_run else 'Removing'}: {abs_store_path}"
                     )
                 if not dry_run:
-                    os.remove(abs_store_path)
+                    remove(abs_store_path)
                     photo.store_path = ""
                 num_removed_photos += 1
             else:
@@ -886,7 +886,7 @@ class Database:
         for photo in tqdm(all_photos):
             if photo.checksum in hash_map:
                 num_skipped_photos += 1
-            elif os.path.exists(photo.source_path):
+            elif exists(photo.source_path):
                 if photo.checksum == file_checksum(photo.source_path, old_algo):
                     hash_map[photo.checksum] = file_checksum(
                         photo.source_path, new_algo
@@ -997,7 +997,7 @@ class Database:
                     )
                 file_map[str(abs_store_path)] = str(new_abs_store_path)
                 if not dry_run:
-                    os.rename(abs_store_path, new_abs_store_path)
+                    rename(abs_store_path, new_abs_store_path)
                     photo.store_path = new_store_path
                 num_correct_photos += 1
             else:
