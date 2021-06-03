@@ -102,3 +102,11 @@ def test_async_file_hasher_nonexistent_file(tmpdir, caplog):
     print([(r.levelname, r) for r in caplog.records])
     print(checksum_cache)
     assert len(checksum_cache) == 0
+
+
+def test_async_file_hasher_command_available():
+    assert AsyncFileHasher.cmd_available("b2sum")
+    assert AsyncFileHasher.cmd_available(("b2sum", "-l", "256"))
+    assert AsyncFileHasher.cmd_available(("sha256sum",))
+    assert not AsyncFileHasher.cmd_available("nonexistent")
+    assert not AsyncFileHasher.cmd_available(("sh", "-c", "exit 1"))

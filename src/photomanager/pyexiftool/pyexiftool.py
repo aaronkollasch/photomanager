@@ -57,7 +57,7 @@ from __future__ import unicode_literals
 
 import logging
 import subprocess
-import os
+from os import fsencode
 import orjson
 import warnings
 
@@ -263,9 +263,8 @@ class ExifTool(object, metaclass=Singleton):
         self._process.stdin.write(b"\n".join(params + (b"-execute\n",)))
         self._process.stdin.flush()
         output = b""
-        fd = self._process.stdout.fileno()
         while not output[-32:].strip().endswith(sentinel):
-            output += os.read(fd, block_size)
+            output += self._process.stdout.read1(block_size)
         return output.strip()[: -len(sentinel)]
 
     def execute_json(self, *params):
@@ -290,7 +289,7 @@ class ExifTool(object, metaclass=Singleton):
         respective Python version – as raw strings in Python 2.x and
         as Unicode strings in Python 3.x.
         """
-        params = map(os.fsencode, params)
+        params = map(fsencode, params)
         s = self.execute(b"-j", *params)
         if len(s) == 0:
             return {}

@@ -9,6 +9,7 @@ from photomanager.hasher import (
     HasherException,
     FileHasherJob,
 )
+from . import AsyncNopProcess
 
 checksum_expected_results = [
     {
@@ -59,14 +60,6 @@ def test_file_checksum_bad_algorithm():
 def test_async_file_hasher_bad_algorithm():
     with pytest.raises(HasherException):
         AsyncFileHasher(algorithm="md5")
-
-
-def test_async_file_hasher_command_available():
-    assert AsyncFileHasher.cmd_available("b2sum")
-    assert AsyncFileHasher.cmd_available(("b2sum", "-l", "256"))
-    assert AsyncFileHasher.cmd_available(("sha256sum",))
-    assert not AsyncFileHasher.cmd_available("nonexistent")
-    assert not AsyncFileHasher.cmd_available(("sh", "-c", "exit 1"))
 
 
 chunker_expected_results = [
@@ -136,23 +129,13 @@ def test_make_chunks(chunks_test):
     assert chunks == chunks_test["result"]
 
 
-async def nop_cse(*_, **kwargs):
-    loop = asyncio.events.get_event_loop()
-    loop.set_debug(True)
-
-    def protocol_factory():
-        return subprocess_async.SubprocessStreamProtocol(limit=2 ** 16, loop=loop)
-
-    transport, protocol = await loop.subprocess_exec(protocol_factory, "true", **kwargs)
-    return subprocess_async.Process(transport, protocol, loop)
-
-
 def test_async_file_hasher_img(monkeypatch, caplog):
-    async def communicate(_=None):
-        return b"ba4f25bf16ba4be6bc7d3276fafeb img1.jpg\n", b""
+    async def nop_cse(*_, **__):
+        loop = asyncio.events.get_event_loop()
+        loop.set_debug(True)
+        return AsyncNopProcess(b"ba4f25bf16ba4be6bc7d3276fafeb img1.jpg\n", b"")
 
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
-    monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
     caplog.set_level(logging.DEBUG)
     checksum_cache = AsyncFileHasher(
         algorithm="blake2b-256",
@@ -168,11 +151,12 @@ def test_async_file_hasher_img(monkeypatch, caplog):
 
 
 def test_async_file_hasher_empty(monkeypatch, caplog):
-    async def communicate(_=None):
-        return b"\n", b""
+    async def nop_cse(*_, **__):
+        loop = asyncio.events.get_event_loop()
+        loop.set_debug(True)
+        return AsyncNopProcess(b"\n", b"")
 
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
-    monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
     caplog.set_level(logging.DEBUG)
     checksum_cache = AsyncFileHasher(
         algorithm="blake2b-256",
@@ -186,11 +170,12 @@ def test_async_file_hasher_empty(monkeypatch, caplog):
 
 
 def test_async_file_hasher_unicode_error(monkeypatch, caplog):
-    async def communicate(_=None):
-        return b"f/\x9c file.txt\n", b""
+    async def nop_cse(*_, **__):
+        loop = asyncio.events.get_event_loop()
+        loop.set_debug(True)
+        return AsyncNopProcess(b"f/\x9c file.txt\n", b"")
 
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
-    monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
     caplog.set_level(logging.DEBUG)
     checksum_cache = AsyncFileHasher(
         algorithm="blake2b-256",
@@ -205,12 +190,12 @@ def test_async_file_hasher_unicode_error(monkeypatch, caplog):
 
 
 def test_async_file_hasher_interrupt(monkeypatch):
-    async def communicate(_=None):
-        await asyncio.sleep(5)
-        return b"checksum img.jpg\n", b""
+    async def nop_cse(*_, **__):
+        loop = asyncio.events.get_event_loop()
+        loop.set_debug(True)
+        return AsyncNopProcess(b"checksum img.jpg\n", b"", final_delay=5)
 
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
-    monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
     hasher = AsyncFileHasher(
         algorithm="blake2b-256",
         use_async=True,
