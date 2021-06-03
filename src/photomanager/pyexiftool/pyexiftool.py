@@ -216,7 +216,7 @@ class ExifTool(object, metaclass=Singleton):
         )
         self.running = True
 
-    def terminate(self):
+    def terminate(self, wait_timeout=30):
         """Terminate the ``exiftool`` process of this instance.
 
         If the subprocess isn't running, this method will do nothing.
@@ -225,7 +225,11 @@ class ExifTool(object, metaclass=Singleton):
             return
         self._process.stdin.write(b"-stay_open\nFalse\n")
         self._process.stdin.flush()
-        self._process.communicate()
+        try:
+            self._process.communicate(timeout=wait_timeout)
+        except subprocess.TimeoutExpired:
+            self._process.kill()
+            self._process.communicate()
         del self._process
         self.running = False
 
@@ -291,8 +295,9 @@ class ExifTool(object, metaclass=Singleton):
         """
         params = map(fsencode, params)
         s = self.execute(b"-j", *params)
-        if len(s) == 0:
-            return {}
+        if len(s.strip()) == 0:
+            logging.warning(f"exiftool returned an empty string for params {params}")
+            return []
         return orjson.loads(s)
 
     def get_metadata_batch(self, filenames):
@@ -309,7 +314,10 @@ class ExifTool(object, metaclass=Singleton):
         The returned dictionary has the format described in the
         documentation of :py:meth:`execute_json()`.
         """
-        return self.execute_json(filename)[0]
+        if response := self.execute_json(filename):
+            return response[0]
+        else:
+            return {}
 
     def get_tags_batch(self, tags, filenames):
         """Return only specified tags for the given files.
@@ -343,7 +351,10 @@ class ExifTool(object, metaclass=Singleton):
         The returned dictionary has the format described in the
         documentation of :py:meth:`execute_json()`.
         """
-        return self.get_tags_batch(tags, [filename])[0]
+        if response := self.get_tags_batch(tags, [filename]):
+            return response[0]
+        else:
+            return {}
 
     def get_tag_batch(self, tag, filenames):
         """Extract a single tag from the given files.
@@ -369,7 +380,10 @@ class ExifTool(object, metaclass=Singleton):
         The return value is the value of the specified tag, or
         ``None`` if this tag was not found in the file.
         """
-        return self.get_tag_batch(tag, [filename])[0]
+        if response := self.get_tag_batch(tag, [filename]):
+            return response[0]
+        else:
+            return None
 
     def get_best_datetime_batch(self, filenames):
         data = self.get_tags_batch(datetime_tags, filenames)
@@ -379,4 +393,7 @@ class ExifTool(object, metaclass=Singleton):
         return result
 
     def get_best_datetime(self, filename):
-        return self.get_best_datetime_batch([filename])[0]
+        if response := self.get_best_datetime_batch([filename]):
+            return response[0]
+        else:
+            return None

@@ -78,7 +78,8 @@ def test_async_pyexiftool_metadata(monkeypatch, caplog):
         loop.set_debug(True)
         return AsyncNopProcess(
             stdout_messages=(
-                b'[{"SourceFile":"img1.jpg","EXIF:DateTimeOriginal":"2015:08:27 04:09:36"}]\n',
+                b'[{"SourceFile":"img1.jpg","EXIF:DateTimeOriginal":'
+                b'"2015:08:27 04:09:36"}]\n',
                 b"{ready}",
             )
         )
@@ -93,13 +94,36 @@ def test_async_pyexiftool_metadata(monkeypatch, caplog):
     assert metadata["img1.jpg"]["EXIF:DateTimeOriginal"] == "2015:08:27 04:09:36"
 
 
-def test_async_pyexiftool_error(monkeypatch, caplog):
+def test_async_pyexiftool_warning(monkeypatch, caplog):
     async def nop_cse(*_, **__):
         loop = asyncio.events.get_event_loop()
         loop.set_debug(True)
         return AsyncNopProcess(
             stdout_messages=(
                 b"\n",
+                b"{ready}",
+            )
+        )
+
+    monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+    caplog.set_level(logging.DEBUG)
+    metadata = AsyncExifTool(batch_size=10).get_metadata_batch(["asdf.bin"])
+    print([(r.levelname, r) for r in caplog.records])
+    assert len(metadata) == 0
+    assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert any(
+        "exiftool returned an empty string" in record.message
+        for record in caplog.records
+    )
+
+
+def test_async_pyexiftool_error(monkeypatch, caplog):
+    async def nop_cse(*_, **__):
+        loop = asyncio.events.get_event_loop()
+        loop.set_debug(True)
+        return AsyncNopProcess(
+            stdout_messages=(
+                b"{,}\n",
                 b"{ready}",
             )
         )
@@ -205,3 +229,25 @@ def test_pyexiftool_get_metadata_batch(caplog):
         exiftool.get_tags_batch(None, "img1.jpg")
     with pytest.raises(TypeError):
         exiftool.get_tags_batch("EXIF:DateTimeOriginal", None)
+
+
+def test_pyexiftool_warning(caplog):
+    caplog.set_level(logging.DEBUG)
+    exiftool = ExifTool(executable_="true")
+    exiftool._process = NopProcess(stdout_messages=(b"\n", b"{ready}"))
+    exiftool.running = True
+    assert exiftool.get_metadata_batch(filenames=["img1.jpg", "img2.jpg"]) == []
+    assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert any(
+        "exiftool returned an empty string" in record.message
+        for record in caplog.records
+    )
+    caplog.records.clear()
+    exiftool._process = NopProcess(stdout_messages=(b"\n", b"{ready}"))
+    assert exiftool.get_metadata("img1.jpg") == {}
+    assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert any(
+        "exiftool returned an empty string" in record.message
+        for record in caplog.records
+    )
+    caplog.records.clear()

@@ -48,20 +48,39 @@ def test_pyexiftool_nonexistent_file(tmpdir, caplog):
     with ExifTool() as exiftool:
         with pytest.warns(UserWarning):
             exiftool.start()
-        with pytest.raises(IndexError):
-            exiftool.get_tag(
-                tag="EXIF:DateTimeOriginal", filename=str(tmpdir / "asdf.jpg")
-            )
+        tag = exiftool.get_tag(
+            tag="EXIF:DateTimeOriginal", filename=str(tmpdir / "asdf.jpg")
+        )
+        assert tag is None
         assert any(record.levelname == "WARNING" for record in caplog.records)
+        assert any("empty string" in record.message for record in caplog.records)
         caplog.clear()
-        exiftool.get_tag_batch(
+        tags = exiftool.get_tag_batch(
             tag="EXIF:DateTimeOriginal", filenames=[str(tmpdir / "asdf.jpg")]
         )
+        assert tags == []
         assert any(record.levelname == "WARNING" for record in caplog.records)
+        assert any("empty string" in record.message for record in caplog.records)
+        assert any("missing response" in record.message for record in caplog.records)
+    assert not exiftool.running
+
+
+def test_pyexiftool_terminate(caplog):
+    caplog.set_level(logging.DEBUG)
+    exiftool = ExifTool()
+    exiftool.start()
+    exiftool.terminate(wait_timeout=0)
+    assert not exiftool.running
+    exiftool.terminate()
     with pytest.raises(ValueError):
         exiftool.execute()
-    Singleton.clear(ExifTool)
     assert not exiftool.running
+    exiftool.start()
+    assert exiftool.running
+    del exiftool
+    assert ExifTool.instance.running
+    Singleton.clear(ExifTool)
+    assert ExifTool.instance is None
 
 
 @ALL_IMG_DIRS

@@ -130,7 +130,13 @@ class AsyncExifTool(object):
                     while not outputs[-1][-32:].strip().endswith(sentinel):
                         outputs.append(await process.stdout.read(block_size))
                     output = b"".join(outputs).strip()[: -len(sentinel)]
-                    output = orjson.loads(output)
+                    if len(output.strip()) == 0:
+                        logging.warning(
+                            f"exiftool returned an empty string for params {params}"
+                        )
+                        output = ()
+                    else:
+                        output = orjson.loads(output)
                     for d in output:
                         if mode == "best_datetime":
                             self.output_dict[d["SourceFile"]] = best_datetime(d)
