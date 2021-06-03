@@ -964,7 +964,7 @@ class Database:
         all_photos = [photo for photos in self.photo_db.values() for photo in photos]
         if map_all and (
             num_skipped_photos := sum(
-                photo.checksum not in hash_map for photo in all_photos
+                photo.checksum.split(":", 1)[0] not in hash_map for photo in all_photos
             )
         ):
             print(f"Not all items will be mapped: {num_skipped_photos}")
@@ -972,6 +972,10 @@ class Database:
         for photo in tqdm(all_photos):
             if photo.checksum in hash_map:
                 photo.checksum = hash_map[photo.checksum]
+                num_correct_photos += 1
+            elif (ca := photo.checksum.split(":", 1)) and len(ca) == 2:
+                if c := hash_map.get(ca[0], None):
+                    photo.checksum = c
                 num_correct_photos += 1
             else:
                 photo.checksum = f"{photo.checksum}:{old_algo}"
