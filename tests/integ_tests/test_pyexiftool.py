@@ -1,7 +1,8 @@
 import logging
 from pathlib import Path
 import pytest
-from photomanager import pyexiftool, pyexiftool_async
+from photomanager.pyexiftool import ExifTool, AsyncExifTool
+from photomanager.pyexiftool.pyexiftool import Singleton
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"
 ALL_IMG_DIRS = pytest.mark.datafiles(
@@ -33,7 +34,7 @@ expected_tags = [
 def test_pyexiftool_get_tag(datafiles, tag, caplog):
     caplog.set_level(logging.DEBUG)
     print(datafiles.listdir())
-    with pyexiftool.ExifTool() as exiftool:
+    with ExifTool() as exiftool:
         filename = str(datafiles / tag["filename"])
         new_tag = exiftool.get_tag(tag=tag["tag"], filename=filename)
         assert new_tag == tag["value"]
@@ -44,7 +45,7 @@ def test_pyexiftool_get_tag(datafiles, tag, caplog):
 
 def test_pyexiftool_nonexistent_file(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
-    with pyexiftool.ExifTool() as exiftool:
+    with ExifTool() as exiftool:
         with pytest.warns(UserWarning):
             exiftool.start()
         with pytest.raises(IndexError):
@@ -59,13 +60,14 @@ def test_pyexiftool_nonexistent_file(tmpdir, caplog):
         assert any(record.levelname == "WARNING" for record in caplog.records)
     with pytest.raises(ValueError):
         exiftool.execute()
-    pyexiftool.Singleton.clear(pyexiftool.ExifTool)
+    Singleton.clear(ExifTool)
+    assert not exiftool.running
 
 
 @ALL_IMG_DIRS
 def test_async_pyexiftool_get_tags(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
-    exiftool = pyexiftool_async.AsyncExifTool(num_workers=2, batch_size=1)
+    exiftool = AsyncExifTool(num_workers=2, batch_size=1)
     tags = exiftool.get_tags_batch(
         tags=list(set(d["tag"] for d in expected_tags)),
         filenames=list(set(str(datafiles / d["filename"]) for d in expected_tags)),
@@ -79,7 +81,7 @@ def test_async_pyexiftool_get_tags(datafiles, caplog):
 
 def test_async_pyexiftool_nonexistent_file(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
-    exiftool = pyexiftool_async.AsyncExifTool()
+    exiftool = AsyncExifTool()
     tags = exiftool.get_tags_batch(
         tags=["EXIF:DateTimeOriginal"], filenames=[str(tmpdir / "asdf.jpg")]
     )

@@ -19,9 +19,8 @@ import orjson
 import zstandard as zstd
 import xxhash
 from photomanager import PhotoManagerBaseException
-from photomanager.pyexiftool import ExifTool
-from photomanager.pyexiftool_async import AsyncExifTool
-from photomanager.hasher_async import AsyncFileHasher, file_checksum, DEFAULT_HASH_ALGO
+from photomanager.pyexiftool import ExifTool, AsyncExifTool
+from photomanager.hasher import AsyncFileHasher, file_checksum, DEFAULT_HASH_ALGO
 
 PF = TypeVar("PF", bound="PhotoFile")
 

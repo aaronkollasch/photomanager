@@ -62,7 +62,7 @@ import orjson
 import time
 import traceback
 from tqdm import tqdm
-from photomanager.pyexiftool import datetime_tags, best_datetime
+from .pyexiftool import datetime_tags, best_datetime
 
 basestring = (bytes, str)
 

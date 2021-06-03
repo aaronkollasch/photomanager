@@ -3,8 +3,12 @@ from asyncio import subprocess as subprocess_async
 import logging
 from io import BytesIO
 import pytest
-from photomanager import hasher_async
-from photomanager.hasher_async import file_checksum, AsyncFileHasher, HasherException
+from photomanager.hasher import (
+    file_checksum,
+    AsyncFileHasher,
+    HasherException,
+    FileHasherJob,
+)
 
 checksum_expected_results = [
     {
@@ -150,7 +154,7 @@ def test_async_file_hasher_img(monkeypatch, caplog):
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
     monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
     caplog.set_level(logging.DEBUG)
-    checksum_cache = hasher_async.AsyncFileHasher(
+    checksum_cache = AsyncFileHasher(
         algorithm="blake2b-256",
         use_async=True,
         batch_size=1,
@@ -170,7 +174,7 @@ def test_async_file_hasher_empty(monkeypatch, caplog):
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
     monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
     caplog.set_level(logging.DEBUG)
-    checksum_cache = hasher_async.AsyncFileHasher(
+    checksum_cache = AsyncFileHasher(
         algorithm="blake2b-256",
         use_async=True,
         batch_size=10,
@@ -188,7 +192,7 @@ def test_async_file_hasher_unicode_error(monkeypatch, caplog):
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
     monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
     caplog.set_level(logging.DEBUG)
-    checksum_cache = hasher_async.AsyncFileHasher(
+    checksum_cache = AsyncFileHasher(
         algorithm="blake2b-256",
         use_async=True,
         batch_size=10,
@@ -207,7 +211,7 @@ def test_async_file_hasher_interrupt(monkeypatch):
 
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
     monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
-    hasher = hasher_async.AsyncFileHasher(
+    hasher = AsyncFileHasher(
         algorithm="blake2b-256",
         use_async=True,
         batch_size=10,
@@ -218,7 +222,7 @@ def test_async_file_hasher_interrupt(monkeypatch):
         hasher.terminate()
 
     monkeypatch.setattr(asyncio.Queue, "join", join)
-    all_jobs = [hasher_async.FileHasherJob(file_paths=[b"img.jpg"])]
+    all_jobs = [FileHasherJob(file_paths=[b"img.jpg"])]
     checksum_cache = asyncio.run(hasher.execute_queue(all_jobs=all_jobs))
     print(checksum_cache)
     assert len(checksum_cache) == 0

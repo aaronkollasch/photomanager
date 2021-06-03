@@ -3,7 +3,7 @@ from asyncio import subprocess as subprocess_async
 import subprocess
 import logging
 import pytest
-from photomanager import pyexiftool, pyexiftool_async
+from photomanager.pyexiftool import ExifTool, AsyncExifTool
 
 chunker_expected_results = [
     {
@@ -64,7 +64,7 @@ chunker_expected_results = [
 @pytest.mark.parametrize("chunks_test", chunker_expected_results)
 def test_make_chunks(chunks_test):
     chunks = list(
-        pyexiftool_async.AsyncExifTool.make_chunks(
+        AsyncExifTool.make_chunks(
             chunks_test["it"], chunks_test["size"], chunks_test["init"]
         )
     )
@@ -104,9 +104,7 @@ def test_async_pyexiftool_metadata(monkeypatch, caplog):
     )
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
     caplog.set_level(logging.DEBUG)
-    metadata = pyexiftool_async.AsyncExifTool(
-        batch_size=10,
-    ).get_metadata_batch(["img1.jpg"])
+    metadata = AsyncExifTool(batch_size=10).get_metadata_batch(["img1.jpg"])
     print([(r.levelname, r) for r in caplog.records])
     print(metadata)
     assert not any(record.levelname == "WARNING" for record in caplog.records)
@@ -118,9 +116,7 @@ def test_async_pyexiftool_error(monkeypatch, caplog):
     nop_cse = async_nop_factory("\n")
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
     caplog.set_level(logging.DEBUG)
-    metadata = pyexiftool_async.AsyncExifTool(
-        batch_size=10,
-    ).get_metadata_batch(["asdf.bin"])
+    metadata = AsyncExifTool(batch_size=10).get_metadata_batch(["asdf.bin"])
     print([(r.levelname, r) for r in caplog.records])
     assert len(metadata) == 0
     assert any(record.levelname == "WARNING" for record in caplog.records)
@@ -131,9 +127,7 @@ def test_async_pyexiftool_type_error(monkeypatch, caplog):
     nop_cse = async_nop_factory('{"SourceFile":"asdf.bin"}\n')
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
     caplog.set_level(logging.DEBUG)
-    metadata = pyexiftool_async.AsyncExifTool(
-        batch_size=10,
-    ).get_metadata_batch(["asdf.bin"])
+    metadata = AsyncExifTool(batch_size=10).get_metadata_batch(["asdf.bin"])
     print([(r.levelname, r) for r in caplog.records])
     print(metadata)
     assert any(record.levelname == "WARNING" for record in caplog.records)
@@ -147,9 +141,7 @@ def test_async_pyexiftool_interrupt(monkeypatch):
         return b"img.jpg checksum\n", b""
 
     monkeypatch.setattr(subprocess_async.Process, "communicate", communicate)
-    tool = pyexiftool_async.AsyncExifTool(
-        batch_size=10,
-    )
+    tool = AsyncExifTool(batch_size=10)
 
     async def join(_=None):
         await asyncio.sleep(0.01)
@@ -195,7 +187,7 @@ expected_metadata = [
 @pytest.mark.parametrize("metadata", expected_metadata)
 def test_pyexiftool_get_metadata(metadata, caplog):
     caplog.set_level(logging.DEBUG)
-    exiftool = pyexiftool.ExifTool(executable_="true")
+    exiftool = ExifTool(executable_="true")
     exiftool._process = nop_process(metadata["exiftool_output"])
     exiftool.running = True
     assert exiftool.get_metadata(filename=metadata["filename"]) == metadata["value"]
@@ -203,7 +195,7 @@ def test_pyexiftool_get_metadata(metadata, caplog):
 
 def test_pyexiftool_get_metadata_batch(caplog):
     caplog.set_level(logging.DEBUG)
-    exiftool = pyexiftool.ExifTool(executable_="true")
+    exiftool = ExifTool(executable_="true")
     exiftool._process = nop_process(
         '[{"SourceFile":"img1.jpg"},{"SourceFile":"img2.jpg"}]'
     )

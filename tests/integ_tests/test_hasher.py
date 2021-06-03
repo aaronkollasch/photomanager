@@ -1,6 +1,6 @@
 import random
 from io import BytesIO
-from photomanager import hasher_async
+from photomanager.hasher import AsyncFileHasher, file_checksum
 
 checksums = [
     (
@@ -19,7 +19,7 @@ checksums = [
 for _ in range(100):
     st = bytes([random.randint(0, 255) for _ in range(1000)])
     with BytesIO(st) as fd:
-        ck = hasher_async.file_checksum(fd, algorithm="blake2b-256")
+        ck = file_checksum(fd, algorithm="blake2b-256")
     checksums.append((st, ck))
 
 
@@ -30,7 +30,7 @@ def test_file_hasher(tmpdir):
         with open(filename, "wb") as f:
             f.write(s)
         files.append(filename)
-    checksum_cache = hasher_async.AsyncFileHasher(
+    checksum_cache = AsyncFileHasher(
         algorithm="blake2b-256", use_async=False
     ).check_files(files, pbar_unit="B")
     print(checksum_cache)
@@ -49,7 +49,7 @@ def test_async_file_hasher(tmpdir):
             f.write(s)
         files.append(filename)
         sizes.append(len(s))
-    checksum_cache = hasher_async.AsyncFileHasher(
+    checksum_cache = AsyncFileHasher(
         algorithm="blake2b-256", use_async=True, batch_size=10
     ).check_files(files, pbar_unit="B")
     print(checksum_cache)
@@ -61,7 +61,7 @@ def test_async_file_hasher(tmpdir):
 
     files.append(tmpdir / "asdf.bin")
     sizes.append(0)
-    checksum_cache = hasher_async.AsyncFileHasher(
+    checksum_cache = AsyncFileHasher(
         algorithm="blake2b-256", use_async=True, batch_size=10
     ).check_files(files, pbar_unit="B", file_sizes=sizes)
     print(checksum_cache)
@@ -71,7 +71,7 @@ def test_async_file_hasher(tmpdir):
         assert filename in checksum_cache
         assert checksum_cache[filename] == c
 
-    checksum_cache = hasher_async.AsyncFileHasher(
+    checksum_cache = AsyncFileHasher(
         algorithm="blake2b-256", use_async=True, batch_size=5
     ).check_files(files, pbar_unit="it")
     print(checksum_cache)
@@ -81,7 +81,7 @@ def test_async_file_hasher(tmpdir):
         assert filename in checksum_cache
         assert checksum_cache[filename] == c
 
-    checksum_cache = hasher_async.AsyncFileHasher(
+    checksum_cache = AsyncFileHasher(
         algorithm="blake2b-256", use_async=False, batch_size=5
     ).check_files(files, pbar_unit="it")
     print(checksum_cache)
@@ -94,7 +94,7 @@ def test_async_file_hasher(tmpdir):
 
 def test_async_file_hasher_nonexistent_file(tmpdir, caplog):
     files = [tmpdir / "asdf.bin"]
-    checksum_cache = hasher_async.AsyncFileHasher(
+    checksum_cache = AsyncFileHasher(
         algorithm="blake2b-256",
         use_async=True,
         batch_size=10,
