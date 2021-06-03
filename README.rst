@@ -215,6 +215,12 @@ Create database
 `This command is only needed if you want to specify a
 non-default hashing algorithm or timezone.`
 
+Supported hashes are blake2b-256 (the default) and sha256.
+These are equivalent to ``b2sum -l 256`` and ``sha256sum``, respectively.
+BLAKE2b is recommended as it is faster (and stronger) than SHA-2,
+resulting in noticeably faster indexing/verification on fast storage,
+and less CPU usage on slow storage.
+
 ::
 
     Usage: photomanager create [OPTIONS]

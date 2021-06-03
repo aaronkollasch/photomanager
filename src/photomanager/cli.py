@@ -123,13 +123,14 @@ def list_files(
     paths: Iterable[Union[str, PathLike]] = tuple(),
     exclude: Iterable[str] = tuple(),
 ) -> dict[str, None]:
-    """List all files in sources, excluding regex patterns
+    """List all files in sources, excluding regex patterns.
 
     :param source: Directory to list. If `-`, read directories from stdin.
     :param file: File to list. If `-`, read files from stdin.
     :param paths: Paths (directories or files) to list.
     :param exclude: Regex patterns to exclude.
-    :return: A dictionary with paths as keys."""
+    :return: A dictionary with paths as keys.
+    """
     paths = {Path(p).expanduser().resolve(): None for p in paths}
     if source == "-":
         with click.open_file("-", "r") as f:

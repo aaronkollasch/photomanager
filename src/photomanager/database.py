@@ -226,22 +226,30 @@ class Database:
 
     @property
     def version(self) -> int:
+        """Get the Database version number."""
         return self.db["version"]
 
     @property
     def hash_algorithm(self) -> str:
+        """Get the Database hash algorithm."""
         return self.db["hash_algorithm"]
 
     @hash_algorithm.setter
     def hash_algorithm(self, new_algorithm: str):
+        """Set the Database hash algorithm."""
         self.db["hash_algorithm"] = new_algorithm
 
     @property
     def photo_db(self) -> dict[str, list[PhotoFile]]:
+        """Get the Database photo db."""
         return self.db["photo_db"]
 
     @property
     def timezone_default(self) -> Optional[tzinfo]:
+        """Get the Database default time zone.
+
+        :return: the time zone as a datetime.tzinfo,
+        """
         tz_default = self.db.get("timezone_default", "local")
         if tz_default != "local":
             try:
@@ -251,14 +259,17 @@ class Database:
 
     @property
     def command_history(self) -> dict[str, str]:
+        """Get the Database command history."""
         return self.db["command_history"]
 
     @property
     def db(self) -> dict:
+        """Get the Database parameters as a dict."""
         return self._db
 
     @db.setter
     def db(self, db: dict):
+        """Set the Database parameters from a dict."""
         db.setdefault("version", 1)  # legacy dbs are version 1
         db.setdefault("hash_algorithm", "sha256")  # legacy dbs use sha256
         db.setdefault("timezone_default", "local")  # legacy dbs are in local time
@@ -278,18 +289,19 @@ class Database:
 
     @classmethod
     def from_dict(cls: Type[DB], db_dict: dict) -> DB:
-        """Loads a Database from a dictionary. Will modify the dictionary."""
+        """Load a Database from a dictionary. Warning: can modify the dictionary."""
         db = cls()
         db.db = db_dict
         return db
 
     @property
     def json(self) -> bytes:
-        return orjson.dumps(self.db)
+        """Get the Database parameters as json data."""
+        return self.to_json(pretty=False)
 
     @json.setter
     def json(self, json_data: bytes):
-        """Sets Database parameters from json data"""
+        """Set the Database parameters from json data."""
         db = orjson.loads(json_data)
         self.db = db
 
@@ -302,14 +314,14 @@ class Database:
 
     @classmethod
     def from_json(cls: Type[DB], json_data: bytes) -> DB:
-        """Loads a Database from JSON data"""
+        """Load a Database from JSON data."""
         db = cls()
         db.json = json_data
         return db
 
     @classmethod
     def from_file(cls: Type[DB], path: Union[str, PathLike], create_new=False) -> DB:
-        """Loads a Database from a path"""
+        """Load a Database from a path."""
         path = Path(path)
         if not path.exists() and create_new:
             logger = logging.getLogger(__name__)
@@ -346,8 +358,11 @@ class Database:
         return db
 
     def to_file(self, path: Union[str, PathLike]) -> None:
-        """Saves the db to path and moves an existing database
-        at that path to a different location"""
+        """Save the Database to path.
+
+        Moves an existing database at that path to a new location
+        based on its last modified timestamp.
+        """
         logger = logging.getLogger(__name__)
         logger.debug(f"Saving database to {path}")
         path = Path(path)
@@ -410,22 +425,23 @@ class Database:
                 f.write(save_bytes)
 
     def add_command(self, command: str) -> str:
-        """Adds a command to the command history
+        """Adds a command to the command history.
 
         Creates a timestamp string with the current date, time, and time zone.
 
-        :return the timestamp string"""
-
+        :return the timestamp string
+        """
         dt = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S%z")
         self.command_history[dt] = command
         return dt
 
     def find_photo(self, photo: PhotoFile) -> Optional[str]:
-        """Finds a photo in the database and returns its uid
+        """Finds a photo in the database and returns its uid.
 
         Matches first by file checksum, then by timestamp+filename (case-insensitive).
 
-        :return the photo's uid, or None if not found"""
+        :return the photo's uid, or None if not found
+        """
         logger = logging.getLogger(__name__)
         if photo.checksum in self.hash_to_uid:
             return self.hash_to_uid[photo.checksum]
@@ -449,16 +465,17 @@ class Database:
         return None
 
     def add_photo(self, photo: PhotoFile, uid: Optional[str]) -> Optional[str]:
-        """Adds a photo into the database with specified uid (can be None)
+        """Adds a photo into the database with specified uid (can be None).
 
         Skips and returns None if the photo checksum is already in the database
         under a different uid or the photo checksum+source_path pair is already
         in the database.
 
-        If uid is None, a new random uid will be generated.
-
-        :return the added photo's uid, or None if not added"""
-
+        :param photo: the PhotoFile to add
+        :param uid: the uid for the group of PhotoFiles to add to.
+            If uid is None, a new random uid will be generated.
+        :return the added photo's uid, or None if not added
+        """
         if photo.checksum in self.hash_to_uid:
             if uid is not None and uid != self.hash_to_uid[photo.checksum]:
                 return None
@@ -501,12 +518,13 @@ class Database:
         priority: int = 10,
         storage_type: str = "HDD",
     ) -> (int, int, int, int):
-        """Indexes photo files and adds them to the database with a designated priority
+        """Indexes photo files and adds them to the database with a designated priority.
 
         :param files: the photo file paths to index
         :param priority: the photos' priority
         :param storage_type: the storage type being indexed (uses more async if SSD)
-        :return: the number of photos added, merged, skipped, or errored"""
+        :return: the number of photos added, merged, skipped, or errored
+        """
         logger = logging.getLogger(__name__)
         num_added_photos = num_merged_photos = num_skipped_photos = num_error_photos = 0
         if storage_type in ("SSD", "RAID"):
@@ -574,7 +592,7 @@ class Database:
     def collect_to_directory(
         self, directory: Union[str, PathLike], dry_run: bool = False
     ) -> (int, int, int, int):
-        """Collects photos in the database into a directory
+        """Collects photos in the database into a directory.
 
         Collects only photos that have a store_path set or that have the highest
         priority and whose checksum does not match any stored alternative photo
@@ -585,7 +603,8 @@ class Database:
 
         :param directory the photo storage directory
         :param dry_run if True, do not copy photos
-        :return the number of photos that could not be collected"""
+        :return the number of photos that could not be collected
+        """
         logger = logging.getLogger(__name__)
         directory = Path(directory).expanduser().resolve()
         num_copied_photos = num_added_photos = num_missed_photos = num_stored_photos = 0
@@ -695,12 +714,13 @@ class Database:
         subdirectory: Union[str, PathLike] = "",
         dry_run: bool = False,
     ) -> (int, int, float):
-        """Removes lower-priority stored photos if a higher-priority version is stored
+        """Removes lower-priority stored photos if a higher-priority version is stored.
 
         :param directory the photo storage directory
         :param subdirectory remove only photos within subdirectory
         :param dry_run if True, do not remove photos
-        :return the number of photos removed"""
+        :return the number of photos removed
+        """
         logger = logging.getLogger(__name__)
         num_removed_photos = num_missing_photos = total_file_size = 0
         directory = Path(directory).expanduser().resolve()
@@ -767,13 +787,14 @@ class Database:
         subdirectory: Union[str, PathLike] = "",
         storage_type: str = "HDD",
     ) -> int:
-        """Check the files stored in directory against checksums in the database
+        """Check the files stored in directory against checksums in the database.
 
         :param directory: the photo storage directory
         :param subdirectory: verify only photos within subdirectory
         :param storage_type: the type of media the photos are stored on
             (uses async if SSD)
-        :return: the number of errors found"""
+        :return: the number of errors found
+        """
         num_correct_photos = (
             num_incorrect_photos
         ) = num_missing_photos = total_file_size = 0
@@ -846,12 +867,14 @@ class Database:
         return num_incorrect_photos + num_missing_photos
 
     def verify_indexed_photos(self):
-        raise NotImplementedError()
+        """Check available source files against checksums in the database."""
+        raise NotImplementedError
 
     def get_stats(self) -> tuple[int, int, int, int]:
-        """Get database item statistics
+        """Get database item statistics.
 
-        :return num_uids, num_photos, num_stored_photos, total_file_size"""
+        :return num_uids, num_photos, num_stored_photos, total_file_size
+        """
         num_uids = num_photos = num_stored_photos = total_file_size = 0
         for photos in self.photo_db.values():
             num_uids += 1
@@ -869,16 +892,21 @@ class Database:
     def make_hash_map(
         self, new_algo: str, hash_map: Optional[dict[str, str]] = None
     ) -> dict[str, str]:  # pragma: no cover
-        """Make a map of file checksums in order to migrate hashing algorithms
+        """Make a map of file checksums in order to migrate hashing algorithms.
 
         Checks source file hashes using the old algorithm to make sure the new hashes
         are correct. If the source has an incorrect hash, does not map checksum and
-        instead denotes the hash by appending ':{algorithm}'
+        instead sets the mapped checksum to '{old_checksum}:{old_algorithm}'
 
-        :param new_algo the new algorithm to use
-        :param hash_map the map from old hashes to new hashes; will be updated with
-            new mappings
-        :return the hash map"""
+        Note: This method is not accessed by the CLI or covered by testing
+        and is intended to be used interactively, i.e. in a Jupyter notebook
+        or other environment, with spot checking of the output hash map.
+
+        :param new_algo: the new algorithm to use
+        :param hash_map: a map from old hashes to new hashes; will be updated with
+            new mappings as they are found
+        :return: the hash map
+        """
         if hash_map is None:
             hash_map = {}
         old_algo = self.hash_algorithm
@@ -916,15 +944,21 @@ class Database:
     def map_hashes(
         self, new_algo: str, hash_map: dict[str, str], map_all: bool = False
     ) -> Optional[int]:  # pragma: no cover
-        """Map the database's checksums to a new algorithm
+        """Map the database's checksums to a new algorithm.
 
-        If a checksum cannot be mapped, it is appended by ':{algorithm}'
+        If a checksum cannot be mapped, it is appended by ':{old_algorithm}'
         to denote that it was made with a different algorithm
 
-        :param new_algo the hashing algorithm used to make hash_map
-        :param hash_map the map from old hashes to new hashes
-        :param map_all set to True to make sure that all hashes can be mapped
-        :return the number of hashes not mapped"""
+        Note: This method is not accessed by the CLI or covered by testing
+        and is intended to be used interactively, i.e. in a Jupyter notebook
+        or other environment, with spot checking of the newly mapped hashes.
+
+        :param new_algo: the hashing algorithm used to make hash_map
+        :param hash_map: the map from old hashes to new hashes
+        :param map_all: set to True to enforce that all hashes must be in hash_map
+            before mapping starts
+        :return: the number of hashes not mapped
+        """
         num_correct_photos = num_skipped_photos = 0
         old_algo = self.hash_algorithm
         all_photos = [photo for photos in self.photo_db.values() for photo in photos]
@@ -945,7 +979,7 @@ class Database:
         self.hash_algorithm = new_algo
         print(f"Mapped {num_correct_photos} items")
         if num_skipped_photos:
-            print(f"Skipped {num_skipped_photos} items")
+            print(f"Did not map {num_skipped_photos} items")
         return num_skipped_photos
 
     def update_stored_filename_hashes(
@@ -954,14 +988,21 @@ class Database:
         verify: bool = True,
         dry_run: bool = False,
     ) -> dict[str, str]:  # pragma: no cover
-        """Updates filenames to match checksums
-        Run after mapping hashes to new algorithm.
-        Skips files whose filename checksum matches the stored checksum
+        """Updates filenames to match checksums.
+
+        Run after mapping hashes to new algorithm with self.map_hashes()
+        Skips files whose filename checksum matches the stored checksum.
+
+        Note: This method is not accessed by the CLI or covered by testing
+        and is intended to be used interactively, i.e. in a Jupyter notebook
+        or other environment, with dry runs and spot checking of proposed
+        changes before they are performed. Use at your own risk.
 
         :param directory: the photo storage directory
         :param verify: if True, verify that file checksums match
         :param dry_run: if True, perform a dry run and do not move photos
-        :return: the number of missing or incorrect files not moved"""
+        :return: the number of missing or incorrect files not moved
+        """
         num_correct_photos = (
             num_skipped_photos
         ) = num_incorrect_photos = num_missing_photos = 0
