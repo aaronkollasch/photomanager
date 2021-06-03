@@ -184,16 +184,18 @@ def test_database_init1():
 
 def test_database_init2():
     json_data = b"""{
-"version": 1,
-"hash_algorithm": "sha256",
-"timezone_default": "-0400",
-"photo_db": {},
-"command_history": {}
+  "version": 1,
+  "hash_algorithm": "sha256",
+  "timezone_default": "-0400",
+  "photo_db": {},
+  "command_history": {}
 }"""
     db = database.Database.from_json(json_data)
     print(db.db)
     assert db.db["timezone_default"] == "-0400"
     assert db.timezone_default == timezone(timedelta(days=-1, seconds=72000))
+    assert orjson.loads(db.json) == orjson.loads(json_data)
+    assert db.to_json(pretty=True) == json_data
 
 
 example_database_json_data = b"""{
@@ -242,7 +244,9 @@ def test_database_load_zstd_checksum_error(tmpdir, monkeypatch, caplog):
     with pytest.raises(zstandard.ZstdError):
         db.from_file(tmpdir / "test.json.zst")
     monkeypatch.setattr(
-        zstandard, "decompress", lambda _: db.json.replace(c, bytes([ord(c) ^ 0b1]))
+        zstandard,
+        "decompress",
+        lambda _: db.to_json(pretty=True).replace(c, bytes([ord(c) ^ 0b1])),
     )
     with pytest.raises(database.DatabaseException):
         db.from_file(tmpdir / "test.json.zst")
