@@ -1,11 +1,12 @@
 import logging
 import os
+import subprocess
 from typing import cast
 from pathlib import Path
 import pytest
 from click import Group
 from click.testing import CliRunner
-from photomanager import cli, database
+from photomanager import cli, database, version
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"
 ALL_IMG_DIRS = pytest.mark.datafiles(
@@ -30,6 +31,38 @@ def check_dir_empty(dir_path):
     cwd_files = list(Path(dir_path).glob("*"))
     print(cwd_files)
     assert len(cwd_files) == 0
+
+
+def test_photomanager_bin_install(tmpdir):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
+        p = subprocess.Popen(
+            ["photomanager", "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdout, stderr = p.communicate()
+        print(stdout, stderr)
+        print("exit", p.returncode)
+        assert p.returncode == 0
+        assert stdout.strip() == f"photomanager {version}".encode()
+        check_dir_empty(fs)
+
+
+def test_photomanager_bin_error(tmpdir):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
+        p = subprocess.Popen(
+            ["photomanager", "stats", "--db", str(tmpdir / "none.json")],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdout, stderr = p.communicate()
+        print(stdout, stderr)
+        print("exit", p.returncode)
+        assert p.returncode == 1
+        assert b"FileNotFoundError" in stderr
+        check_dir_empty(fs)
 
 
 @ALL_IMG_DIRS

@@ -1,7 +1,6 @@
 import sys
 from pathlib import Path
 import logging
-import subprocess
 import json
 import pytest
 from typing import cast
@@ -71,25 +70,34 @@ def test_cli_list_files_stdin_file(datafiles, caplog):
     assert len(files) == 2
 
 
-def test_cli_main(monkeypatch):
+def test_cli_main(monkeypatch, capsys):
     from photomanager import __main__
 
     monkeypatch.setattr(__main__, "__name__", "__main__")
     monkeypatch.setattr(sys, "argv", ["photomanager", "--version"])
     with pytest.raises(SystemExit) as exit_type:
         __main__._init()
+    captured = capsys.readouterr()
     assert exit_type.value.code == 0
+    assert captured.out.strip() == f"photomanager {version}"
+    assert captured.err == ""
 
     monkeypatch.setattr(sys, "argv", ["photomanager", "--version"])
     with pytest.raises(SystemExit) as exit_type:
         __main__.main()
+    captured = capsys.readouterr()
     assert exit_type.value.code == 0
+    assert captured.out.strip() == f"photomanager {version}"
+    assert captured.err == ""
 
     monkeypatch.setattr(cli, "__name__", "__main__")
     monkeypatch.setattr(sys, "argv", ["photomanager", "--version"])
     with pytest.raises(SystemExit) as exit_type:
         cli._init()
+    captured = capsys.readouterr()
     assert exit_type.value.code == 0
+    assert captured.out.strip() == f"photomanager {version}"
+    assert captured.err == ""
 
 
 def test_cli_exit_codes(monkeypatch):
@@ -102,38 +110,6 @@ def test_cli_exit_codes(monkeypatch):
 
 def test_cli_exit_code_no_files(tmpdir):
     assert cli._index(["--db", str(tmpdir / "none.json")], standalone_mode=False) == 1
-
-
-def test_photomanager_bin_install(tmpdir):
-    runner = CliRunner()
-    with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
-        p = subprocess.Popen(
-            ["photomanager", "--version"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        stdout, stderr = p.communicate()
-        print(stdout, stderr)
-        print("exit", p.returncode)
-        assert p.returncode == 0
-        assert stdout.strip() == f"photomanager {version}".encode()
-        check_dir_empty(fs)
-
-
-def test_photomanager_bin_error(tmpdir):
-    runner = CliRunner()
-    with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
-        p = subprocess.Popen(
-            ["photomanager", "stats", "--db", str(tmpdir / "none.json")],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        stdout, stderr = p.communicate()
-        print(stdout, stderr)
-        print("exit", p.returncode)
-        assert p.returncode == 1
-        assert b"FileNotFoundError" in stderr
-        check_dir_empty(fs)
 
 
 def test_cli_create(tmpdir, caplog):
@@ -197,10 +173,9 @@ def test_cli_index_nothing(tmpdir, caplog):
         check_dir_empty(fs)
 
 
-def test_cli_no_db(tmpdir, caplog):
+def test_cli_index_collect_no_db(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
     CliRunner.isolated_filesystem(tmpdir)
-    print(tmpdir.listdir())
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
         result = runner.invoke(
@@ -209,7 +184,7 @@ def test_cli_no_db(tmpdir, caplog):
                 "index",
                 "--priority",
                 "10",
-                "./",
+                str(tmpdir),
             ],
         )
         print("\nINDEX no-db")
@@ -223,7 +198,7 @@ def test_cli_no_db(tmpdir, caplog):
             [
                 "collect",
                 "--destination",
-                "dest",
+                str(tmpdir / "dest"),
             ],
         )
         print("\nCOLLECT no-db")
@@ -231,6 +206,11 @@ def test_cli_no_db(tmpdir, caplog):
         print(result)
         assert result.exit_code == 0
 
+
+def test_cli_import_no_db(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
+    CliRunner.isolated_filesystem(tmpdir)
+    runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
         result = runner.invoke(
             cast(Group, cli.main),
@@ -240,7 +220,7 @@ def test_cli_no_db(tmpdir, caplog):
                 "dest",
                 "--priority",
                 "10",
-                "./",
+                str(tmpdir),
             ],
         )
         print("\nIMPORT no-db")
@@ -249,13 +229,18 @@ def test_cli_no_db(tmpdir, caplog):
         assert result.exit_code == 0
         assert (Path(fs) / cli.DEFAULT_DB).is_file()
 
+
+def test_cli_collect_no_db(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
+    CliRunner.isolated_filesystem(tmpdir)
+    runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmpdir):
         result = runner.invoke(
             cast(Group, cli.main),
             [
                 "collect",
                 "--destination",
-                "dest",
+                str(tmpdir / "dest"),
             ],
         )
         print("\nCOLLECT no-db")
