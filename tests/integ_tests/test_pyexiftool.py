@@ -61,7 +61,7 @@ def test_pyexiftool_nonexistent_file(tmpdir, caplog):
         assert tags == []
         assert any(record.levelname == "WARNING" for record in caplog.records)
         assert any("empty string" in record.message for record in caplog.records)
-        assert any("missing response" in record.message for record in caplog.records)
+        assert any("bad response" in record.message for record in caplog.records)
     assert not exiftool.running
 
 

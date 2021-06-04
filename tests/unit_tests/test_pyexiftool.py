@@ -251,3 +251,110 @@ def test_pyexiftool_warning(caplog):
         for record in caplog.records
     )
     caplog.records.clear()
+
+
+def test_pyexiftool_execute_json(caplog):
+    """Test that execute_json parses execute correctly"""
+    exiftool = ExifTool()
+    exiftool.execute = lambda *args: b"\n"
+    assert exiftool.execute_json() == []
+    assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert any("empty string" in record.message for record in caplog.records)
+    caplog.records.clear()
+    exiftool.execute = lambda *args: b'[{"a":"b"},{"c":"d"}]'
+    assert exiftool.execute_json() == [{"a": "b"}, {"c": "d"}]
+    assert not any(record.levelname == "WARNING" for record in caplog.records)
+
+
+def test_pyexiftool_parse_get_metadata():
+    """Test that get_metadata parses execute_json correctly"""
+    exiftool = ExifTool()
+    exiftool.execute_json = lambda *args: []
+    assert exiftool.get_metadata("a.jpg") == {}
+    exiftool.execute_json = lambda *args: [{"a": "b"}, {"c": "d"}]
+    assert exiftool.get_metadata("a.jpg") == {"a": "b"}
+
+
+def test_pyexiftool_parse_get_tags_batch(caplog):
+    """Test that get_tags_batch parses execute_json correctly"""
+    exiftool = ExifTool()
+    exiftool.execute_json = lambda *args: []
+    assert exiftool.get_tags_batch((), ("a.jpg",)) == []
+    caplog.records.clear()
+
+    exiftool.execute_json = lambda *args: [{"a": "b"}, {"c": "d"}]
+    assert exiftool.get_tags_batch((), ("a.jpg",)) == [{"a": "b"}, {"c": "d"}]
+    assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert any("bad response" in record.message for record in caplog.records)
+    caplog.records.clear()
+
+    exiftool.execute_json = lambda *args: [{"a": "b"}, {"c": "d"}]
+    assert exiftool.get_tags_batch((), ("a.jpg",)) == [{"a": "b"}, {"c": "d"}]
+    assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert any("bad response" in record.message for record in caplog.records)
+    caplog.records.clear()
+
+
+def test_pyexiftool_parse_get_tags():
+    """Test that get_tags parses get_tags_batch correctly"""
+    exiftool = ExifTool()
+    exiftool.get_tags_batch = lambda *args: []
+    assert exiftool.get_tags(("E",), "a.jpg") == {}
+    exiftool.get_tags_batch = lambda *args: [{"a": "b"}, {"c": "d"}]
+    assert exiftool.get_tags(("E",), "a.jpg") == {"a": "b"}
+
+
+def test_pyexiftool_parse_get_tag_batch():
+    """Test that get_tag_batch parses get_tags_batch correctly"""
+    exiftool = ExifTool()
+    exiftool.get_tags_batch = lambda *args: []
+    assert exiftool.get_tag_batch("E", ("a.jpg",)) == []
+    exiftool.get_tags_batch = lambda *args: [{"SourceFile": "a.jpg"}]
+    assert exiftool.get_tag_batch("E", ("a.jpg",)) == [None]
+    exiftool.get_tags_batch = lambda *args: [
+        {"SourceFile": "a.jpg", "E": "c"},
+        {"SourceFile": "b.jpg", "E": "f"},
+    ]
+    assert exiftool.get_tag_batch("E", ("a.jpg", "b.jpg")) == ["c", "f"]
+
+
+def test_exiftool_parse_get_tag():
+    """Test that get_tag parsers get_tag_batch correctly"""
+    exiftool = ExifTool()
+    exiftool.get_tag_batch = lambda *args: []
+    assert exiftool.get_tag("E", "a.jpg") is None
+    exiftool.get_tag_batch = lambda *args: ["c", "f"]
+    assert exiftool.get_tag("E", "a.jpg") == "c"
+
+
+def test_exiftool_parse_get_best_datetime_batch():
+    """Test that get_best_datetime_batch parsers get_tags_batch correctly"""
+    exiftool = ExifTool()
+    exiftool.get_tags_batch = lambda *args: []
+    assert exiftool.get_best_datetime_batch(("a.jpg", "b.jpg")) == []
+    exiftool.get_tags_batch = lambda *args: [
+        {
+            "SourceFile": "/images/img8.MP4",
+            "File:FileCreateDate": "2020:05:20 12:39:39-04:00",
+            "File:FileModifyDate": "2020:05:20 12:39:39-04:00",
+        },
+        {
+            "SourceFile": "/images/img7.HEIC",
+            "EXIF:CreationDate": "2021:02:08 21:45:02",
+            "XMP:CreateDate": "2021:02:08 21:45:01",
+            "File:FileCreateDate": "2021:02:08 23:19:05-05:00",
+            "File:FileModifyDate": "2021:02:08 23:19:05-05:00",
+        },
+    ]
+    assert exiftool.get_best_datetime_batch(
+        ("/images/img8.MP4", "/images/img7.HEIC")
+    ) == ["2020:05:20 12:39:39-04:00", "2021:02:08 21:45:02"]
+
+
+def test_exiftool_parse_get_best_datetime():
+    """Test that get_best_datetime parsers get_best_datetime_batch correctly"""
+    exiftool = ExifTool()
+    exiftool.get_best_datetime_batch = lambda *args: []
+    assert exiftool.get_best_datetime(("a.jpg", "b.jpg")) is None
+    exiftool.get_best_datetime_batch = lambda *args: ["2020:05:20", "2021:02:08"]
+    assert exiftool.get_best_datetime(("a.jpg", "b.jpg")) == "2020:05:20"

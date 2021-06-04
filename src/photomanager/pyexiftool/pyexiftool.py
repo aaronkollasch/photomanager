@@ -342,7 +342,10 @@ class ExifTool(object, metaclass=Singleton):
         params.extend(filenames)
         response = self.execute_json(*params)
         if len(response) != len(filenames):
-            logging.warning(f"PyExifTool had a missing response in {filenames}")
+            logging.warning(
+                f"PyExifTool bad response length in {filenames}: "
+                f"got {len(response)} responses != {len(filenames)}"
+            )
         return response
 
     def get_tags(self, tags, filename):
