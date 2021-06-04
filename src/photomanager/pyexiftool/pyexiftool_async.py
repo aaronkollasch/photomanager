@@ -53,16 +53,16 @@ Example usage::
                                          d["EXIF:DateTimeOriginal"]))
 """
 
-from __future__ import unicode_literals
-import pprint
+from __future__ import unicode_literals, annotations
 import logging
 import os
-from asyncio import subprocess, Task, Queue, gather, run, create_task
+from collections.abc import Collection, Iterable, Generator
+from asyncio import subprocess, run
 import orjson
-import time
-import traceback
+from dataclasses import dataclass, field
 from tqdm import tqdm
 from .pyexiftool import datetime_tags, best_datetime
+from photomanager.async_base import AsyncWorkerQueue, AsyncJob, make_chunks
 
 basestring = (bytes, str)
 
@@ -83,138 +83,118 @@ sentinel = b"{ready}"
 block_size = 4096
 
 
-class AsyncExifTool(object):
-    def __init__(self, executable_=None, num_workers=os.cpu_count(), batch_size=20):
+@dataclass
+class ExifToolJob(AsyncJob):
+    mode: str = "default"
+    params: Collection[bytes] = field(default_factory=tuple)
+    size: int = 1
+
+
+def make_chunk_jobs(
+    filenames: Iterable[str],
+    size: int,
+    init: Collection[str] = (),
+    mode: str = "default",
+) -> Generator[ExifToolJob]:
+    init = ("-j",) + tuple(init)
+    for chunk in make_chunks(filenames, size, init=init):
+        yield ExifToolJob(
+            mode=mode,
+            params=tuple(os.fsencode(p) for p in chunk),
+            size=len(chunk) - len(init),
+        )
+
+
+class AsyncExifTool(AsyncWorkerQueue):
+    def __init__(
+        self,
+        executable_=None,
+        num_workers=os.cpu_count(),
+        show_progress: bool = True,
+        batch_size: int = 20,
+    ):
+        super(AsyncExifTool, self).__init__(
+            num_workers=num_workers, show_progress=show_progress
+        )
         self.executable = executable if executable_ is None else executable_
         self.running = False
         self.output_dict = {}
         self.queue = None
-        self.workers: list[Task] = []
-        self.num_workers = num_workers
         self.batch_size = batch_size
         self.pbar = None
+        self.processes: dict[int, subprocess] = {}
 
-    def terminate(self):
-        for task in self.workers:
-            task.cancel()
-        if self.pbar:
-            self.pbar.close()
-
-    def __del__(self):
-        self.terminate()
-
-    async def worker(self, mode=None):
-        process = None
+    async def do_job(self, worker_id: int, job: ExifToolJob):
+        outputs = [b"None"]
         try:
-            while True:
-                outputs = [b"None"]
-                params = await self.queue.get()
-                try:
-                    if process is None:
-                        process = await subprocess.create_subprocess_exec(
-                            self.executable,
-                            "-stay_open",
-                            "True",
-                            "-@",
-                            "-",
-                            "-common_args",
-                            "-G",
-                            "-n",
-                            stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.DEVNULL,
-                        )
-                    process.stdin.write(b"\n".join(params + (b"-execute\n",)))
-                    await process.stdin.drain()
-                    outputs = [b""]
-                    while not outputs[-1][-32:].strip().endswith(sentinel):
-                        outputs.append(await process.stdout.read(block_size))
-                    output = b"".join(outputs).strip()[: -len(sentinel)]
-                    if len(output.strip()) == 0:
-                        logging.warning(
-                            f"exiftool returned an empty string for params {params}"
-                        )
-                        output = ()
-                    else:
-                        output = orjson.loads(output)
-                    for d in output:
-                        if mode == "best_datetime":
-                            self.output_dict[d["SourceFile"]] = best_datetime(d)
-                        else:
-                            self.output_dict[d["SourceFile"]] = d
-                    self.pbar.update(n=len(output))
-                except (Exception,):
+            if worker_id in self.processes:
+                process = self.processes[worker_id]
+            else:
+                process = await subprocess.create_subprocess_exec(
+                    self.executable,
+                    "-stay_open",
+                    "True",
+                    "-@",
+                    "-",
+                    "-common_args",
+                    "-G",
+                    "-n",
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                )
+                self.processes[worker_id] = process
+            process.stdin.write(b"\n".join(job.params))
+            process.stdin.write(b"\n-execute\n")
+            await process.stdin.drain()
+            outputs = [b""]
+            while not outputs[-1][-32:].strip().endswith(sentinel):
+                outputs.append(await process.stdout.read(block_size))
+            output = b"".join(outputs).strip()[: -len(sentinel)]
+            if len(output.strip()) == 0:
+                logging.warning(
+                    f"exiftool returned an empty string for params {job.params}"
+                )
+                output = ()
+            else:
+                output = orjson.loads(output)
+            for d in output:
+                if "SourceFile" not in d:
                     logging.warning(
-                        f"AsyncExifTool worker encountered an exception!\n"
-                        f"exiftool params: {self.executable} {params}\n"
-                        f"exiftool output: {b''.join(outputs)}\n"
-                        f"{pprint.pformat(traceback.format_exc())}",
+                        f"exiftool returned metadata with no SourceFile: {d}"
                     )
-                finally:
-                    self.queue.task_done()
-        finally:
-            if process is not None:
-                await process.communicate(b"-stay_open\nFalse\n")
+                elif job.mode == "best_datetime":
+                    self.output_dict[d["SourceFile"]] = best_datetime(d)
+                else:
+                    self.output_dict[d["SourceFile"]] = d
+        except Exception as e:
+            print(f"exiftool output: {b''.join(outputs)}\n")
+            raise e
 
-    async def execute_json(self, *params):
-        params = map(os.fsencode, params)
-        await self.queue.put((b"-j", *params))
+    async def close_worker(self, worker_id: int):
+        process = self.processes[worker_id]
+        await process.communicate(b"-stay_open\nFalse\n")
+        del process[worker_id]
 
-    async def execute_queue(self, all_params, num_files, mode=None):
-        self.output_dict = {}
-        self.queue = Queue()
-        self.pbar = tqdm(total=num_files)
+    def make_pbar(self, all_jobs: list[ExifToolJob]):
+        self.pbar = tqdm(total=sum(job.size for job in all_jobs))
 
-        # Create worker tasks to process the queue concurrently.
-        for i in range(self.num_workers):
-            task = create_task(self.worker(mode=mode))
-            self.workers.append(task)
+    def update_pbar(self, job: ExifToolJob):
+        self.pbar.update(n=job.size)
 
-        for params in all_params:
-            await self.execute_json(*params)
-
-        # Wait until the queue is fully processed.
-        started_at = time.monotonic()
-        await self.queue.join()
-        total_time = time.monotonic() - started_at
-
-        # Cancel our worker tasks.
-        for task in self.workers:
-            task.cancel()
-        # Wait until all worker tasks are cancelled.
-        await gather(*self.workers, return_exceptions=True)
-        self.workers = []
-        self.queue = None
-        self.pbar.close()
-        self.pbar = None
-
-        print(
-            f"{self.num_workers} subprocesses worked in "
-            f"parallel for {total_time:.2f} seconds"
-        )
-        return self.output_dict
-
-    @staticmethod
-    def make_chunks(it, size, init=()):
-        chunk = list(init)
-        for item in it:
-            chunk.append(item)
-            if len(chunk) - len(init) == size:
-                yield chunk
-                chunk = list(init)
-        if len(chunk) - len(init) > 0:
-            yield chunk
-
-    def get_metadata_batch(self, filenames):
+    def get_metadata_batch(
+        self, filenames: Collection[str]
+    ) -> dict[str, dict[str, str]]:
         """Return all meta-data for the given files.
 
-        The return value will have the format described in the
-        documentation of :py:meth:`execute_json()`.
+        :return: a dictionary of filenames to metadata
         """
-        all_params = list(self.make_chunks(filenames, self.batch_size))
-        return run(self.execute_queue(all_params, len(filenames)))
+        all_jobs = tuple(make_chunk_jobs(filenames, self.batch_size))
+        return run(self.execute_queue(all_jobs))
 
-    def get_tags_batch(self, tags, filenames):
+    def get_tags_batch(
+        self, tags: Iterable[str], filenames: Collection[str]
+    ) -> dict[str, dict[str, str]]:
         """Return only specified tags for the given files.
 
         The first argument is an iterable of tags.  The tag names may
@@ -222,14 +202,20 @@ class AsyncExifTool(object):
 
         The second argument is an iterable of file names.
 
-        The format of the return value is the same as for
-        :py:meth:`execute_json()`.
+        :return: a dictionary of filenames to tags
         """
         params = tuple("-" + t for t in tags)
-        all_params = list(self.make_chunks(filenames, self.batch_size, init=params))
-        return run(self.execute_queue(all_params, len(filenames)))
+        all_jobs = tuple(make_chunk_jobs(filenames, self.batch_size, init=params))
+        return run(self.execute_queue(all_jobs))
 
-    def get_best_datetime_batch(self, filenames):
+    def get_best_datetime_batch(self, filenames: Collection[str]) -> dict[str, str]:
         params = tuple("-" + t for t in datetime_tags)
-        all_params = list(self.make_chunks(filenames, self.batch_size, init=params))
-        return run(self.execute_queue(all_params, len(filenames), mode="best_datetime"))
+        all_jobs = tuple(
+            make_chunk_jobs(
+                filenames,
+                self.batch_size,
+                init=params,
+                mode="best_datetime",
+            )
+        )
+        return run(self.execute_queue(all_jobs))

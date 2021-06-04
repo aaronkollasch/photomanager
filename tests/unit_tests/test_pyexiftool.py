@@ -1,78 +1,18 @@
 import asyncio
 from asyncio import subprocess as subprocess_async
 import logging
+import orjson
 import pytest
-from photomanager.pyexiftool import ExifTool, AsyncExifTool
+from photomanager.pyexiftool import ExifTool, AsyncExifTool, ExifToolJob
 from . import NopProcess, AsyncNopProcess
-
-chunker_expected_results = [
-    {
-        "it": ("a", "b", "c", "d", "e", "f"),
-        "size": 2,
-        "init": ("asdf", "-t"),
-        "result": [
-            ["asdf", "-t", "a", "b"],
-            ["asdf", "-t", "c", "d"],
-            ["asdf", "-t", "e", "f"],
-        ],
-    },
-    {
-        "it": ("a", "b", "c", "d", "e"),
-        "size": 2,
-        "init": ("asdf", "-t"),
-        "result": [
-            ["asdf", "-t", "a", "b"],
-            ["asdf", "-t", "c", "d"],
-            ["asdf", "-t", "e"],
-        ],
-    },
-    {
-        "it": ("a", "b", "c", "d", "e"),
-        "size": 3,
-        "init": ("asdf", "-t"),
-        "result": [
-            ["asdf", "-t", "a", "b", "c"],
-            ["asdf", "-t", "d", "e"],
-        ],
-    },
-    {
-        "it": ("a", "b", "c", "d", "e"),
-        "size": 3,
-        "init": (),
-        "result": [
-            ["a", "b", "c"],
-            ["d", "e"],
-        ],
-    },
-    {
-        "it": ("a", "b"),
-        "size": 3,
-        "init": ("asdf", "-t"),
-        "result": [
-            ["asdf", "-t", "a", "b"],
-        ],
-    },
-    {
-        "it": (),
-        "size": 3,
-        "init": ("asdf", "-t"),
-        "result": [],
-    },
-]
-
-
-@pytest.mark.parametrize("chunks_test", chunker_expected_results)
-def test_make_chunks(chunks_test):
-    chunks = list(
-        AsyncExifTool.make_chunks(
-            chunks_test["it"], chunks_test["size"], chunks_test["init"]
-        )
-    )
-    print(chunks)
-    assert chunks == chunks_test["result"]
 
 
 def test_async_pyexiftool_metadata(monkeypatch, caplog):
+    """
+    AsyncExifTool get_metadata_batch processes json output by exiftool
+    into a dict from filename to a metadata dict.
+    """
+
     async def nop_cse(*_, **__):
         loop = asyncio.events.get_event_loop()
         loop.set_debug(True)
@@ -94,7 +34,11 @@ def test_async_pyexiftool_metadata(monkeypatch, caplog):
     assert metadata["img1.jpg"]["EXIF:DateTimeOriginal"] == "2015:08:27 04:09:36"
 
 
-def test_async_pyexiftool_warning(monkeypatch, caplog):
+def test_async_pyexiftool_empty_warning(monkeypatch, caplog):
+    """
+    AsyncExifTool logs a warning if exiftool returns an empty response
+    """
+
     async def nop_cse(*_, **__):
         loop = asyncio.events.get_event_loop()
         loop.set_debug(True)
@@ -117,7 +61,11 @@ def test_async_pyexiftool_warning(monkeypatch, caplog):
     )
 
 
-def test_async_pyexiftool_error(monkeypatch, caplog):
+def test_async_pyexiftool_json_decode_error(monkeypatch, caplog):
+    """
+    AsyncExifTool logs a warning if it cannot decode the exiftool response
+    """
+
     async def nop_cse(*_, **__):
         loop = asyncio.events.get_event_loop()
         loop.set_debug(True)
@@ -138,6 +86,10 @@ def test_async_pyexiftool_error(monkeypatch, caplog):
 
 
 def test_async_pyexiftool_type_error(monkeypatch, caplog):
+    """
+    AsyncExifTool expects a JSON list of dicts, not a dict
+    """
+
     async def nop_cse(*_, **__):
         loop = asyncio.events.get_event_loop()
         loop.set_debug(True)
@@ -158,7 +110,38 @@ def test_async_pyexiftool_type_error(monkeypatch, caplog):
     assert len(metadata) == 0
 
 
+def test_async_pyexiftool_no_sourcefile(monkeypatch, caplog):
+    """
+    AsyncExifTool expects each file metadata to have a SourceFile key
+    and will log a warning if none is found.
+    """
+
+    async def nop_cse(*_, **__):
+        loop = asyncio.events.get_event_loop()
+        loop.set_debug(True)
+        return AsyncNopProcess(
+            stdout_messages=(
+                b'[{"EXIF:key":"data"}]\n',
+                b"{ready}",
+            )
+        )
+
+    monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+    caplog.set_level(logging.DEBUG)
+    metadata = AsyncExifTool(batch_size=10).get_metadata_batch(["asdf.bin"])
+    print([(r.levelname, r) for r in caplog.records])
+    print(metadata)
+    assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert any("no SourceFile" in record.message for record in caplog.records)
+    assert len(metadata) == 0
+
+
 def test_async_pyexiftool_interrupt(monkeypatch):
+    """
+    If AsyncPyExifTool workers are terminated early,
+    the program should exit without delay.
+    """
+
     async def nop_cse(*_, **__):
         loop = asyncio.events.get_event_loop()
         loop.set_debug(True)
@@ -173,14 +156,22 @@ def test_async_pyexiftool_interrupt(monkeypatch):
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
     tool = AsyncExifTool(batch_size=10)
 
-    async def join(_=None):
+    queue_join = asyncio.Queue.join
+
+    async def join(self: asyncio.Queue):
         await asyncio.sleep(0.01)
         tool.terminate()
+        await asyncio.wait_for(queue_join(self), timeout=1.0)
 
     monkeypatch.setattr(asyncio.Queue, "join", join)
-    all_jobs = [[b"img.jpg"]]
-    metadata = asyncio.run(tool.execute_queue(all_params=all_jobs, num_files=1))
+    all_jobs = [
+        ExifToolJob(
+            params=[b"img.jpg"],
+        )
+    ]
+    metadata = asyncio.run(tool.execute_queue(all_jobs=all_jobs))
     assert len(metadata) == 0
+    assert len(tool.workers) == 0
 
 
 expected_metadata = [

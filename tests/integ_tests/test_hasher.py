@@ -1,3 +1,4 @@
+import logging
 import random
 from io import BytesIO
 from photomanager.hasher import AsyncFileHasher, file_checksum
@@ -41,7 +42,8 @@ def test_file_hasher(tmpdir):
         assert checksum_cache[filename] == c
 
 
-def test_async_file_hasher(tmpdir):
+def test_async_file_hasher(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
     files, sizes = [], []
     for i, (s, c) in enumerate(checksums):
         filename = tmpdir / f"{i}.bin"
@@ -62,7 +64,7 @@ def test_async_file_hasher(tmpdir):
     files.append(tmpdir / "asdf.bin")
     sizes.append(0)
     checksum_cache = AsyncFileHasher(
-        algorithm="blake2b-256", use_async=True, batch_size=10
+        algorithm="blake2b-256", use_async=True, batch_size=10, show_progress=False
     ).check_files(files, pbar_unit="B", file_sizes=sizes)
     print(checksum_cache)
     assert len(checksum_cache) == len(checksums)
@@ -72,7 +74,7 @@ def test_async_file_hasher(tmpdir):
         assert checksum_cache[filename] == c
 
     checksum_cache = AsyncFileHasher(
-        algorithm="blake2b-256", use_async=True, batch_size=5
+        algorithm="blake2b-256", use_async=True, batch_size=6
     ).check_files(files, pbar_unit="it")
     print(checksum_cache)
     assert len(checksum_cache) == len(checksums)
@@ -82,7 +84,7 @@ def test_async_file_hasher(tmpdir):
         assert checksum_cache[filename] == c
 
     checksum_cache = AsyncFileHasher(
-        algorithm="blake2b-256", use_async=False, batch_size=5
+        algorithm="blake2b-256", use_async=False, batch_size=6
     ).check_files(files, pbar_unit="it")
     print(checksum_cache)
     assert len(checksum_cache) == len(checksums)
