@@ -6,7 +6,7 @@ import stat
 from math import log
 from uuid import uuid4
 from pathlib import Path
-from datetime import datetime, tzinfo
+from datetime import datetime, tzinfo, timezone, timedelta
 import shutil
 from dataclasses import dataclass, asdict
 import gzip
@@ -23,6 +23,7 @@ from photomanager.pyexiftool import ExifTool, AsyncExifTool
 from photomanager.hasher import AsyncFileHasher, file_checksum, DEFAULT_HASH_ALGO
 
 PF = TypeVar("PF", bound="PhotoFile")
+local_tzoffset = datetime.now().astimezone().utcoffset().total_seconds()
 
 
 @dataclass
@@ -32,11 +33,12 @@ class PhotoFile:
     Attributes:
         :checksum (str): checksum of photo file
         :source_path (str): Absolute path where photo was found
-        :datetime (str): Datetime string for best estimated creation date
-        :timestamp (float): POSIX timestamp of best estimated creation date
+        :datetime (str): Datetime string for best estimated creation date (original)
+        :timestamp (float): POSIX timestamp of best estimated creation date (derived)
         :file_size (int): Photo file size, in bytes
         :store_path (str): Relative path where photo is stored, empty if not stored
         :priority (int): Photo priority (lower is preferred)
+        :tz_offset (float): local time offset
     """
 
     checksum: str
@@ -46,6 +48,16 @@ class PhotoFile:
     file_size: int
     store_path: str = ""
     priority: int = 10
+    tz_offset: float = None
+
+    @property
+    def local_datetime(self):
+        tz = (
+            timezone(timedelta(seconds=self.tz_offset))
+            if self.tz_offset is not None
+            else None
+        )
+        return datetime.fromtimestamp(self.timestamp).astimezone(tz)
 
     @classmethod
     def from_file(
@@ -64,17 +76,20 @@ class PhotoFile:
         :param priority: The photo's priority
         """
         photo_hash: str = file_checksum(source_path, algorithm)
-        dt = get_media_datetime(source_path)
-        timestamp = datetime_str_to_object(dt, tz_default=tz_default).timestamp()
+        dt_str = get_media_datetime(source_path)
+        dt = datetime_str_to_object(dt_str, tz_default=tz_default)
+        tz = dt.utcoffset().total_seconds() if dt.tzinfo is not None else local_tzoffset
+        timestamp = dt.timestamp()
         file_size = getsize(source_path)
         return cls(
             checksum=photo_hash,
             source_path=str(source_path),
-            datetime=dt,
+            datetime=dt_str,
             timestamp=timestamp,
             file_size=file_size,
             store_path="",
             priority=priority,
+            tz_offset=tz,
         )
 
     @classmethod
@@ -105,21 +120,24 @@ class PhotoFile:
             if source_path in checksum_cache
             else file_checksum(source_path, algorithm)
         )
-        dt = (
+        dt_str = (
             datetime_cache[source_path]
             if source_path in datetime_cache
             else get_media_datetime(source_path)
         )
-        timestamp = datetime_str_to_object(dt, tz_default=tz_default).timestamp()
+        dt = datetime_str_to_object(dt_str, tz_default=tz_default)
+        tz = dt.utcoffset().total_seconds() if dt.tzinfo else None
+        timestamp = dt.timestamp()
         file_size = getsize(source_path)
         return cls(
             checksum=photo_hash,
             source_path=str(source_path),
-            datetime=dt,
+            datetime=dt_str,
             timestamp=timestamp,
             file_size=file_size,
             store_path="",
             priority=priority,
+            tz_offset=tz,
         )
 
     @classmethod
@@ -192,6 +210,19 @@ def path_is_relative_to(
         return path in subpath.parents
 
 
+def tz_str_to_tzinfo(tz: str):
+    """
+    Convert a timezone string (e.g. -0400) to a tzinfo
+    If "local", return None
+    """
+    if tz == "local":
+        return None
+    try:
+        return datetime.strptime(tz, "%z").tzinfo
+    except ValueError:
+        pass
+
+
 class DatabaseException(PhotoManagerBaseException):
     pass
 
@@ -200,7 +231,7 @@ DB = TypeVar("DB", bound="Database")
 
 
 class Database:
-    VERSION = 1
+    VERSION = 2
     DB_KEY_ORDER = (
         "version",
         "hash_algorithm",
@@ -250,11 +281,7 @@ class Database:
         :return: the time zone as a datetime.tzinfo,
         """
         tz_default = self.db.get("timezone_default", "local")
-        if tz_default != "local":
-            try:
-                return datetime.strptime(tz_default, "%z").tzinfo
-            except ValueError:
-                pass
+        return tz_str_to_tzinfo(tz_default)
 
     @property
     def command_history(self) -> dict[str, str]:
@@ -270,11 +297,18 @@ class Database:
     def db(self, db: dict):
         """Set the Database parameters from a dict."""
         db.setdefault("version", 1)  # legacy dbs are version 1
+        db["version"] = int(db["version"])
+        if db["version"] > self.VERSION:
+            raise DatabaseException(
+                "Database version too new for this version of PhotoManager."
+            )
+
         db.setdefault("hash_algorithm", "sha256")  # legacy dbs use sha256
         db.setdefault("timezone_default", "local")  # legacy dbs are in local time
         db = {k: db[k] for k in self.DB_KEY_ORDER}
         for uid in db["photo_db"].keys():
             db["photo_db"][uid] = [PhotoFile.from_dict(d) for d in db["photo_db"][uid]]
+
         db["version"] = self.VERSION
         self._db = db
 
@@ -417,7 +451,11 @@ class Database:
                 f.write(save_bytes)
         elif path.suffix == ".zst":
             with open(path, "wb") as f:
-                cctx = zstd.ZstdCompressor(level=5, write_checksum=True)
+                cctx = zstd.ZstdCompressor(
+                    level=7,
+                    write_checksum=True,
+                    threads=cpu_count(),
+                )
                 f.write(cctx.compress(save_bytes))
         else:
             with open(path, "wb") as f:
@@ -515,12 +553,15 @@ class Database:
         self,
         files: Collection[Union[str, PathLike]],
         priority: int = 10,
+        timezone_default: Optional[str] = None,
         storage_type: str = "HDD",
     ) -> (int, int, int, int):
         """Indexes photo files and adds them to the database with a designated priority.
 
         :param files: the photo file paths to index
         :param priority: the photos' priority
+        :param timezone_default: the default timezone to use when importing
+            If None, use the database default
         :param storage_type: the storage type being indexed (uses more async if SSD)
         :return: the number of photos added, merged, skipped, or errored
         """
@@ -544,6 +585,11 @@ class Database:
         datetime_cache = AsyncExifTool(num_workers=async_exif).get_best_datetime_batch(
             files
         )
+        timezone_default = (
+            tz_str_to_tzinfo(timezone_default)
+            if timezone_default is not None
+            else self.timezone_default
+        )
         logger.info("Indexing media")
         exiftool = ExifTool()
         exiftool.start()
@@ -556,7 +602,7 @@ class Database:
                     checksum_cache=checksum_cache,
                     datetime_cache=datetime_cache,
                     algorithm=self.hash_algorithm,
-                    tz_default=self.timezone_default,
+                    tz_default=timezone_default,
                     priority=priority,
                 )
                 uid = self.find_photo(photo=pf)
@@ -641,9 +687,8 @@ class Database:
                     photo.checksum in stored_checksums
                     and photo.priority >= stored_checksums[photo.checksum]
                 )
-                photo_datetime = datetime_str_to_object(photo.datetime)
                 rel_store_path = (
-                    f"{photo_datetime.strftime('%Y/%m-%b/%Y-%m-%d_%H-%M-%S')}-"
+                    f"{photo.local_datetime.strftime('%Y/%m-%b/%Y-%m-%d_%H-%M-%S')}-"
                     f"{photo.checksum[:7]}-"
                     f"{Path(photo.source_path).name}"
                 )

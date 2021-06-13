@@ -82,23 +82,6 @@ def test_cli_main(monkeypatch, capsys):
     assert captured.out.strip() == f"photomanager {version}"
     assert captured.err == ""
 
-    monkeypatch.setattr(sys, "argv", ["photomanager", "--version"])
-    with pytest.raises(SystemExit) as exit_type:
-        __main__.main()
-    captured = capsys.readouterr()
-    assert exit_type.value.code == 0
-    assert captured.out.strip() == f"photomanager {version}"
-    assert captured.err == ""
-
-    monkeypatch.setattr(cli, "__name__", "__main__")
-    monkeypatch.setattr(sys, "argv", ["photomanager", "--version"])
-    with pytest.raises(SystemExit) as exit_type:
-        cli._init()
-    captured = capsys.readouterr()
-    assert exit_type.value.code == 0
-    assert captured.out.strip() == f"photomanager {version}"
-    assert captured.err == ""
-
 
 def test_cli_exit_codes(monkeypatch):
     monkeypatch.setattr(cli, "__name__", "__main__")

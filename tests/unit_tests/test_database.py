@@ -8,7 +8,8 @@ import zstandard
 from photomanager import database
 
 
-def test_photofile_init():
+def test_photofile_to_dict():
+    """ """
     assert database.PhotoFile(
         checksum="deadbeef",
         source_path="/a/b/c.jpg",
@@ -17,6 +18,7 @@ def test_photofile_init():
         file_size=1024,
         store_path="/d/e/f.jpg",
         priority=11,
+        tz_offset=-14400,
     ).to_dict() == {
         "checksum": "deadbeef",
         "source_path": "/a/b/c.jpg",
@@ -25,6 +27,7 @@ def test_photofile_init():
         "file_size": 1024,
         "store_path": "/d/e/f.jpg",
         "priority": 11,
+        "tz_offset": -14400,
     }
 
 
@@ -104,7 +107,7 @@ def test_sizeof_fmt():
     assert database.sizeof_fmt(1024 ** 5) == "1.00 PB"
 
 
-def test_database_init1():
+def test_database_init():
     json_data = b"""{
 "version": 1,
 "hash_algorithm": "sha256",
@@ -126,12 +129,15 @@ def test_database_init1():
             "timestamp": 1440662976.5,
             "file_size": 1024,
             "store_path": "",
-            "priority": 20
+            "priority": 20,
+            "tz_offset": -14400
         }
     ]
 },
 "command_history": {"2021-03-08_23-56-00Z": "photomanager create --db test.json"}
-}"""
+}""".replace(
+        b"VERSION", f"{database.Database.VERSION}".encode()
+    )
     db = database.Database.from_json(json_data)
     print(db.db)
     assert db.version == database.Database.VERSION
@@ -160,6 +166,7 @@ def test_database_init1():
                     "file_size": 1024,
                     "store_path": "",
                     "priority": 20,
+                    "tz_offset": -14400,
                 }
             ),
         ]
@@ -182,7 +189,10 @@ def test_database_init1():
     assert db.get_stats() == (1, 2, 1, 1024)
 
 
-def test_database_init2():
+def test_database_init_update_version():
+    """
+    Database will upgrade loaded database files to current version
+    """
     json_data = b"""{
   "version": 1,
   "hash_algorithm": "sha256",
@@ -190,12 +200,32 @@ def test_database_init2():
   "photo_db": {},
   "command_history": {}
 }"""
+    new_json_data = json_data.replace(
+        b'"version": 1', f'"version": {database.Database.VERSION}'.encode()
+    )
     db = database.Database.from_json(json_data)
     print(db.db)
     assert db.db["timezone_default"] == "-0400"
     assert db.timezone_default == timezone(timedelta(days=-1, seconds=72000))
-    assert orjson.loads(db.json) == orjson.loads(json_data)
-    assert db.to_json(pretty=True) == json_data
+    assert orjson.loads(db.json) == orjson.loads(new_json_data)
+    assert db.to_json(pretty=True) == new_json_data
+
+
+def test_database_init_version_too_high():
+    """
+    Database will raise DatabaseException if loaded database version is too high
+    """
+    json_data = b"""{
+  "version": VERSION,
+  "hash_algorithm": "sha256",
+  "timezone_default": "-0400",
+  "photo_db": {},
+  "command_history": {}
+}""".replace(
+        b"VERSION", f"{database.Database.VERSION + 1}".encode()
+    )
+    with pytest.raises(database.DatabaseException):
+        database.Database.from_json(json_data)
 
 
 example_database_json_data = b"""{

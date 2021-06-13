@@ -83,6 +83,9 @@ def _create(
               help="Name patterns to exclude")
 @click.option("--priority", type=int, default=10,
               help="Priority of indexed photos (lower is preferred, default=10)")
+@click.option("--timezone-default", type=str, default=None,
+              help="Timezone to use when indexing timezone-naive photos "
+                   "(example=\"-0400\", default=\"local\")")
 @click.option("--storage-type", type=str, default="HDD",
               help="Class of storage medium (HDD, SSD, RAID)")
 @click.option("--debug", default=False, is_flag=True,
@@ -100,6 +103,7 @@ def _index(
     debug=False,
     dry_run=False,
     priority=10,
+    timezone_default: Optional[str] = None,
     storage_type="HDD",
 ):
     if not source and not file and not paths:
@@ -110,7 +114,10 @@ def _index(
     database = Database.from_file(db, create_new=True)
     filtered_files = list_files(source=source, file=file, exclude=exclude, paths=paths)
     database.index_photos(
-        files=filtered_files, priority=priority, storage_type=storage_type
+        files=filtered_files,
+        priority=priority,
+        storage_type=storage_type,
+        timezone_default=timezone_default,
     )
     database.add_command(shlex.join(sys.argv))
     if not dry_run:
