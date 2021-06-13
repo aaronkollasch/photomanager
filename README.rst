@@ -312,11 +312,11 @@ where an example photo has the form:
 
 Attributes:
 
-    :chk (str): checksum of photo file
-    :src (str): Absolute path where photo was found
-    :dt (str): Datetime string for best estimated creation date (original)
-    :ts (float): POSIX timestamp of best estimated creation date (derived)
-    :fsz (int): Photo file size, in bytes
-    :sto (str): Relative path where photo is stored, empty if not stored
-    :prio (int): Photo priority (lower is preferred)
-    :tzo (float): local time zone offset
+:chk (str): checksum of photo file
+:src (str): Absolute path where photo was found
+:dt (str): Datetime string for best estimated creation date (original)
+:ts (float): POSIX timestamp of best estimated creation date (derived)
+:fsz (int): Photo file size, in bytes
+:sto (str): Relative path where photo is stored, empty if not stored
+:prio (int): Photo priority (lower is preferred)
+:tzo (float): local time zone offset
