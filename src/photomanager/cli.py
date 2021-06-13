@@ -9,7 +9,7 @@ import re
 from typing import Union, Optional, Iterable
 import logging
 import click
-from photomanager.database import Database, DEFAULT_HASH_ALGO
+from photomanager.database import Database, DEFAULT_HASH_ALGO, HashAlgorithm
 from photomanager import version
 
 
@@ -46,13 +46,16 @@ def click_exit(value: int = 0):
 
 
 # fmt: off
-@click.command("create", help="Create an empty database")
+@click.command("create",
+               help="Create a database. Save a new version if it already exists.")
 @click.option("--db", type=click.Path(dir_okay=False), required=True,
               default=DEFAULT_DB,
               help="PhotoManager database filepath (.json). "
                    "Add extensions .zst or .gz to compress.")
-@click.option("--hash-algorithm", type=str, default=DEFAULT_HASH_ALGO,
-              help=f"Hash algorithm (default={DEFAULT_HASH_ALGO})")
+@click.option("--hash-algorithm",
+              type=click.Choice([v.value for v in HashAlgorithm.__members__.values()]),
+              default=DEFAULT_HASH_ALGO.value,
+              help=f"Hash algorithm (default={DEFAULT_HASH_ALGO.value})")
 @click.option("--timezone-default", type=str, default="local",
               help="Timezone to use when indexing timezone-naive photos "
                    "(example=\"-0400\", default=\"local\")")
@@ -62,10 +65,13 @@ def _create(
     hash_algorithm: str = DEFAULT_HASH_ALGO,
     timezone_default: str = "local",
 ):
-    database = Database()
-    database.hash_algorithm = hash_algorithm
-    database.db["timezone_default"] = timezone_default
-    database.add_command(shlex.join(sys.argv))
+    try:
+        database = Database.from_file(db)
+    except FileNotFoundError:
+        database = Database()
+        database.hash_algorithm = HashAlgorithm(hash_algorithm)
+        database.db["timezone_default"] = timezone_default
+        database.add_command(shlex.join(sys.argv))
     database.to_file(db)
 
 
@@ -83,6 +89,9 @@ def _create(
               help="Name patterns to exclude")
 @click.option("--priority", type=int, default=10,
               help="Priority of indexed photos (lower is preferred, default=10)")
+@click.option("--timezone-default", type=str, default=None,
+              help="Timezone to use when indexing timezone-naive photos "
+                   "(example=\"-0400\", default=\"local\")")
 @click.option("--storage-type", type=str, default="HDD",
               help="Class of storage medium (HDD, SSD, RAID)")
 @click.option("--debug", default=False, is_flag=True,
@@ -100,6 +109,7 @@ def _index(
     debug=False,
     dry_run=False,
     priority=10,
+    timezone_default: Optional[str] = None,
     storage_type="HDD",
 ):
     if not source and not file and not paths:
@@ -110,7 +120,10 @@ def _index(
     database = Database.from_file(db, create_new=True)
     filtered_files = list_files(source=source, file=file, exclude=exclude, paths=paths)
     database.index_photos(
-        files=filtered_files, priority=priority, storage_type=storage_type
+        files=filtered_files,
+        priority=priority,
+        storage_type=storage_type,
+        timezone_default=timezone_default,
     )
     database.add_command(shlex.join(sys.argv))
     if not dry_run:

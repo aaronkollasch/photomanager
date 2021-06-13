@@ -16,14 +16,30 @@ ALL_IMG_DIRS = pytest.mark.datafiles(
     keep_top_dir=True,
 )
 EXPECTED_HASHES = {
-    "A/img1.jpg": "d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb",
-    "A/img2.jpg": "3b39f47d51f63e54c76417ee6e04c34bd3ff5ac47696824426dca9e200f03666",
-    "A/img1.png": "1e10df2e3abe4c810551525b6cb2eb805886de240e04cc7c13c58ae208cabfb9",
-    "A/img4.jpg": "79ac4a89fb3d81ab1245b21b11ff7512495debca60f6abf9afbb1e1fbfe9d98c",
-    "B/img1.jpg": "d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb",
-    "B/img2.jpg": "e9fec87008fd240309b81c997e7ec5491fee8da7eb1a76fc39b8fcafa76bb583",
-    "B/img4.jpg": "2b0f304f86655ebd04272cc5e7e886e400b79a53ecfdc789f75dd380cbcc8317",
-    "C/img3.tiff": "2aca4e78afbcebf2526ad8ac544d90b92991faae22499eec45831ef7be392391",
+    "A/img1.jpg": bytes.fromhex(
+        "d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb"
+    ),
+    "A/img2.jpg": bytes.fromhex(
+        "3b39f47d51f63e54c76417ee6e04c34bd3ff5ac47696824426dca9e200f03666"
+    ),
+    "A/img1.png": bytes.fromhex(
+        "1e10df2e3abe4c810551525b6cb2eb805886de240e04cc7c13c58ae208cabfb9"
+    ),
+    "A/img4.jpg": bytes.fromhex(
+        "79ac4a89fb3d81ab1245b21b11ff7512495debca60f6abf9afbb1e1fbfe9d98c"
+    ),
+    "B/img1.jpg": bytes.fromhex(
+        "d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb"
+    ),
+    "B/img2.jpg": bytes.fromhex(
+        "e9fec87008fd240309b81c997e7ec5491fee8da7eb1a76fc39b8fcafa76bb583"
+    ),
+    "B/img4.jpg": bytes.fromhex(
+        "2b0f304f86655ebd04272cc5e7e886e400b79a53ecfdc789f75dd380cbcc8317"
+    ),
+    "C/img3.tiff": bytes.fromhex(
+        "2aca4e78afbcebf2526ad8ac544d90b92991faae22499eec45831ef7be392391"
+    ),
 }
 
 
@@ -99,7 +115,7 @@ def test_cli_import(datafiles, caplog):
             assert db.hash_to_uid[checksum] in db.photo_db
             photos = db.photo_db[db.hash_to_uid[checksum]]
             assert len(photos) == 1
-            assert photos[0].source_path == datafiles / rel_path
+            assert photos[0].src == datafiles / rel_path
 
         result = runner.invoke(
             cast(Group, cli.main),
@@ -130,7 +146,7 @@ def test_cli_import(datafiles, caplog):
             assert db.hash_to_uid[checksum] in db.photo_db
             photos = db.photo_db[db.hash_to_uid[checksum]]
             assert len(photos) == 2
-            assert photos[1].source_path == datafiles / rel_path
+            assert photos[1].src == datafiles / rel_path
 
         caplog.set_level(logging.INFO)
         s_prev = s
@@ -185,7 +201,7 @@ def test_cli_import(datafiles, caplog):
             assert db.hash_to_uid[checksum] in db.photo_db
             photos = db.photo_db[db.hash_to_uid[checksum]]
             assert len(photos) == 1
-            assert photos[0].source_path == datafiles / rel_path
+            assert photos[0].src == datafiles / rel_path
 
         db_prev = db
         result = runner.invoke(
@@ -249,20 +265,20 @@ def test_cli_import(datafiles, caplog):
             assert db.hash_to_uid[checksum] in db.photo_db
             photos = db.photo_db[db.hash_to_uid[checksum]]
             if rel_path.startswith("A"):
-                assert photos[0].source_path == datafiles / rel_path
-                assert photos[0].store_path != ""
+                assert photos[0].src == datafiles / rel_path
+                assert photos[0].sto != ""
                 assert abs_path.exists()
-                assert (datafiles / "pm_store" / photos[0].store_path).exists()
+                assert (datafiles / "pm_store" / photos[0].sto).exists()
             elif rel_path.startswith("B"):
                 assert len(photos) == 2
-                assert photos[1].source_path == datafiles / rel_path
-                assert photos[1].store_path == ""
+                assert photos[1].src == datafiles / rel_path
+                assert photos[1].sto == ""
             elif rel_path.startswith("C"):
                 assert len(photos) == 1
-                assert photos[0].source_path == datafiles / rel_path
-                assert photos[0].store_path != ""
+                assert photos[0].src == datafiles / rel_path
+                assert photos[0].sto != ""
                 assert abs_path.exists()
-                assert (datafiles / "pm_store" / photos[0].store_path).exists()
+                assert (datafiles / "pm_store" / photos[0].sto).exists()
 
         result = runner.invoke(
             cast(Group, cli.main),
@@ -291,40 +307,40 @@ def test_cli_import(datafiles, caplog):
                 pf
                 for photos in db.photo_db.values()
                 for pf in photos
-                if pf.store_path and pf.checksum == EXPECTED_HASHES["A/img1.jpg"]
+                if pf.sto and pf.chk == EXPECTED_HASHES["A/img1.jpg"]
             )
-            img1_jpg.store_path = ""
+            img1_jpg.sto = ""
             img2_jpg = next(
                 pf
                 for photos in db.photo_db.values()
                 for pf in photos
-                if pf.store_path and pf.checksum == EXPECTED_HASHES["A/img2.jpg"]
+                if pf.sto and pf.chk == EXPECTED_HASHES["A/img2.jpg"]
             )
-            os.remove(img2_jpg.source_path)
-            os.remove(datafiles / "pm_store" / img2_jpg.store_path)
+            os.remove(img2_jpg.src)
+            os.remove(datafiles / "pm_store" / img2_jpg.sto)
             img2_png = next(
                 pf
                 for photos in db.photo_db.values()
                 for pf in photos
-                if pf.store_path and pf.checksum == EXPECTED_HASHES["A/img1.png"]
+                if pf.sto and pf.chk == EXPECTED_HASHES["A/img1.png"]
             )
-            os.remove(img2_png.source_path)
+            os.remove(img2_png.src)
             img3_tiff = next(
                 pf
                 for photos in db.photo_db.values()
                 for pf in photos
-                if pf.store_path and pf.checksum == EXPECTED_HASHES["C/img3.tiff"]
+                if pf.sto and pf.chk == EXPECTED_HASHES["C/img3.tiff"]
             )
-            os.remove(datafiles / "pm_store" / img3_tiff.store_path)
+            os.remove(datafiles / "pm_store" / img3_tiff.sto)
             img4_jpg = next(
                 pf
                 for photos in db.photo_db.values()
                 for pf in photos
-                if pf.store_path and pf.checksum == EXPECTED_HASHES["A/img4.jpg"]
+                if pf.sto and pf.chk == EXPECTED_HASHES["A/img4.jpg"]
             )
-            os.remove(img4_jpg.source_path)
-            os.remove(datafiles / "pm_store" / img4_jpg.store_path)
-            img4_jpg.store_path = ""
+            os.remove(img4_jpg.src)
+            os.remove(datafiles / "pm_store" / img4_jpg.sto)
+            img4_jpg.sto = ""
             f.seek(0)
             s = db.to_json(pretty=True)
             f.write(s)
@@ -380,25 +396,25 @@ def test_cli_import(datafiles, caplog):
             assert db.hash_to_uid[checksum] in db.photo_db
             photos = db.photo_db[db.hash_to_uid[checksum]]
             if rel_path == "A/img2.jpg":
-                assert photos[0].source_path == datafiles / rel_path
-                assert photos[0].store_path != ""
-                assert not (datafiles / "pm_store" / photos[0].store_path).exists()
+                assert photos[0].src == datafiles / rel_path
+                assert photos[0].sto != ""
+                assert not (datafiles / "pm_store" / photos[0].sto).exists()
             elif rel_path == "A/img4.jpg":
-                assert photos[0].source_path == datafiles / rel_path
-                assert photos[0].store_path == ""
+                assert photos[0].src == datafiles / rel_path
+                assert photos[0].sto == ""
             elif rel_path.startswith("A"):
-                assert photos[0].source_path == datafiles / rel_path
-                assert photos[0].store_path != ""
-                assert (datafiles / "pm_store" / photos[0].store_path).exists()
+                assert photos[0].src == datafiles / rel_path
+                assert photos[0].sto != ""
+                assert (datafiles / "pm_store" / photos[0].sto).exists()
             elif rel_path.startswith("B"):
                 assert len(photos) == 2
-                assert photos[1].source_path == datafiles / rel_path
-                assert photos[1].store_path == ""
+                assert photos[1].src == datafiles / rel_path
+                assert photos[1].sto == ""
             elif rel_path.startswith("C"):
                 assert len(photos) == 1
-                assert photos[0].source_path == datafiles / rel_path
-                assert photos[0].store_path != ""
-                assert (datafiles / "pm_store" / photos[0].store_path).exists()
+                assert photos[0].src == datafiles / rel_path
+                assert photos[0].sto != ""
+                assert (datafiles / "pm_store" / photos[0].sto).exists()
         check_dir_empty(fs)
 
 
@@ -474,7 +490,7 @@ def test_cli_import_no_overwrite(datafiles, caplog):
         print(db.db)
 
         assert (
-            next(iter(db.photo_db.values()))[0].store_path
+            next(iter(db.photo_db.values()))[0].sto
             == "2018/08-Aug/2018-08-01_19-28-36-2aca4e7-img3.tiff"
         )
 
@@ -651,10 +667,10 @@ def test_cli_clean(datafiles, caplog):
             assert db.hash_to_uid[checksum] in db.photo_db
             photos = db.photo_db[db.hash_to_uid[checksum]]
             assert len(photos) == 1
-            assert photos[0].source_path == datafiles / rel_path
-            assert photos[0].store_path != ""
+            assert photos[0].src == datafiles / rel_path
+            assert photos[0].sto != ""
             assert abs_path.exists()
-            assert (datafiles / "pm_store" / photos[0].store_path).exists()
+            assert (datafiles / "pm_store" / photos[0].sto).exists()
 
         s_prev = s
         f_prev = set(Path(datafiles / "pm_store").glob("**/*"))
@@ -712,15 +728,15 @@ def test_cli_clean(datafiles, caplog):
             assert db.hash_to_uid[checksum] in db.photo_db
             photos = db.photo_db[db.hash_to_uid[checksum]]
             if rel_path.startswith("A"):
-                assert photos[0].source_path == datafiles / rel_path
+                assert photos[0].src == datafiles / rel_path
                 print(rel_path)
-                assert photos[0].store_path != ""
-                assert (datafiles / "pm_store" / photos[0].store_path).exists()
+                assert photos[0].sto != ""
+                assert (datafiles / "pm_store" / photos[0].sto).exists()
             elif rel_path.startswith("B"):
                 assert len(photos) == 2
-                assert photos[1].source_path == datafiles / rel_path
-                assert photos[1].store_path != ""
-                assert (datafiles / "pm_store" / photos[1].store_path).exists()
+                assert photos[1].src == datafiles / rel_path
+                assert photos[1].sto != ""
+                assert (datafiles / "pm_store" / photos[1].sto).exists()
 
         assert any(
             p.name == "2018-08-01_20-28-36-2b0f304-img4.jpg"
@@ -760,21 +776,21 @@ def test_cli_clean(datafiles, caplog):
             assert db.hash_to_uid[checksum] in db.photo_db
             photos = db.photo_db[db.hash_to_uid[checksum]]
             if rel_path == "A/img4.jpg":
-                assert photos[0].source_path == datafiles / rel_path
-                assert photos[0].store_path != ""
-                assert (datafiles / "pm_store" / photos[0].store_path).exists()
+                assert photos[0].src == datafiles / rel_path
+                assert photos[0].sto != ""
+                assert (datafiles / "pm_store" / photos[0].sto).exists()
             elif rel_path == "B/img4.jpg":
-                assert photos[1].source_path == datafiles / rel_path
-                assert photos[1].store_path == ""
+                assert photos[1].src == datafiles / rel_path
+                assert photos[1].sto == ""
             elif rel_path.startswith("A"):
-                assert photos[0].source_path == datafiles / rel_path
-                assert photos[0].store_path != ""
-                assert (datafiles / "pm_store" / photos[0].store_path).exists()
+                assert photos[0].src == datafiles / rel_path
+                assert photos[0].sto != ""
+                assert (datafiles / "pm_store" / photos[0].sto).exists()
             elif rel_path.startswith("B"):
                 assert len(photos) == 2
-                assert photos[1].source_path == datafiles / rel_path
-                assert photos[1].store_path != ""
-                assert (datafiles / "pm_store" / photos[1].store_path).exists()
+                assert photos[1].src == datafiles / rel_path
+                assert photos[1].sto != ""
+                assert (datafiles / "pm_store" / photos[1].sto).exists()
 
         s_prev = s
         f_prev = set(Path(datafiles / "pm_store").glob("**/*"))
@@ -887,12 +903,12 @@ def test_cli_clean(datafiles, caplog):
             assert db.hash_to_uid[checksum] in db.photo_db
             photos = db.photo_db[db.hash_to_uid[checksum]]
             if rel_path.startswith("A"):
-                assert photos[0].source_path == datafiles / rel_path
-                assert photos[0].store_path != ""
-                assert (datafiles / "pm_store" / photos[0].store_path).exists()
+                assert photos[0].src == datafiles / rel_path
+                assert photos[0].sto != ""
+                assert (datafiles / "pm_store" / photos[0].sto).exists()
             elif rel_path.startswith("B"):
                 assert len(photos) == 2
-                assert photos[1].source_path == datafiles / rel_path
-                assert photos[1].store_path == ""
+                assert photos[1].src == datafiles / rel_path
+                assert photos[1].sto == ""
 
         check_dir_empty(fs)

@@ -1,7 +1,8 @@
 import datetime
 import pytest
 from photomanager.pyexiftool import best_datetime
-from photomanager.database import Database, datetime_str_to_object
+from photomanager.database import Database
+from photomanager.photofile import datetime_str_to_object
 
 
 best_datetime_expected_results = [
@@ -189,13 +190,7 @@ datetime_ts_expected_results = [
     {
         "timestamp_str": "2015:08:27 04:09:36.50-0400",
         "datetime_obj": datetime.datetime(
-            2015,
-            8,
-            27,
-            4,
-            9,
-            36,
-            500000,
+            *(2015, 8, 27, 4, 9, 36, 500000),
             tzinfo=datetime.timezone(datetime.timedelta(days=-1, seconds=72000)),
         ),
         "timestamp": 1440662976.5,
@@ -203,11 +198,7 @@ datetime_ts_expected_results = [
     {
         "timestamp_str": "2015:08:27 04:09-0300",
         "datetime_obj": datetime.datetime(
-            2015,
-            8,
-            27,
-            4,
-            9,
+            *(2015, 8, 27, 4, 9),
             tzinfo=datetime.timezone(datetime.timedelta(days=-1, seconds=75600)),
         ),
         "timestamp": 1440659340.0,
