@@ -5,7 +5,7 @@ from pathlib import Path
 import orjson
 import pytest
 import zstandard
-from photomanager import database
+from photomanager import database, photofile
 
 
 def test_photofile_to_dict():
@@ -107,7 +107,7 @@ def test_sizeof_fmt():
     assert database.sizeof_fmt(1024 ** 5) == "1.00 PB"
 
 
-def test_database_init():
+def test_database_load_version_1():
     json_data = b"""{
 "version": 1,
 "hash_algorithm": "sha256",
@@ -134,7 +134,148 @@ def test_database_init():
         }
     ]
 },
-"command_history": {"2021-03-08_23-56-00Z": "photomanager create --db test.json"}
+"command_history": {
+    "2021-03-08_23-56-00Z": "photomanager create --db test.json",
+    "2021-03-08_23-57-00Z": "photomanager import --db test.json test.jpg"
+}
+}"""
+    db = database.Database.from_json(json_data)
+    print(db.db)
+    assert db.version == database.Database.VERSION
+    assert db.hash_algorithm == "sha256"
+    assert db.db["timezone_default"] == "local"
+    assert db.timezone_default is None
+    photo_db_expected = {
+        "d239210f00534b76a2b215e073f75832": [
+            database.PhotoFile.from_dict(
+                {
+                    "checksum": "deadbeef",
+                    "source_path": "/a/b/c.jpg",
+                    "datetime": "2015:08:27 04:09:36.50",
+                    "timestamp": 1440662976.5,
+                    "file_size": 1024,
+                    "store_path": "/d/e/f.jpg",
+                    "priority": 11,
+                }
+            ),
+            database.PhotoFile.from_dict(
+                {
+                    "checksum": "deadbeef",
+                    "source_path": "/g/b/c.jpg",
+                    "datetime": "2015:08:27 04:09:36.50",
+                    "timestamp": 1440662976.5,
+                    "file_size": 1024,
+                    "store_path": "",
+                    "priority": 20,
+                    "tz_offset": -14400,
+                }
+            ),
+        ]
+    }
+    command_history_expected = {
+        "2021-03-08_23-56-00Z": "photomanager create --db test.json",
+        "2021-03-08_23-57-00Z": "photomanager import --db test.json test.jpg",
+    }
+    db_expected = {
+        "version": database.Database.VERSION,
+        "hash_algorithm": "sha256",
+        "timezone_default": "local",
+        "photo_db": photo_db_expected,
+        "command_history": command_history_expected,
+    }
+    assert db.photo_db == photo_db_expected
+    assert db.command_history == command_history_expected
+    assert orjson.loads(db.json) != orjson.loads(json_data)
+    assert db.db == db_expected
+    assert db == database.Database.from_dict(orjson.loads(json_data))
+    assert db.get_stats() == (1, 2, 1, 1024)
+
+
+def test_database_init_update_version_1():
+    """
+    Database will upgrade loaded database files to current version
+    """
+    json_data = b"""{
+  "version": 1,
+  "hash_algorithm": "sha256",
+  "timezone_default": "-0400",
+  "photo_db": {
+    "d239210f00534b76a2b215e073f75832": [
+      {
+        "checksum": "deadbeef",
+        "source_path": "/a/b/c.jpg",
+        "datetime": "2015:08:27 04:09:36.50",
+        "timestamp": 1440662976.5,
+        "file_size": 1024,
+        "store_path": "/d/e/f.jpg",
+        "priority": 11,
+        "tz_offset": null
+      },
+      {
+        "checksum": "deadbeef",
+        "source_path": "/g/b/c.jpg",
+        "datetime": "2015:08:27 04:09:36.50",
+        "timestamp": 1440662976.5,
+        "file_size": 1024,
+        "store_path": "",
+        "priority": 20,
+        "tz_offset": -14400
+      }
+    ]
+  },
+  "command_history": {
+    "2021-03-08_23-56-00Z": "photomanager create --db test.json",
+    "2021-03-08_23-57-00Z": "photomanager import --db test.json test.jpg"
+  }
+}"""
+    new_json_data = json_data.replace(
+        b'"version": 1', f'"version": {database.Database.VERSION}'.encode()
+    )
+    for k, v in photofile.NAME_MAP_ENC.items():
+        new_json_data = new_json_data.replace(
+            b'"' + k.encode() + b'"',
+            b'"' + v.encode() + b'"',
+        )
+    db = database.Database.from_json(json_data)
+    print(db.db)
+    assert db.db["timezone_default"] == "-0400"
+    assert db.timezone_default == timezone(timedelta(days=-1, seconds=72000))
+    assert orjson.loads(db.json) == orjson.loads(new_json_data)
+    assert db.to_json(pretty=True) == new_json_data
+
+
+def test_database_load_version_3():
+    json_data = b"""{
+"version": 3,
+"hash_algorithm": "sha256",
+"photo_db": {
+    "d239210f00534b76a2b215e073f75832": [
+        {
+            "chk": "deadbeef",
+            "src": "/a/b/c.jpg",
+            "dt": "2015:08:27 04:09:36.50",
+            "ts": 1440662976.5,
+            "fsz": 1024,
+            "sto": "/d/e/f.jpg",
+            "prio": 11,
+            "tzo": null
+        },
+        {
+            "chk": "deadbeef",
+            "src": "/g/b/c.jpg",
+            "dt": "2015:08:27 04:09:36.50",
+            "ts": 1440662976.5,
+            "fsz": 1024,
+            "sto": "",
+            "prio": 20,
+            "tzo": -14400
+        }
+    ]
+},
+"command_history": {
+    "2021-03-08_23-56-00Z": "photomanager create --db test.json",
+    "2021-03-08_23-57-00Z": "photomanager import --db test.json test.jpg"
+}
 }""".replace(
         b"VERSION", f"{database.Database.VERSION}".encode()
     )
@@ -172,7 +313,8 @@ def test_database_init():
         ]
     }
     command_history_expected = {
-        "2021-03-08_23-56-00Z": "photomanager create --db test.json"
+        "2021-03-08_23-56-00Z": "photomanager create --db test.json",
+        "2021-03-08_23-57-00Z": "photomanager import --db test.json test.jpg",
     }
     db_expected = {
         "version": database.Database.VERSION,
@@ -187,28 +329,6 @@ def test_database_init():
     assert db.db == db_expected
     assert db == database.Database.from_dict(orjson.loads(json_data))
     assert db.get_stats() == (1, 2, 1, 1024)
-
-
-def test_database_init_update_version():
-    """
-    Database will upgrade loaded database files to current version
-    """
-    json_data = b"""{
-  "version": 1,
-  "hash_algorithm": "sha256",
-  "timezone_default": "-0400",
-  "photo_db": {},
-  "command_history": {}
-}"""
-    new_json_data = json_data.replace(
-        b'"version": 1', f'"version": {database.Database.VERSION}'.encode()
-    )
-    db = database.Database.from_json(json_data)
-    print(db.db)
-    assert db.db["timezone_default"] == "-0400"
-    assert db.timezone_default == timezone(timedelta(days=-1, seconds=72000))
-    assert orjson.loads(db.json) == orjson.loads(new_json_data)
-    assert db.to_json(pretty=True) == new_json_data
 
 
 def test_database_init_version_too_high():

@@ -1,183 +1,28 @@
 from __future__ import annotations
 
 from os import PathLike, rename, cpu_count, makedirs, chmod, remove
-from os.path import exists, getsize
+from os.path import exists
 import stat
 from math import log
 from uuid import uuid4
 from pathlib import Path
-from datetime import datetime, tzinfo, timezone, timedelta
+from datetime import datetime, tzinfo
 import shutil
-from dataclasses import dataclass, asdict
 import gzip
 import logging
 import traceback
 from typing import Union, Optional, Type, TypeVar
 from collections.abc import Collection
+
 from tqdm import tqdm
 import orjson
 import zstandard as zstd
 import xxhash
+
 from photomanager import PhotoManagerBaseException
 from photomanager.pyexiftool import ExifTool, AsyncExifTool
 from photomanager.hasher import AsyncFileHasher, file_checksum, DEFAULT_HASH_ALGO
-
-PF = TypeVar("PF", bound="PhotoFile")
-local_tzoffset = datetime.now().astimezone().utcoffset().total_seconds()
-
-
-@dataclass
-class PhotoFile:
-    """A dataclass describing a photo or other media file
-
-    Attributes:
-        :checksum (str): checksum of photo file
-        :source_path (str): Absolute path where photo was found
-        :datetime (str): Datetime string for best estimated creation date (original)
-        :timestamp (float): POSIX timestamp of best estimated creation date (derived)
-        :file_size (int): Photo file size, in bytes
-        :store_path (str): Relative path where photo is stored, empty if not stored
-        :priority (int): Photo priority (lower is preferred)
-        :tz_offset (float): local time offset
-    """
-
-    checksum: str
-    source_path: str
-    datetime: str
-    timestamp: float
-    file_size: int
-    store_path: str = ""
-    priority: int = 10
-    tz_offset: float = None
-
-    @property
-    def local_datetime(self):
-        tz = (
-            timezone(timedelta(seconds=self.tz_offset))
-            if self.tz_offset is not None
-            else None
-        )
-        return datetime.fromtimestamp(self.timestamp).astimezone(tz)
-
-    @classmethod
-    def from_file(
-        cls: Type[PF],
-        source_path: Union[str, PathLike],
-        algorithm: str = DEFAULT_HASH_ALGO,
-        tz_default: Optional[tzinfo] = None,
-        priority: int = 10,
-    ) -> PF:
-        """Create a PhotoFile for a given file
-
-        :param source_path: The path to the file
-        :param algorithm: The hashing algorithm to use
-        :param tz_default: The time zone to use if none is set
-            (defaults to local time)
-        :param priority: The photo's priority
-        """
-        photo_hash: str = file_checksum(source_path, algorithm)
-        dt_str = get_media_datetime(source_path)
-        dt = datetime_str_to_object(dt_str, tz_default=tz_default)
-        tz = dt.utcoffset().total_seconds() if dt.tzinfo is not None else local_tzoffset
-        timestamp = dt.timestamp()
-        file_size = getsize(source_path)
-        return cls(
-            checksum=photo_hash,
-            source_path=str(source_path),
-            datetime=dt_str,
-            timestamp=timestamp,
-            file_size=file_size,
-            store_path="",
-            priority=priority,
-            tz_offset=tz,
-        )
-
-    @classmethod
-    def from_file_cached(
-        cls: Type[PF],
-        source_path: str,
-        checksum_cache: dict[str, str],
-        datetime_cache: dict[str, str],
-        algorithm: str = DEFAULT_HASH_ALGO,
-        tz_default: Optional[tzinfo] = None,
-        priority: int = 10,
-    ) -> PF:
-        """Create a PhotoFile for a given file
-
-        If source_path is in the checksum and datetime caches, uses the cached value
-        instead of reading from the file.
-
-        :param source_path: The path to the file
-        :param checksum_cache: A mapping of source paths to known checksums
-        :param datetime_cache: A mapping of source paths to datetime strings
-        :param algorithm: The hashing algorithm to use for new checksums
-        :param tz_default: The time zone to use if none is set
-            (defaults to local time)
-        :param priority: The photo's priority
-        """
-        photo_hash: str = (
-            checksum_cache[source_path]
-            if source_path in checksum_cache
-            else file_checksum(source_path, algorithm)
-        )
-        dt_str = (
-            datetime_cache[source_path]
-            if source_path in datetime_cache
-            else get_media_datetime(source_path)
-        )
-        dt = datetime_str_to_object(dt_str, tz_default=tz_default)
-        tz = dt.utcoffset().total_seconds() if dt.tzinfo else None
-        timestamp = dt.timestamp()
-        file_size = getsize(source_path)
-        return cls(
-            checksum=photo_hash,
-            source_path=str(source_path),
-            datetime=dt_str,
-            timestamp=timestamp,
-            file_size=file_size,
-            store_path="",
-            priority=priority,
-            tz_offset=tz,
-        )
-
-    @classmethod
-    def from_dict(cls: Type[PF], d: dict) -> PF:
-        return cls(**d)
-
-    def to_dict(self) -> dict:
-        return asdict(self)
-
-
-def datetime_str_to_object(ts_str: str, tz_default: tzinfo = None) -> datetime:
-    """Parses a datetime string into a datetime object"""
-    dt = None
-    if "." in ts_str:
-        for fmt in ("%Y:%m:%d %H:%M:%S.%f%z", "%Y:%m:%d %H:%M:%S.%f"):
-            try:
-                dt = datetime.strptime(ts_str, fmt)
-            except ValueError:
-                pass
-    else:
-        for fmt in (
-            "%Y:%m:%d %H:%M:%S%z",
-            "%Y:%m:%d %H:%M:%S",
-            "%Y:%m:%d %H:%M%z",
-            "%Y:%m:%d %H:%M",
-        ):
-            try:
-                dt = datetime.strptime(ts_str, fmt)
-            except ValueError:
-                pass
-    if dt is not None:
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=tz_default)
-        return dt
-    raise ValueError(f"Could not parse datetime str: {repr(ts_str)}")
-
-
-def get_media_datetime(path: Union[str, PathLike]) -> str:
-    """Gets the best known datetime string for a file"""
-    return ExifTool().get_best_datetime(path)
+from photomanager.photofile import PhotoFile
 
 
 unit_list = list(zip(["bytes", "kB", "MB", "GB", "TB", "PB"], [0, 0, 1, 2, 2, 2]))
@@ -231,7 +76,7 @@ DB = TypeVar("DB", bound="Database")
 
 
 class Database:
-    VERSION = 2
+    VERSION = 3
     DB_KEY_ORDER = (
         "version",
         "hash_algorithm",
@@ -522,7 +367,7 @@ class Database:
             ):
                 return None
         if uid is None:
-            uid = self.hash_to_uid.get(photo.checksum, uuid4().hex)
+            uid = self.hash_to_uid.get(photo.checksum, generate_uuid())
         if uid in self.photo_db:
             photos = self.photo_db[uid]
             assert not any(
