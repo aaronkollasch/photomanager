@@ -3,17 +3,17 @@ from __future__ import annotations
 from os import PathLike
 from os.path import getsize
 from datetime import datetime, tzinfo, timezone, timedelta
-from dataclasses import dataclass, asdict, field, fields
-from typing import Union, Optional, Type, TypeVar, ClassVar
-from base64 import standard_b64decode, standard_b64encode
+from dataclasses import dataclass, asdict, fields
+from typing import Union, Optional, Type, TypeVar
+
+from pybase64 import b64decode, b64encode
 
 from photomanager.pyexiftool import ExifTool
 from photomanager.hasher import file_checksum, DEFAULT_HASH_ALGO, HashAlgorithm
 
 PF = TypeVar("PF", bound="PhotoFile")
 local_tzoffset = datetime.now().astimezone().utcoffset().total_seconds()
-ALIAS_METADATA = "json_name"
-NAME_MAP_ENC: ClassVar[dict[str, str]] = {
+NAME_MAP_ENC: dict[str, str] = {
     "checksum": "chk",
     "source_path": "src",
     "datetime": "dt",
@@ -23,15 +23,15 @@ NAME_MAP_ENC: ClassVar[dict[str, str]] = {
     "priority": "prio",
     "tz_offset": "tzo",
 }
-NAME_MAP_DEC: ClassVar[dict[str, str]] = {v: k for k, v in NAME_MAP_ENC.items()}
+NAME_MAP_DEC: dict[str, str] = {v: k for k, v in NAME_MAP_ENC.items()}
 
 
 def checksum_encode(checksum: bytes) -> str:
-    return standard_b64encode(checksum).decode()
+    return b64encode(checksum).decode()
 
 
 def checksum_decode(checksum: str) -> bytes:
-    return standard_b64decode(checksum)
+    return b64decode(checksum, validate=True)
 
 
 @dataclass
@@ -39,49 +39,35 @@ class PhotoFile:
     """A dataclass describing a photo or other media file
 
     Attributes:
-        :checksum (bytes): checksum of photo file
-        :source_path (str): Absolute path where photo was found
-        :datetime (str): Datetime string for best estimated creation date (original)
-        :timestamp (float): POSIX timestamp of best estimated creation date (derived)
-        :file_size (int): Photo file size, in bytes
-        :store_path (str): Relative path where photo is stored, empty if not stored
-        :priority (int): Photo priority (lower is preferred)
-        :tz_offset (float): local time offset
+        :chk (bytes): checksum of photo file
+        :src (str): Absolute path where photo was found
+        :dt (str): Datetime string for best estimated creation date (original)
+        :ts (float): POSIX timestamp of best estimated creation date (derived)
+        :fsz (int): Photo file size, in bytes
+        :sto (str): Relative path where photo is stored, empty if not stored
+        :prio (int): Photo priority (lower is preferred)
+        :tzo (float): local time zone offset
     """
 
-    checksum: bytes = field(metadata={ALIAS_METADATA: NAME_MAP_ENC["checksum"]})
-    source_path: str = field(metadata={ALIAS_METADATA: NAME_MAP_ENC["source_path"]})
-    datetime: str = field(metadata={ALIAS_METADATA: NAME_MAP_ENC["datetime"]})
-    timestamp: float = field(metadata={ALIAS_METADATA: NAME_MAP_ENC["timestamp"]})
-    file_size: int = field(metadata={ALIAS_METADATA: NAME_MAP_ENC["file_size"]})
-    store_path: str = field(
-        default="", metadata={ALIAS_METADATA: NAME_MAP_ENC["store_path"]}
-    )
-    priority: int = field(
-        default=10, metadata={ALIAS_METADATA: NAME_MAP_ENC["priority"]}
-    )
-    tz_offset: float = field(
-        default=None, metadata={ALIAS_METADATA: NAME_MAP_ENC["tz_offset"]}
-    )
+    chk: bytes
+    src: str
+    dt: str
+    ts: float
+    fsz: int
+    sto: str = ""
+    prio: int = 10
+    tzo: float = None
 
-    def __getattribute__(self, attr):
-        if attr == "__dict__":
-            d = {
-                f.metadata.get(ALIAS_METADATA, f.name): getattr(self, f.name)
-                for f in fields(self)
-            }
-            d[NAME_MAP_ENC["checksum"]] = checksum_encode(d[NAME_MAP_ENC["checksum"]])
-            return d
-        return super().__getattribute__(attr)
+    @property
+    def __dict__(self):
+        d = {f.name: getattr(self, f.name) for f in fields(self)}
+        d["chk"] = checksum_encode(d["chk"])
+        return d
 
     @property
     def local_datetime(self):
-        tz = (
-            timezone(timedelta(seconds=self.tz_offset))
-            if self.tz_offset is not None
-            else None
-        )
-        return datetime.fromtimestamp(self.timestamp).astimezone(tz)
+        tz = timezone(timedelta(seconds=self.tzo)) if self.tzo is not None else None
+        return datetime.fromtimestamp(self.ts).astimezone(tz)
 
     @classmethod
     def from_file(
@@ -106,14 +92,14 @@ class PhotoFile:
         timestamp = dt.timestamp()
         file_size = getsize(source_path)
         return cls(
-            checksum=photo_hash,
-            source_path=str(source_path),
-            datetime=dt_str,
-            timestamp=timestamp,
-            file_size=file_size,
-            store_path="",
-            priority=priority,
-            tz_offset=tz,
+            chk=photo_hash,
+            src=str(source_path),
+            dt=dt_str,
+            ts=timestamp,
+            fsz=file_size,
+            sto="",
+            prio=priority,
+            tzo=tz,
         )
 
     @classmethod
@@ -154,21 +140,19 @@ class PhotoFile:
         timestamp = dt.timestamp()
         file_size = getsize(source_path)
         return cls(
-            checksum=photo_hash,
-            source_path=str(source_path),
-            datetime=dt_str,
-            timestamp=timestamp,
-            file_size=file_size,
-            store_path="",
-            priority=priority,
-            tz_offset=tz,
+            chk=photo_hash,
+            src=str(source_path),
+            dt=dt_str,
+            ts=timestamp,
+            fsz=file_size,
+            sto="",
+            prio=priority,
+            tzo=tz,
         )
 
     @classmethod
     def from_json_dict(cls: Type[PF], d: dict) -> PF:
-        if "checksum" not in d:  # we are dealing with encoded names
-            d = {NAME_MAP_DEC[k]: v for k, v in d.items()}
-        d["checksum"] = checksum_decode(d["checksum"])
+        d["chk"] = checksum_decode(d["chk"])
         return cls.from_dict(d)
 
     @classmethod

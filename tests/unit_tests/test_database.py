@@ -13,36 +13,36 @@ from photomanager.hasher import HashAlgorithm
 def test_photofile_to_dict():
     """ """
     assert PhotoFile(
-        checksum=b"deadbeef",
-        source_path="/a/b/c.jpg",
-        datetime="2015:08:27 04:09:36.50",
-        timestamp=1440662976.5,
-        file_size=1024,
-        store_path="/d/e/f.jpg",
-        priority=11,
-        tz_offset=-14400,
+        chk=b"deadbeef",
+        src="/a/b/c.jpg",
+        dt="2015:08:27 04:09:36.50",
+        ts=1440662976.5,
+        fsz=1024,
+        sto="/d/e/f.jpg",
+        prio=11,
+        tzo=-14400,
     ).to_dict() == {
-        "checksum": b"deadbeef",
-        "source_path": "/a/b/c.jpg",
-        "datetime": "2015:08:27 04:09:36.50",
-        "timestamp": 1440662976.5,
-        "file_size": 1024,
-        "store_path": "/d/e/f.jpg",
-        "priority": 11,
-        "tz_offset": -14400,
+        "chk": b"deadbeef",
+        "src": "/a/b/c.jpg",
+        "dt": "2015:08:27 04:09:36.50",
+        "ts": 1440662976.5,
+        "fsz": 1024,
+        "sto": "/d/e/f.jpg",
+        "prio": 11,
+        "tzo": -14400,
     }
 
 
 def test_photofile_to_json():
     pf = PhotoFile(
-        checksum=b"\xde\xad\xbe\xef",
-        source_path="/a/b/c.jpg",
-        datetime="2015:08:27 04:09:36.50",
-        timestamp=1440662976.5,
-        file_size=1024,
-        store_path="/d/e/f.jpg",
-        priority=11,
-        tz_offset=-14400,
+        chk=b"\xde\xad\xbe\xef",
+        src="/a/b/c.jpg",
+        dt="2015:08:27 04:09:36.50",
+        ts=1440662976.5,
+        fsz=1024,
+        sto="/d/e/f.jpg",
+        prio=11,
+        tzo=-14400,
     )
     print(pf)
     print(pf.__getattribute__("__dict__"))
@@ -60,60 +60,60 @@ def test_photofile_to_json():
 
 def test_photofile_eq():
     assert PhotoFile(
-        checksum=b"\xde\xad\xbe\xef",
-        source_path="/a/b/c.jpg",
-        datetime="2015:08:27 04:09:36.50",
-        timestamp=1440662976.5,
-        file_size=1024,
-        store_path="/d/e/f.jpg",
-        priority=11,
+        chk=b"\xde\xad\xbe\xef",
+        src="/a/b/c.jpg",
+        dt="2015:08:27 04:09:36.50",
+        ts=1440662976.5,
+        fsz=1024,
+        sto="/d/e/f.jpg",
+        prio=11,
     ) == PhotoFile(
-        checksum=b"\xde\xad\xbe\xef",
-        source_path="/a/b/c.jpg",
-        datetime="2015:08:27 04:09:36.50",
-        timestamp=1440662976.5,
-        file_size=1024,
-        store_path="/d/e/f.jpg",
-        priority=11,
+        chk=b"\xde\xad\xbe\xef",
+        src="/a/b/c.jpg",
+        dt="2015:08:27 04:09:36.50",
+        ts=1440662976.5,
+        fsz=1024,
+        sto="/d/e/f.jpg",
+        prio=11,
     )
 
 
 def test_photofile_neq():
     pf1 = PhotoFile(
-        checksum=b"deadbeef",
-        source_path="/a/b/c.jpg",
-        datetime="2015:08:27 04:09:36.50",
-        timestamp=1440662976.5,
-        file_size=1024,
-        store_path="/d/e/f.jpg",
-        priority=11,
+        chk=b"deadbeef",
+        src="/a/b/c.jpg",
+        dt="2015:08:27 04:09:36.50",
+        ts=1440662976.5,
+        fsz=1024,
+        sto="/d/e/f.jpg",
+        prio=11,
     )
     assert pf1 != PhotoFile(
-        checksum=b"deadfeed",
-        source_path="/a/b/c.jpg",
-        datetime="2015:08:27 04:09:36.50",
-        timestamp=1440662976.5,
-        file_size=1024,
-        store_path="/d/e/f.jpg",
-        priority=11,
+        chk=b"deadfeed",
+        src="/a/b/c.jpg",
+        dt="2015:08:27 04:09:36.50",
+        ts=1440662976.5,
+        fsz=1024,
+        sto="/d/e/f.jpg",
+        prio=11,
     )
     assert pf1 != PhotoFile(
-        checksum=b"deadbeef",
-        source_path="/a/b/d.jpg",
-        datetime="2015:08:27 04:09:36.50",
-        timestamp=1440662976.5,
-        file_size=1024,
-        store_path="/d/e/f.jpg",
-        priority=11,
+        chk=b"deadbeef",
+        src="/a/b/d.jpg",
+        dt="2015:08:27 04:09:36.50",
+        ts=1440662976.5,
+        fsz=1024,
+        sto="/d/e/f.jpg",
+        prio=11,
     )
     assert pf1 != PhotoFile(
-        checksum=b"deadbeef",
-        source_path="/a/b/d.jpg",
-        datetime="2015:08:27 04:09:36.50",
-        timestamp=1440662976.0,
-        file_size=1024,
-        store_path="/d/e/f.jpg",
-        priority=11,
+        chk=b"deadbeef",
+        src="/a/b/d.jpg",
+        dt="2015:08:27 04:09:36.50",
+        ts=1440662976.0,
+        fsz=1024,
+        sto="/d/e/f.jpg",
+        prio=11,
     )
 
 
@@ -176,25 +176,25 @@ def test_database_load_version_1():
         "d239210f00534b76a2b215e073f75832": [
             PhotoFile.from_dict(
                 {
-                    "checksum": bytes.fromhex("deadbeef"),
-                    "source_path": "/a/b/c.jpg",
-                    "datetime": "2015:08:27 04:09:36.50",
-                    "timestamp": 1440662976.5,
-                    "file_size": 1024,
-                    "store_path": "/d/e/f.jpg",
-                    "priority": 11,
+                    "chk": bytes.fromhex("deadbeef"),
+                    "src": "/a/b/c.jpg",
+                    "dt": "2015:08:27 04:09:36.50",
+                    "ts": 1440662976.5,
+                    "fsz": 1024,
+                    "sto": "/d/e/f.jpg",
+                    "prio": 11,
                 }
             ),
             PhotoFile.from_dict(
                 {
-                    "checksum": bytes.fromhex("deadbeef"),
-                    "source_path": "/g/b/c.jpg",
-                    "datetime": "2015:08:27 04:09:36.50",
-                    "timestamp": 1440662976.5,
-                    "file_size": 1024,
-                    "store_path": "",
-                    "priority": 20,
-                    "tz_offset": -14400,
+                    "chk": bytes.fromhex("deadbeef"),
+                    "src": "/g/b/c.jpg",
+                    "dt": "2015:08:27 04:09:36.50",
+                    "ts": 1440662976.5,
+                    "fsz": 1024,
+                    "sto": "",
+                    "prio": 20,
+                    "tzo": -14400,
                 }
             ),
         ]
@@ -277,7 +277,7 @@ def test_database_load_version_3():
 "version": 3,
 "hash_algorithm": "sha256",
 "photo_db": {
-    "d239210f00534b76a2b215e073f75832": [
+    "QKEsTn2X": [
         {
             "chk": "deadbeef",
             "src": "/a/b/c.jpg",
@@ -314,28 +314,28 @@ def test_database_load_version_3():
     assert db.db["timezone_default"] == "local"
     assert db.timezone_default is None
     photo_db_expected = {
-        "d239210f00534b76a2b215e073f75832": [
+        "QKEsTn2X": [
             PhotoFile.from_json_dict(
                 {
-                    "checksum": "deadbeef",
-                    "source_path": "/a/b/c.jpg",
-                    "datetime": "2015:08:27 04:09:36.50",
-                    "timestamp": 1440662976.5,
-                    "file_size": 1024,
-                    "store_path": "/d/e/f.jpg",
-                    "priority": 11,
+                    "chk": "deadbeef",
+                    "src": "/a/b/c.jpg",
+                    "dt": "2015:08:27 04:09:36.50",
+                    "ts": 1440662976.5,
+                    "fsz": 1024,
+                    "sto": "/d/e/f.jpg",
+                    "prio": 11,
                 }
             ),
             PhotoFile.from_json_dict(
                 {
-                    "checksum": "deadbeef",
-                    "source_path": "/g/b/c.jpg",
-                    "datetime": "2015:08:27 04:09:36.50",
-                    "timestamp": 1440662976.5,
-                    "file_size": 1024,
-                    "store_path": "",
-                    "priority": 20,
-                    "tz_offset": -14400,
+                    "chk": "deadbeef",
+                    "src": "/g/b/c.jpg",
+                    "dt": "2015:08:27 04:09:36.50",
+                    "ts": 1440662976.5,
+                    "fsz": 1024,
+                    "sto": "",
+                    "prio": 20,
+                    "tzo": -14400,
                 }
             ),
         ]
@@ -401,12 +401,15 @@ def test_database_save(tmpdir, caplog):
     db = Database.from_json(example_database_json_data)
     db.to_file(tmpdir / "test.json")
     db2 = db.from_file(tmpdir / "test.json")
+    print(db.db, db2.db, sep="\n")
     assert db == db2
     db.to_file(tmpdir / "test.json.gz")
     db2 = db.from_file(tmpdir / "test.json.gz")
+    print(db2.db)
     assert db == db2
     db.to_file(tmpdir / "test.json.zst")
     db2 = db.from_file(tmpdir / "test.json.zst")
+    print(db2.db)
     assert db == db2
 
 
@@ -478,41 +481,41 @@ def test_database_add_photo_sort(caplog):
     db = Database.from_json(example_database_json_data)
     uid = db.add_photo(
         PhotoFile(
-            checksum=bytes.fromhex("deadbeef"),
-            source_path="/x/y/c.jpg",
-            datetime="2015:08:27 04:09:36.50",
-            timestamp=1440662976.5,
-            file_size=1024,
-            store_path="",
-            priority=20,
+            chk=bytes.fromhex("deadbeef"),
+            src="/x/y/c.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.5,
+            fsz=1024,
+            sto="",
+            prio=20,
         ),
         uid=None,
     )
     db.add_photo(
         PhotoFile(
-            checksum=bytes.fromhex("deadbeef"),
-            source_path="/z/y/c.jpg",
-            datetime="2015:08:27 04:09:36.50",
-            timestamp=1440662976.5,
-            file_size=1024,
-            store_path="",
-            priority=11,
+            chk=bytes.fromhex("deadbeef"),
+            src="/z/y/c.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.5,
+            fsz=1024,
+            sto="",
+            prio=11,
         ),
         uid=None,
     )
     db.add_photo(
         PhotoFile(
-            checksum=bytes.fromhex("deadbeef"),
-            source_path="/0/1/c.jpg",
-            datetime="2015:08:27 04:09:36.50",
-            timestamp=1440662976.5,
-            file_size=1024,
-            store_path="",
-            priority=10,
+            chk=bytes.fromhex("deadbeef"),
+            src="/0/1/c.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.5,
+            fsz=1024,
+            sto="",
+            prio=10,
         ),
         uid=None,
     )
-    assert list(p.source_path for p in db.photo_db[uid]) == [
+    assert list(p.src for p in db.photo_db[uid]) == [
         "/0/1/c.jpg",
         "/a/b/c.jpg",
         "/z/y/c.jpg",
@@ -560,13 +563,13 @@ def test_database_find_photo_ambiguous(caplog):
     db = Database.from_json(example_database_json_data2)
     uid = db.find_photo(
         PhotoFile(
-            checksum=b"not_a_match",
-            source_path="/x/y/c.jpg",
-            datetime="2015:08:27 04:09:36.50",
-            timestamp=1440662976.5,
-            file_size=1024,
-            store_path="",
-            priority=10,
+            chk=b"not_a_match",
+            src="/x/y/c.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.5,
+            fsz=1024,
+            sto="",
+            prio=10,
         )
     )
     print([(r.levelname, r) for r in caplog.records])
@@ -587,13 +590,13 @@ def test_database_add_photo_wrong_uid(caplog):
     db = Database.from_json(example_database_json_data2)
     uid = db.add_photo(
         PhotoFile(
-            checksum=bytes.fromhex("deadbeef"),
-            source_path="/x/y/c.jpg",
-            datetime="2015:08:27 04:09:36.50",
-            timestamp=1440662976.5,
-            file_size=1024,
-            store_path="",
-            priority=10,
+            chk=bytes.fromhex("deadbeef"),
+            src="/x/y/c.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.5,
+            fsz=1024,
+            sto="",
+            prio=10,
         ),
         uid="uid2",
     )
@@ -611,13 +614,13 @@ def test_database_add_photo_already_present(caplog):
     db = Database.from_json(example_database_json_data2)
     uid = db.add_photo(
         PhotoFile(
-            checksum=bytes.fromhex("deadbeef"),
-            source_path="/a/b/c.jpg",
-            datetime="2015:08:27 04:09:36.50",
-            timestamp=1440662976.5,
-            file_size=1024,
-            store_path="",
-            priority=10,
+            chk=bytes.fromhex("deadbeef"),
+            src="/a/b/c.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.5,
+            fsz=1024,
+            sto="",
+            prio=10,
         ),
         uid="uid1",
     )
@@ -635,13 +638,13 @@ def test_database_add_photo_same_source_new_checksum(caplog):
     db = Database.from_json(example_database_json_data2)
     uid = db.add_photo(
         PhotoFile(
-            checksum=b"not_a_match",
-            source_path="/a/b/c.jpg",
-            datetime="2015:08:27 04:09:36.50",
-            timestamp=1440662976.5,
-            file_size=1024,
-            store_path="",
-            priority=10,
+            chk=b"not_a_match",
+            src="/a/b/c.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.5,
+            fsz=1024,
+            sto="",
+            prio=10,
         ),
         uid="uid1",
     )

@@ -93,41 +93,7 @@ or previews, provide a lower priority such as ``--priority 30``
 copy is unavailable. Alternate versions are matched using their
 timestamp and filename.
 
-Old versions of the database are given unique names and not overwritten.
-
-The database takes this form:
-
-.. code-block:: json
-
-    {
-      "version": 1,
-      "hash_algorithm": "blake2b-256",
-      "timezone_default": "local",
-      "photo_db": {
-        "<uid>": [
-          "<photo>",
-          "<photo>",
-          "..."
-        ]
-      },
-      "command_history": {
-        "<timestamp>": "<command>"
-      }
-    }
-
-where an example photo has the form:
-
-.. code-block:: json
-
-    {
-      "checksum": "881f279108bcec5b6e...",
-      "source_path": "/path/to/photo_123.jpg",
-      "datetime": "2021:03:29 06:40:00+00:00",
-      "timestamp": 1617000000,
-      "file_size": 123456,
-      "store_path": "2021/03-Mar/2021-03-29_02-40-00-881f279-photo_123.jpg",
-      "priority": 10
-    }
+Previous versions of the database are given unique names and not overwritten.
 
 If the photos are stored on an SSD or RAID array, use
 ``--storage-type SSD`` or ``--storage-type RAID`` and
@@ -304,3 +270,53 @@ Remove unnecessary duplicates
       --debug                  Run in debug mode
       --dry-run                Perform a dry run that makes no changes
       --help                   Show this message and exit.
+
+Database file format
+====================
+
+The database is a json file, optionally gzip or zstd-compressed.
+It takes this form:
+
+.. code-block:: json
+
+    {
+      "version": 1,
+      "hash_algorithm": "blake2b-256",
+      "timezone_default": "local",
+      "photo_db": {
+        "<uid>": [
+          "<photo>",
+          "<photo>",
+          "..."
+        ]
+      },
+      "command_history": {
+        "<timestamp>": "<command>"
+      }
+    }
+
+where an example photo has the form:
+
+.. code-block:: json
+
+    {
+      "chk": "iB8nkQi87Ftu...",
+      "src": "/path/to/photo_123.jpg",
+      "dt": "2021:03:29 06:40:00+00:00",
+      "ts": 1617000000,
+      "fsz": 123456,
+      "sto": "2021/03-Mar/2021-03-29_02-40-00-881f279-photo_123.jpg",
+      "prio": 10,
+      "tzo": -14400.0
+    }
+
+Attributes:
+
+    :chk (str): checksum of photo file (base64-encoded)
+    :src (str): Absolute path where photo was found
+    :dt (str): Datetime string for best estimated creation date (original)
+    :ts (float): POSIX timestamp of best estimated creation date (derived)
+    :fsz (int): Photo file size, in bytes
+    :sto (str): Relative path where photo is stored, empty if not stored
+    :prio (int): Photo priority (lower is preferred)
+    :tzo (float): local time zone offset

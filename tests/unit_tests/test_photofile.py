@@ -9,14 +9,14 @@ def test_tz_offset_local_datetime(offset):
     PhotoFile.local_datetime returns a datetime for UTC timestamp with tz_offset
     """
     pf = PhotoFile(
-        checksum=bytes.fromhex(
+        chk=bytes.fromhex(
             "d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb"
         ),
-        source_path="A/img1.jpg",
-        datetime="N/A",
-        timestamp=1438468116.9,
-        file_size=771,
-        tz_offset=offset,
+        src="A/img1.jpg",
+        dt="N/A",
+        ts=1438468116.9,
+        fsz=771,
+        tzo=offset,
     )
     print(repr(pf.local_datetime))
     assert (
@@ -34,13 +34,13 @@ def test_local_time_string_none():
     as an offset to timestamp.
     """
     pf = PhotoFile(
-        checksum=bytes.fromhex(
+        chk=bytes.fromhex(
             "d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb"
         ),
-        source_path="A/img1.jpg",
-        datetime="N/A",
-        timestamp=1438468116.9,
-        file_size=771,
+        src="A/img1.jpg",
+        dt="N/A",
+        ts=1438468116.9,
+        fsz=771,
     )
     print(repr(pf.local_datetime))
     local_tzinfo = datetime.now().astimezone().tzinfo
