@@ -12,7 +12,9 @@ ALL_IMG_DIRS = pytest.mark.datafiles(
 )
 photofile_expected_results = [
     database.PhotoFile(
-        checksum="d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb",
+        checksum=bytes.fromhex(
+            "d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb"
+        ),
         source_path="A/img1.jpg",
         datetime="2015:08:01 18:28:36.90",
         timestamp=1438468116.9,
@@ -20,7 +22,9 @@ photofile_expected_results = [
         tz_offset=-14400.0,
     ),
     database.PhotoFile(
-        checksum="3b39f47d51f63e54c76417ee6e04c34bd3ff5ac47696824426dca9e200f03666",
+        checksum=bytes.fromhex(
+            "3b39f47d51f63e54c76417ee6e04c34bd3ff5ac47696824426dca9e200f03666"
+        ),
         source_path="A/img2.jpg",
         datetime="2015:08:01 18:28:36.99",
         timestamp=1438450116.99,
@@ -28,7 +32,9 @@ photofile_expected_results = [
         tz_offset=3600.0,
     ),
     database.PhotoFile(
-        checksum="1e10df2e3abe4c810551525b6cb2eb805886de240e04cc7c13c58ae208cabfb9",
+        checksum=bytes.fromhex(
+            "1e10df2e3abe4c810551525b6cb2eb805886de240e04cc7c13c58ae208cabfb9"
+        ),
         source_path="A/img1.png",
         datetime="2015:08:01 18:28:36.90",
         timestamp=1438453716.9,
@@ -36,7 +42,9 @@ photofile_expected_results = [
         tz_offset=0.0,
     ),
     database.PhotoFile(
-        checksum="79ac4a89fb3d81ab1245b21b11ff7512495debca60f6abf9afbb1e1fbfe9d98c",
+        checksum=bytes.fromhex(
+            "79ac4a89fb3d81ab1245b21b11ff7512495debca60f6abf9afbb1e1fbfe9d98c"
+        ),
         source_path="A/img4.jpg",
         datetime="2018:08:01 20:28:36",
         timestamp=1533169716.0,
@@ -44,7 +52,9 @@ photofile_expected_results = [
         tz_offset=-14400.0,
     ),
     database.PhotoFile(
-        checksum="d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb",
+        checksum=bytes.fromhex(
+            "d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb"
+        ),
         source_path="B/img1.jpg",
         datetime="2015:08:01 18:28:36.90",
         timestamp=1438468116.9,
@@ -52,7 +62,9 @@ photofile_expected_results = [
         tz_offset=-14400.0,
     ),
     database.PhotoFile(
-        checksum="e9fec87008fd240309b81c997e7ec5491fee8da7eb1a76fc39b8fcafa76bb583",
+        checksum=bytes.fromhex(
+            "e9fec87008fd240309b81c997e7ec5491fee8da7eb1a76fc39b8fcafa76bb583"
+        ),
         source_path="B/img2.jpg",
         datetime="2015:08:01 18:28:36.99",
         timestamp=1438468116.99,
@@ -60,7 +72,9 @@ photofile_expected_results = [
         tz_offset=-14400.0,
     ),
     database.PhotoFile(
-        checksum="2b0f304f86655ebd04272cc5e7e886e400b79a53ecfdc789f75dd380cbcc8317",
+        checksum=bytes.fromhex(
+            "2b0f304f86655ebd04272cc5e7e886e400b79a53ecfdc789f75dd380cbcc8317"
+        ),
         source_path="B/img4.jpg",
         datetime="2018:08:01 20:28:36",
         timestamp=1533169716.0,
@@ -68,7 +82,9 @@ photofile_expected_results = [
         tz_offset=-14400.0,
     ),
     database.PhotoFile(
-        checksum="2aca4e78afbcebf2526ad8ac544d90b92991faae22499eec45831ef7be392391",
+        checksum=bytes.fromhex(
+            "2aca4e78afbcebf2526ad8ac544d90b92991faae22499eec45831ef7be392391"
+        ),
         source_path="C/img3.tiff",
         datetime="2018:08:01 19:28:36",
         timestamp=1533166116.0,

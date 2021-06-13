@@ -110,7 +110,7 @@ def test_cli_create(tmpdir, caplog):
         d = json.loads(s)
         assert d["photo_db"] == {}
         assert d["version"] == database.Database.VERSION
-        assert d["hash_algorithm"] == database.DEFAULT_HASH_ALGO
+        assert d["hash_algorithm"] == database.DEFAULT_HASH_ALGO.value
         check_dir_empty(fs)
 
 

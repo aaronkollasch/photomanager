@@ -8,29 +8,38 @@ from photomanager.hasher import (
     AsyncFileHasher,
     HasherException,
     FileHasherJob,
+    HashAlgorithm,
 )
 from . import AsyncNopProcess
 
 checksum_expected_results = [
     {
-        "algorithm": "blake2b-256",
+        "algorithm": HashAlgorithm.BLAKE2B_256,
         "bytes": b"",
-        "checksum": "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8",
+        "checksum": bytes.fromhex(
+            "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
+        ),
     },
     {
-        "algorithm": "blake2b-256",
+        "algorithm": HashAlgorithm.BLAKE2B_256,
         "bytes": b"\xff\xd8\xff\xe0",
-        "checksum": "7d13007a8afed521cfc13306cbd6747bbc59556e3ca9514c8d94f900fbb56230",
+        "checksum": bytes.fromhex(
+            "7d13007a8afed521cfc13306cbd6747bbc59556e3ca9514c8d94f900fbb56230"
+        ),
     },
     {
-        "algorithm": "sha256",
+        "algorithm": HashAlgorithm.SHA256,
         "bytes": b"",
-        "checksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "checksum": bytes.fromhex(
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ),
     },
     {
-        "algorithm": "sha256",
+        "algorithm": HashAlgorithm.SHA256,
         "bytes": b"\xff\xd8\xff\xe0",
-        "checksum": "ba4f25bf16ba4be6bc7d3276fafeb67f9eb3c5df042bc3a405e1af15b921eed7",
+        "checksum": bytes.fromhex(
+            "ba4f25bf16ba4be6bc7d3276fafeb67f9eb3c5df042bc3a405e1af15b921eed7"
+        ),
     },
 ]
 
@@ -52,11 +61,13 @@ def test_file_checksum_path(checksum, tmpdir):
     )
 
 
+# noinspection PyTypeChecker
 def test_file_checksum_bad_algorithm():
     with pytest.raises(HasherException):
         file_checksum("asdf.txt", algorithm="md5")
 
 
+# noinspection PyTypeChecker
 def test_async_file_hasher_bad_algorithm():
     with pytest.raises(HasherException):
         AsyncFileHasher(algorithm="md5")
@@ -66,12 +77,12 @@ def test_async_file_hasher_img(monkeypatch, caplog):
     async def nop_cse(*_, **__):
         loop = asyncio.events.get_event_loop()
         loop.set_debug(True)
-        return AsyncNopProcess(b"ba4f25bf16ba4be6bc7d3276fafeb img1.jpg\n", b"")
+        return AsyncNopProcess(b"ba4f25bf16ba4be6bc7d3276fafeba img1.jpg\n", b"")
 
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
     caplog.set_level(logging.DEBUG)
     checksum_cache = AsyncFileHasher(
-        algorithm="blake2b-256",
+        algorithm=HashAlgorithm.BLAKE2B_256,
         use_async=True,
         batch_size=1,
     ).check_files(["img1.jpg"], pbar_unit="it")
@@ -80,7 +91,7 @@ def test_async_file_hasher_img(monkeypatch, caplog):
     assert not any(record.levelname == "WARNING" for record in caplog.records)
     assert len(checksum_cache) == 1
     assert "img1.jpg" in checksum_cache
-    assert checksum_cache["img1.jpg"] == "ba4f25bf16ba4be6bc7d3276fafeb"
+    assert checksum_cache["img1.jpg"] == bytes.fromhex("ba4f25bf16ba4be6bc7d3276fafeba")
 
 
 def test_async_file_hasher_empty(monkeypatch, caplog):
@@ -92,7 +103,7 @@ def test_async_file_hasher_empty(monkeypatch, caplog):
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
     caplog.set_level(logging.DEBUG)
     checksum_cache = AsyncFileHasher(
-        algorithm="blake2b-256",
+        algorithm=HashAlgorithm.BLAKE2B_256,
         use_async=True,
         batch_size=10,
     ).check_files(["asdf.bin"], pbar_unit="it")
@@ -111,7 +122,7 @@ def test_async_file_hasher_unicode_error(monkeypatch, caplog):
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
     caplog.set_level(logging.DEBUG)
     checksum_cache = AsyncFileHasher(
-        algorithm="blake2b-256",
+        algorithm=HashAlgorithm.BLAKE2B_256,
         use_async=True,
         batch_size=10,
     ).check_files(["asdf.bin"], pbar_unit="it")
@@ -130,7 +141,7 @@ def test_async_file_hasher_interrupt(monkeypatch):
 
     monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
     hasher = AsyncFileHasher(
-        algorithm="blake2b-256",
+        algorithm=HashAlgorithm.BLAKE2B_256,
         use_async=True,
         batch_size=10,
     )

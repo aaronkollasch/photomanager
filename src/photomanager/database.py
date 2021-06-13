@@ -4,7 +4,7 @@ from os import PathLike, rename, cpu_count, makedirs, chmod, remove
 from os.path import exists
 import stat
 from math import log
-from uuid import uuid4
+import random
 from pathlib import Path
 from datetime import datetime, tzinfo
 import shutil
@@ -21,8 +21,13 @@ import xxhash
 
 from photomanager import PhotoManagerBaseException
 from photomanager.pyexiftool import ExifTool, AsyncExifTool
-from photomanager.hasher import AsyncFileHasher, file_checksum, DEFAULT_HASH_ALGO
-from photomanager.photofile import PhotoFile
+from photomanager.hasher import (
+    AsyncFileHasher,
+    file_checksum,
+    DEFAULT_HASH_ALGO,
+    HashAlgorithm,
+)
+from photomanager.photofile import PhotoFile, checksum_encode
 
 
 unit_list = list(zip(["bytes", "kB", "MB", "GB", "TB", "PB"], [0, 0, 1, 2, 2, 2]))
@@ -93,7 +98,7 @@ class Database:
             "photo_db": {},
             "command_history": {},
         }
-        self.hash_to_uid: dict[str, str] = {}
+        self.hash_to_uid: dict[bytes, str] = {}
         self.timestamp_to_uids: dict[float, dict[str, None]] = {}
 
     def __eq__(self, other: DB) -> bool:
@@ -105,12 +110,12 @@ class Database:
         return self.db["version"]
 
     @property
-    def hash_algorithm(self) -> str:
+    def hash_algorithm(self) -> HashAlgorithm:
         """Get the Database hash algorithm."""
         return self.db["hash_algorithm"]
 
     @hash_algorithm.setter
-    def hash_algorithm(self, new_algorithm: str):
+    def hash_algorithm(self, new_algorithm: HashAlgorithm):
         """Set the Database hash algorithm."""
         self.db["hash_algorithm"] = new_algorithm
 
@@ -142,17 +147,27 @@ class Database:
     def db(self, db: dict):
         """Set the Database parameters from a dict."""
         db.setdefault("version", 1)  # legacy dbs are version 1
+        db.setdefault("hash_algorithm", "sha256")  # legacy dbs use sha256
+        db.setdefault("timezone_default", "local")  # legacy dbs are in local time
+
         db["version"] = int(db["version"])
         if db["version"] > self.VERSION:
             raise DatabaseException(
                 "Database version too new for this version of PhotoManager."
             )
+        if db["version"] < 3:
+            for uid in db["photo_db"].keys():
+                for d in db["photo_db"][uid]:
+                    checksum = d["checksum"]
+                    checksum = checksum.split(":", 1)[0]
+                    d["checksum"] = checksum_encode(bytes.fromhex(checksum))
 
-        db.setdefault("hash_algorithm", "sha256")  # legacy dbs use sha256
-        db.setdefault("timezone_default", "local")  # legacy dbs are in local time
         db = {k: db[k] for k in self.DB_KEY_ORDER}
+        db["hash_algorithm"] = HashAlgorithm(db["hash_algorithm"])
         for uid in db["photo_db"].keys():
-            db["photo_db"][uid] = [PhotoFile.from_dict(d) for d in db["photo_db"][uid]]
+            db["photo_db"][uid] = [
+                PhotoFile.from_json_dict(d) for d in db["photo_db"][uid]
+            ]
 
         db["version"] = self.VERSION
         self._db = db
@@ -346,6 +361,18 @@ class Database:
                 return name_matches[0]
         return None
 
+    UID_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+    def generate_uuid(self) -> str:
+        """
+        Generate a new uid that is not in the photo_db.
+        8 base58 characters = 10^14 possible uids.
+        """
+        next_uid = "".join(random.choices(self.UID_ALPHABET, k=8))
+        if next_uid in self.photo_db:  # pragma: no cover
+            return self.generate_uuid()
+        return next_uid
+
     def add_photo(self, photo: PhotoFile, uid: Optional[str]) -> Optional[str]:
         """Adds a photo into the database with specified uid (can be None).
 
@@ -367,7 +394,10 @@ class Database:
             ):
                 return None
         if uid is None:
-            uid = self.hash_to_uid.get(photo.checksum, generate_uuid())
+            if photo.checksum in self.hash_to_uid:
+                uid: str = self.hash_to_uid[photo.checksum]
+            else:
+                uid: str = self.generate_uuid()
         if uid in self.photo_db:
             photos = self.photo_db[uid]
             assert not any(
@@ -534,7 +564,7 @@ class Database:
                 )
                 rel_store_path = (
                     f"{photo.local_datetime.strftime('%Y/%m-%b/%Y-%m-%d_%H-%M-%S')}-"
-                    f"{photo.checksum[:7]}-"
+                    f"{photo.checksum[:4].hex()[:7]}-"
                     f"{Path(photo.source_path).name}"
                 )
                 abs_store_path = directory / rel_store_path
@@ -779,8 +809,8 @@ class Database:
         return num_uids, num_photos, num_stored_photos, total_file_size
 
     def make_hash_map(
-        self, new_algo: str, hash_map: Optional[dict[str, str]] = None
-    ) -> dict[str, str]:  # pragma: no cover
+        self, new_algo: HashAlgorithm, hash_map: Optional[dict[bytes, bytes]] = None
+    ) -> dict[bytes, bytes]:  # pragma: no cover
         """Make a map of file checksums in order to migrate hashing algorithms.
 
         Checks source file hashes using the old algorithm to make sure the new hashes
@@ -815,7 +845,7 @@ class Database:
                     num_correct_photos += 1
                 else:
                     tqdm.write(f"Incorrect checksum: {photo.source_path}")
-                    hash_map[photo.checksum] = f"{photo.checksum}:{old_algo}"
+                    hash_map[photo.checksum] = photo.checksum + f":{old_algo}".encode()
                     num_incorrect_photos += 1
             else:
                 num_missing_photos += 1
@@ -831,7 +861,7 @@ class Database:
         return hash_map
 
     def map_hashes(
-        self, new_algo: str, hash_map: dict[str, str], map_all: bool = False
+        self, new_algo: str, hash_map: dict[bytes, bytes], map_all: bool = False
     ) -> Optional[int]:  # pragma: no cover
         """Map the database's checksums to a new algorithm.
 
@@ -853,7 +883,7 @@ class Database:
         all_photos = [photo for photos in self.photo_db.values() for photo in photos]
         if map_all and (
             num_skipped_photos := sum(
-                photo.checksum.split(":", 1)[0] not in hash_map for photo in all_photos
+                photo.checksum.split(b":", 1)[0] not in hash_map for photo in all_photos
             )
         ):
             print(f"Not all items will be mapped: {num_skipped_photos}")
@@ -862,12 +892,12 @@ class Database:
             if photo.checksum in hash_map:
                 photo.checksum = hash_map[photo.checksum]
                 num_correct_photos += 1
-            elif (ca := photo.checksum.split(":", 1)) and len(ca) == 2:
+            elif (ca := photo.checksum.split(b":", 1)) and len(ca) == 2:
                 if c := hash_map.get(ca[0], None):
                     photo.checksum = c
                 num_correct_photos += 1
             else:
-                photo.checksum = f"{photo.checksum}:{old_algo}"
+                photo.checksum = photo.checksum + f":{old_algo}".encode()
                 num_skipped_photos += 1
         self.hash_algorithm = new_algo
         print(f"Mapped {num_correct_photos} items")
@@ -894,7 +924,7 @@ class Database:
         :param directory: the photo storage directory
         :param verify: if True, verify that file checksums match
         :param dry_run: if True, perform a dry run and do not move photos
-        :return: the number of missing or incorrect files not moved
+        :return: the mapping of files moved
         """
         num_correct_photos = (
             num_skipped_photos

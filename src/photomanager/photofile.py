@@ -5,9 +5,10 @@ from os.path import getsize
 from datetime import datetime, tzinfo, timezone, timedelta
 from dataclasses import dataclass, asdict, field, fields
 from typing import Union, Optional, Type, TypeVar, ClassVar
+from base64 import standard_b64decode, standard_b64encode
 
 from photomanager.pyexiftool import ExifTool
-from photomanager.hasher import file_checksum, DEFAULT_HASH_ALGO
+from photomanager.hasher import file_checksum, DEFAULT_HASH_ALGO, HashAlgorithm
 
 PF = TypeVar("PF", bound="PhotoFile")
 local_tzoffset = datetime.now().astimezone().utcoffset().total_seconds()
@@ -25,12 +26,20 @@ NAME_MAP_ENC: ClassVar[dict[str, str]] = {
 NAME_MAP_DEC: ClassVar[dict[str, str]] = {v: k for k, v in NAME_MAP_ENC.items()}
 
 
+def checksum_encode(checksum: bytes) -> str:
+    return standard_b64encode(checksum).decode()
+
+
+def checksum_decode(checksum: str) -> bytes:
+    return standard_b64decode(checksum)
+
+
 @dataclass
 class PhotoFile:
     """A dataclass describing a photo or other media file
 
     Attributes:
-        :checksum (str): checksum of photo file
+        :checksum (bytes): checksum of photo file
         :source_path (str): Absolute path where photo was found
         :datetime (str): Datetime string for best estimated creation date (original)
         :timestamp (float): POSIX timestamp of best estimated creation date (derived)
@@ -40,7 +49,7 @@ class PhotoFile:
         :tz_offset (float): local time offset
     """
 
-    checksum: str = field(metadata={ALIAS_METADATA: NAME_MAP_ENC["checksum"]})
+    checksum: bytes = field(metadata={ALIAS_METADATA: NAME_MAP_ENC["checksum"]})
     source_path: str = field(metadata={ALIAS_METADATA: NAME_MAP_ENC["source_path"]})
     datetime: str = field(metadata={ALIAS_METADATA: NAME_MAP_ENC["datetime"]})
     timestamp: float = field(metadata={ALIAS_METADATA: NAME_MAP_ENC["timestamp"]})
@@ -57,10 +66,12 @@ class PhotoFile:
 
     def __getattribute__(self, attr):
         if attr == "__dict__":
-            return {
+            d = {
                 f.metadata.get(ALIAS_METADATA, f.name): getattr(self, f.name)
                 for f in fields(self)
             }
+            d[NAME_MAP_ENC["checksum"]] = checksum_encode(d[NAME_MAP_ENC["checksum"]])
+            return d
         return super().__getattribute__(attr)
 
     @property
@@ -74,11 +85,11 @@ class PhotoFile:
 
     @classmethod
     def from_file(
-            cls: Type[PF],
-            source_path: Union[str, PathLike],
-            algorithm: str = DEFAULT_HASH_ALGO,
-            tz_default: Optional[tzinfo] = None,
-            priority: int = 10,
+        cls: Type[PF],
+        source_path: Union[str, PathLike],
+        algorithm: HashAlgorithm = DEFAULT_HASH_ALGO,
+        tz_default: Optional[tzinfo] = None,
+        priority: int = 10,
     ) -> PF:
         """Create a PhotoFile for a given file
 
@@ -88,7 +99,7 @@ class PhotoFile:
             (defaults to local time)
         :param priority: The photo's priority
         """
-        photo_hash: str = file_checksum(source_path, algorithm)
+        photo_hash = file_checksum(source_path, algorithm)
         dt_str = get_media_datetime(source_path)
         dt = datetime_str_to_object(dt_str, tz_default=tz_default)
         tz = dt.utcoffset().total_seconds() if dt.tzinfo is not None else local_tzoffset
@@ -107,13 +118,13 @@ class PhotoFile:
 
     @classmethod
     def from_file_cached(
-            cls: Type[PF],
-            source_path: str,
-            checksum_cache: dict[str, str],
-            datetime_cache: dict[str, str],
-            algorithm: str = DEFAULT_HASH_ALGO,
-            tz_default: Optional[tzinfo] = None,
-            priority: int = 10,
+        cls: Type[PF],
+        source_path: str,
+        checksum_cache: dict[str, bytes],
+        datetime_cache: dict[str, str],
+        algorithm: HashAlgorithm = DEFAULT_HASH_ALGO,
+        tz_default: Optional[tzinfo] = None,
+        priority: int = 10,
     ) -> PF:
         """Create a PhotoFile for a given file
 
@@ -128,7 +139,7 @@ class PhotoFile:
             (defaults to local time)
         :param priority: The photo's priority
         """
-        photo_hash: str = (
+        photo_hash = (
             checksum_cache[source_path]
             if source_path in checksum_cache
             else file_checksum(source_path, algorithm)
@@ -154,9 +165,14 @@ class PhotoFile:
         )
 
     @classmethod
-    def from_dict(cls: Type[PF], d: dict) -> PF:
+    def from_json_dict(cls: Type[PF], d: dict) -> PF:
         if "checksum" not in d:  # we are dealing with encoded names
             d = {NAME_MAP_DEC[k]: v for k, v in d.items()}
+        d["checksum"] = checksum_decode(d["checksum"])
+        return cls.from_dict(d)
+
+    @classmethod
+    def from_dict(cls: Type[PF], d: dict) -> PF:
         return cls(**d)
 
     def to_dict(self) -> dict:
@@ -174,10 +190,10 @@ def datetime_str_to_object(ts_str: str, tz_default: tzinfo = None) -> datetime:
                 pass
     else:
         for fmt in (
-                "%Y:%m:%d %H:%M:%S%z",
-                "%Y:%m:%d %H:%M:%S",
-                "%Y:%m:%d %H:%M%z",
-                "%Y:%m:%d %H:%M",
+            "%Y:%m:%d %H:%M:%S%z",
+            "%Y:%m:%d %H:%M:%S",
+            "%Y:%m:%d %H:%M%z",
+            "%Y:%m:%d %H:%M",
         ):
             try:
                 dt = datetime.strptime(ts_str, fmt)

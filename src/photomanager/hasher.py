@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from io import IOBase
 import hashlib
 from dataclasses import dataclass, field
@@ -16,13 +17,20 @@ from photomanager.async_base import AsyncWorkerQueue, AsyncJob, make_chunks
 
 
 BLOCK_SIZE = 65536
-DEFAULT_HASH_ALGO = "blake2b-256"  # b2sum -l 256
+
+
+class HashAlgorithm(Enum):
+    SHA256 = "sha256"
+    BLAKE2B_256 = "blake2b-256"
+
+
+DEFAULT_HASH_ALGO = HashAlgorithm.BLAKE2B_256  # b2sum -l 256
 HASH_ALGO_DEFINITIONS = {
-    "sha256": {
+    HashAlgorithm.SHA256: {
         "factory": lambda: hashlib.sha256(),
         "command": ("sha256sum",),
     },
-    "blake2b-256": {
+    HashAlgorithm.BLAKE2B_256: {
         "factory": lambda: hashlib.blake2b(digest_size=32),
         "command": ("b2sum", "-l", "256"),
     },
@@ -39,8 +47,9 @@ def _update_hash_obj(hash_obj, fd):
 
 
 def file_checksum(
-    file: Union[bytes, str, PathLike, IOBase], algorithm: str = DEFAULT_HASH_ALGO
-) -> str:
+    file: Union[bytes, str, PathLike, IOBase],
+    algorithm: HashAlgorithm = DEFAULT_HASH_ALGO,
+) -> bytes:
     if algorithm in HASH_ALGO_DEFINITIONS:
         hash_obj = HASH_ALGO_DEFINITIONS[algorithm]["factory"]()
     else:
@@ -50,13 +59,13 @@ def file_checksum(
     else:
         with open(file, "rb") as f:
             _update_hash_obj(hash_obj, f)
-    return hash_obj.hexdigest()
+    return hash_obj.digest()
 
 
 def check_files(
     file_paths: Iterable[Union[bytes, str, PathLike, IOBase]],
-    algorithm: str = DEFAULT_HASH_ALGO,
-) -> dict[str, str]:
+    algorithm: HashAlgorithm = DEFAULT_HASH_ALGO,
+) -> dict[str, bytes]:
     output_dict = {}
     for path in tqdm(file_paths):
         try:
@@ -84,7 +93,7 @@ class AsyncFileHasher(AsyncWorkerQueue):
         num_workers: int = cpu_count(),
         show_progress: bool = True,
         batch_size: int = 50,
-        algorithm: str = DEFAULT_HASH_ALGO,
+        algorithm: HashAlgorithm = DEFAULT_HASH_ALGO,
         use_async: bool = True,
     ):
         super(AsyncFileHasher, self).__init__(
@@ -126,7 +135,7 @@ class AsyncFileHasher(AsyncWorkerQueue):
             for line in stdout.decode("utf-8").splitlines(keepends=False):
                 if line.strip():
                     checksum, path = line.split(maxsplit=1)
-                    self.output_dict[path] = checksum
+                    self.output_dict[path] = bytes.fromhex(checksum)
         except Exception as e:
             print("hasher output:", stdout)
             raise e
@@ -158,11 +167,11 @@ class AsyncFileHasher(AsyncWorkerQueue):
         file_paths: Iterable[Union[str, PathLike]],
         pbar_unit: str = "it",
         file_sizes: Optional[Iterable[int]] = None,
-    ) -> dict[str, str]:
+    ) -> dict[str, bytes]:
         if not self.use_async:
             return check_files(file_paths=file_paths, algorithm=self.algorithm)
 
-        self.output_dict = {}
+        self.output_dict: dict[str, bytes] = {}
         self.pbar_unit = pbar_unit
         all_jobs = []
         all_paths = list(make_chunks(self.encode(file_paths), self.batch_size))

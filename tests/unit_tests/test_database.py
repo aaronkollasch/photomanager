@@ -5,13 +5,15 @@ from pathlib import Path
 import orjson
 import pytest
 import zstandard
-from photomanager import database, photofile
+from photomanager.database import Database, sizeof_fmt, DatabaseException
+from photomanager.photofile import PhotoFile, NAME_MAP_ENC
+from photomanager.hasher import HashAlgorithm
 
 
 def test_photofile_to_dict():
     """ """
-    assert database.PhotoFile(
-        checksum="deadbeef",
+    assert PhotoFile(
+        checksum=b"deadbeef",
         source_path="/a/b/c.jpg",
         datetime="2015:08:27 04:09:36.50",
         timestamp=1440662976.5,
@@ -20,7 +22,7 @@ def test_photofile_to_dict():
         priority=11,
         tz_offset=-14400,
     ).to_dict() == {
-        "checksum": "deadbeef",
+        "checksum": b"deadbeef",
         "source_path": "/a/b/c.jpg",
         "datetime": "2015:08:27 04:09:36.50",
         "timestamp": 1440662976.5,
@@ -31,17 +33,42 @@ def test_photofile_to_dict():
     }
 
 
-def test_photofile_eq():
-    assert database.PhotoFile(
-        checksum="deadbeef",
+def test_photofile_to_json():
+    pf = PhotoFile(
+        checksum=b"\xde\xad\xbe\xef",
         source_path="/a/b/c.jpg",
         datetime="2015:08:27 04:09:36.50",
         timestamp=1440662976.5,
         file_size=1024,
         store_path="/d/e/f.jpg",
         priority=11,
-    ) == database.PhotoFile(
-        checksum="deadbeef",
+        tz_offset=-14400,
+    )
+    print(pf)
+    print(pf.__getattribute__("__dict__"))
+    assert pf.__dict__ == {
+        "chk": "3q2+7w==",
+        "src": "/a/b/c.jpg",
+        "dt": "2015:08:27 04:09:36.50",
+        "ts": 1440662976.5,
+        "fsz": 1024,
+        "sto": "/d/e/f.jpg",
+        "prio": 11,
+        "tzo": -14400,
+    }
+
+
+def test_photofile_eq():
+    assert PhotoFile(
+        checksum=b"\xde\xad\xbe\xef",
+        source_path="/a/b/c.jpg",
+        datetime="2015:08:27 04:09:36.50",
+        timestamp=1440662976.5,
+        file_size=1024,
+        store_path="/d/e/f.jpg",
+        priority=11,
+    ) == PhotoFile(
+        checksum=b"\xde\xad\xbe\xef",
         source_path="/a/b/c.jpg",
         datetime="2015:08:27 04:09:36.50",
         timestamp=1440662976.5,
@@ -52,8 +79,8 @@ def test_photofile_eq():
 
 
 def test_photofile_neq():
-    pf1 = database.PhotoFile(
-        checksum="deadbeef",
+    pf1 = PhotoFile(
+        checksum=b"deadbeef",
         source_path="/a/b/c.jpg",
         datetime="2015:08:27 04:09:36.50",
         timestamp=1440662976.5,
@@ -61,8 +88,8 @@ def test_photofile_neq():
         store_path="/d/e/f.jpg",
         priority=11,
     )
-    assert pf1 != database.PhotoFile(
-        checksum="deadfeed",
+    assert pf1 != PhotoFile(
+        checksum=b"deadfeed",
         source_path="/a/b/c.jpg",
         datetime="2015:08:27 04:09:36.50",
         timestamp=1440662976.5,
@@ -70,8 +97,8 @@ def test_photofile_neq():
         store_path="/d/e/f.jpg",
         priority=11,
     )
-    assert pf1 != database.PhotoFile(
-        checksum="deadbeef",
+    assert pf1 != PhotoFile(
+        checksum=b"deadbeef",
         source_path="/a/b/d.jpg",
         datetime="2015:08:27 04:09:36.50",
         timestamp=1440662976.5,
@@ -79,8 +106,8 @@ def test_photofile_neq():
         store_path="/d/e/f.jpg",
         priority=11,
     )
-    assert pf1 != database.PhotoFile(
-        checksum="deadbeef",
+    assert pf1 != PhotoFile(
+        checksum=b"deadbeef",
         source_path="/a/b/d.jpg",
         datetime="2015:08:27 04:09:36.50",
         timestamp=1440662976.0,
@@ -91,20 +118,20 @@ def test_photofile_neq():
 
 
 def test_sizeof_fmt():
-    assert database.sizeof_fmt(-1) is None
-    assert database.sizeof_fmt(0) == "0 bytes"
-    assert database.sizeof_fmt(1) == "1 byte"
-    assert database.sizeof_fmt(1023) == "1023 bytes"
-    assert database.sizeof_fmt(1024) == "1 kB"
-    assert database.sizeof_fmt(1024 ** 2 - 1) == "1024 kB"
-    assert database.sizeof_fmt(1024 ** 2) == "1.0 MB"
-    assert database.sizeof_fmt(1024 ** 3 - 1) == "1024.0 MB"
-    assert database.sizeof_fmt(1024 ** 3) == "1.00 GB"
-    assert database.sizeof_fmt(1024 ** 3 * 5.34) == "5.34 GB"
-    assert database.sizeof_fmt(1024 ** 4 - 1) == "1024.00 GB"
-    assert database.sizeof_fmt(1024 ** 4) == "1.00 TB"
-    assert database.sizeof_fmt(1024 ** 5 - 10) == "1024.00 TB"
-    assert database.sizeof_fmt(1024 ** 5) == "1.00 PB"
+    assert sizeof_fmt(-1) is None
+    assert sizeof_fmt(0) == "0 bytes"
+    assert sizeof_fmt(1) == "1 byte"
+    assert sizeof_fmt(1023) == "1023 bytes"
+    assert sizeof_fmt(1024) == "1 kB"
+    assert sizeof_fmt(1024 ** 2 - 1) == "1024 kB"
+    assert sizeof_fmt(1024 ** 2) == "1.0 MB"
+    assert sizeof_fmt(1024 ** 3 - 1) == "1024.0 MB"
+    assert sizeof_fmt(1024 ** 3) == "1.00 GB"
+    assert sizeof_fmt(1024 ** 3 * 5.34) == "5.34 GB"
+    assert sizeof_fmt(1024 ** 4 - 1) == "1024.00 GB"
+    assert sizeof_fmt(1024 ** 4) == "1.00 TB"
+    assert sizeof_fmt(1024 ** 5 - 10) == "1024.00 TB"
+    assert sizeof_fmt(1024 ** 5) == "1.00 PB"
 
 
 def test_database_load_version_1():
@@ -139,17 +166,17 @@ def test_database_load_version_1():
     "2021-03-08_23-57-00Z": "photomanager import --db test.json test.jpg"
 }
 }"""
-    db = database.Database.from_json(json_data)
+    db = Database.from_json(json_data)
     print(db.db)
-    assert db.version == database.Database.VERSION
-    assert db.hash_algorithm == "sha256"
+    assert db.version == Database.VERSION
+    assert db.hash_algorithm == HashAlgorithm.SHA256
     assert db.db["timezone_default"] == "local"
     assert db.timezone_default is None
     photo_db_expected = {
         "d239210f00534b76a2b215e073f75832": [
-            database.PhotoFile.from_dict(
+            PhotoFile.from_dict(
                 {
-                    "checksum": "deadbeef",
+                    "checksum": bytes.fromhex("deadbeef"),
                     "source_path": "/a/b/c.jpg",
                     "datetime": "2015:08:27 04:09:36.50",
                     "timestamp": 1440662976.5,
@@ -158,9 +185,9 @@ def test_database_load_version_1():
                     "priority": 11,
                 }
             ),
-            database.PhotoFile.from_dict(
+            PhotoFile.from_dict(
                 {
-                    "checksum": "deadbeef",
+                    "checksum": bytes.fromhex("deadbeef"),
                     "source_path": "/g/b/c.jpg",
                     "datetime": "2015:08:27 04:09:36.50",
                     "timestamp": 1440662976.5,
@@ -177,8 +204,8 @@ def test_database_load_version_1():
         "2021-03-08_23-57-00Z": "photomanager import --db test.json test.jpg",
     }
     db_expected = {
-        "version": database.Database.VERSION,
-        "hash_algorithm": "sha256",
+        "version": Database.VERSION,
+        "hash_algorithm": HashAlgorithm.SHA256,
         "timezone_default": "local",
         "photo_db": photo_db_expected,
         "command_history": command_history_expected,
@@ -187,7 +214,7 @@ def test_database_load_version_1():
     assert db.command_history == command_history_expected
     assert orjson.loads(db.json) != orjson.loads(json_data)
     assert db.db == db_expected
-    assert db == database.Database.from_dict(orjson.loads(json_data))
+    assert db == Database.from_dict(orjson.loads(json_data))
     assert db.get_stats() == (1, 2, 1, 1024)
 
 
@@ -229,14 +256,15 @@ def test_database_init_update_version_1():
   }
 }"""
     new_json_data = json_data.replace(
-        b'"version": 1', f'"version": {database.Database.VERSION}'.encode()
+        b'"version": 1', f'"version": {Database.VERSION}'.encode()
     )
-    for k, v in photofile.NAME_MAP_ENC.items():
+    for k, v in NAME_MAP_ENC.items():
         new_json_data = new_json_data.replace(
             b'"' + k.encode() + b'"',
             b'"' + v.encode() + b'"',
         )
-    db = database.Database.from_json(json_data)
+    new_json_data = new_json_data.replace(b'"chk": "deadbeef"', b'"chk": "3q2+7w=="')
+    db = Database.from_json(json_data)
     print(db.db)
     assert db.db["timezone_default"] == "-0400"
     assert db.timezone_default == timezone(timedelta(days=-1, seconds=72000))
@@ -277,17 +305,17 @@ def test_database_load_version_3():
     "2021-03-08_23-57-00Z": "photomanager import --db test.json test.jpg"
 }
 }""".replace(
-        b"VERSION", f"{database.Database.VERSION}".encode()
+        b"VERSION", f"{Database.VERSION}".encode()
     )
-    db = database.Database.from_json(json_data)
+    db = Database.from_json(json_data)
     print(db.db)
-    assert db.version == database.Database.VERSION
-    assert db.hash_algorithm == "sha256"
+    assert db.version == Database.VERSION
+    assert db.hash_algorithm == HashAlgorithm.SHA256
     assert db.db["timezone_default"] == "local"
     assert db.timezone_default is None
     photo_db_expected = {
         "d239210f00534b76a2b215e073f75832": [
-            database.PhotoFile.from_dict(
+            PhotoFile.from_json_dict(
                 {
                     "checksum": "deadbeef",
                     "source_path": "/a/b/c.jpg",
@@ -298,7 +326,7 @@ def test_database_load_version_3():
                     "priority": 11,
                 }
             ),
-            database.PhotoFile.from_dict(
+            PhotoFile.from_json_dict(
                 {
                     "checksum": "deadbeef",
                     "source_path": "/g/b/c.jpg",
@@ -317,8 +345,8 @@ def test_database_load_version_3():
         "2021-03-08_23-57-00Z": "photomanager import --db test.json test.jpg",
     }
     db_expected = {
-        "version": database.Database.VERSION,
-        "hash_algorithm": "sha256",
+        "version": Database.VERSION,
+        "hash_algorithm": HashAlgorithm.SHA256,
         "timezone_default": "local",
         "photo_db": photo_db_expected,
         "command_history": command_history_expected,
@@ -327,7 +355,7 @@ def test_database_load_version_3():
     assert db.command_history == command_history_expected
     assert orjson.loads(db.json) != orjson.loads(json_data)
     assert db.db == db_expected
-    assert db == database.Database.from_dict(orjson.loads(json_data))
+    assert db == Database.from_dict(orjson.loads(json_data))
     assert db.get_stats() == (1, 2, 1, 1024)
 
 
@@ -342,10 +370,10 @@ def test_database_init_version_too_high():
   "photo_db": {},
   "command_history": {}
 }""".replace(
-        b"VERSION", f"{database.Database.VERSION + 1}".encode()
+        b"VERSION", f"{Database.VERSION + 1}".encode()
     )
-    with pytest.raises(database.DatabaseException):
-        database.Database.from_json(json_data)
+    with pytest.raises(DatabaseException):
+        Database.from_json(json_data)
 
 
 example_database_json_data = b"""{
@@ -370,7 +398,7 @@ example_database_json_data = b"""{
 
 def test_database_save(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
-    db = database.Database.from_json(example_database_json_data)
+    db = Database.from_json(example_database_json_data)
     db.to_file(tmpdir / "test.json")
     db2 = db.from_file(tmpdir / "test.json")
     assert db == db2
@@ -384,7 +412,7 @@ def test_database_save(tmpdir, caplog):
 
 def test_database_load_zstd_checksum_error(tmpdir, monkeypatch, caplog):
     caplog.set_level(logging.DEBUG)
-    db = database.Database.from_json(example_database_json_data)
+    db = Database.from_json(example_database_json_data)
     db.to_file(tmpdir / "test.json.zst")
     with open(tmpdir / "test.json.zst", "r+b") as f:
         f.seek(4)
@@ -398,13 +426,13 @@ def test_database_load_zstd_checksum_error(tmpdir, monkeypatch, caplog):
         "decompress",
         lambda _: db.to_json(pretty=True).replace(c, bytes([ord(c) ^ 0b1])),
     )
-    with pytest.raises(database.DatabaseException):
+    with pytest.raises(DatabaseException):
         db.from_file(tmpdir / "test.json.zst")
 
 
 def test_database_overwrite_error(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
-    db = database.Database.from_json(example_database_json_data)
+    db = Database.from_json(example_database_json_data)
     path = Path(tmpdir / "test.json")
     db.to_file(path)
     base_path = path
@@ -447,10 +475,10 @@ def test_database_overwrite_error(tmpdir, caplog):
 
 def test_database_add_photo_sort(caplog):
     caplog.set_level(logging.DEBUG)
-    db = database.Database.from_json(example_database_json_data)
+    db = Database.from_json(example_database_json_data)
     uid = db.add_photo(
-        database.PhotoFile(
-            checksum="deadbeef",
+        PhotoFile(
+            checksum=bytes.fromhex("deadbeef"),
             source_path="/x/y/c.jpg",
             datetime="2015:08:27 04:09:36.50",
             timestamp=1440662976.5,
@@ -461,8 +489,8 @@ def test_database_add_photo_sort(caplog):
         uid=None,
     )
     db.add_photo(
-        database.PhotoFile(
-            checksum="deadbeef",
+        PhotoFile(
+            checksum=bytes.fromhex("deadbeef"),
             source_path="/z/y/c.jpg",
             datetime="2015:08:27 04:09:36.50",
             timestamp=1440662976.5,
@@ -473,8 +501,8 @@ def test_database_add_photo_sort(caplog):
         uid=None,
     )
     db.add_photo(
-        database.PhotoFile(
-            checksum="deadbeef",
+        PhotoFile(
+            checksum=bytes.fromhex("deadbeef"),
             source_path="/0/1/c.jpg",
             datetime="2015:08:27 04:09:36.50",
             timestamp=1440662976.5,
@@ -524,11 +552,15 @@ example_database_json_data2 = b"""{
 
 
 def test_database_find_photo_ambiguous(caplog):
+    """
+    When there is no checksum match and an ambiguous timestamp+source match,
+    find_photo returns the first match.
+    """
     caplog.set_level(logging.DEBUG)
-    db = database.Database.from_json(example_database_json_data2)
+    db = Database.from_json(example_database_json_data2)
     uid = db.find_photo(
-        database.PhotoFile(
-            checksum="not_a_match",
+        PhotoFile(
+            checksum=b"not_a_match",
             source_path="/x/y/c.jpg",
             datetime="2015:08:27 04:09:36.50",
             timestamp=1440662976.5,
@@ -547,11 +579,15 @@ def test_database_find_photo_ambiguous(caplog):
 
 
 def test_database_add_photo_wrong_uid(caplog):
+    """
+    When adding a photo with a matching checksum for a different uid,
+    the photo is not added and add_photo returns None.
+    """
     caplog.set_level(logging.DEBUG)
-    db = database.Database.from_json(example_database_json_data2)
+    db = Database.from_json(example_database_json_data2)
     uid = db.add_photo(
-        database.PhotoFile(
-            checksum="deadbeef",
+        PhotoFile(
+            checksum=bytes.fromhex("deadbeef"),
             source_path="/x/y/c.jpg",
             datetime="2015:08:27 04:09:36.50",
             timestamp=1440662976.5,
@@ -567,11 +603,15 @@ def test_database_add_photo_wrong_uid(caplog):
 
 
 def test_database_add_photo_already_present(caplog):
+    """
+    When adding a photo that is already in the database,
+    the photo is not added and add_photo returns None.
+    """
     caplog.set_level(logging.DEBUG)
-    db = database.Database.from_json(example_database_json_data2)
+    db = Database.from_json(example_database_json_data2)
     uid = db.add_photo(
-        database.PhotoFile(
-            checksum="deadbeef",
+        PhotoFile(
+            checksum=bytes.fromhex("deadbeef"),
             source_path="/a/b/c.jpg",
             datetime="2015:08:27 04:09:36.50",
             timestamp=1440662976.5,
@@ -587,11 +627,15 @@ def test_database_add_photo_already_present(caplog):
 
 
 def test_database_add_photo_same_source_new_checksum(caplog):
+    """
+    When adding a photo with a source_path in the database but a different checksum
+    the photo is added to the database but a warning is issued.
+    """
     caplog.set_level(logging.DEBUG)
-    db = database.Database.from_json(example_database_json_data2)
+    db = Database.from_json(example_database_json_data2)
     uid = db.add_photo(
-        database.PhotoFile(
-            checksum="not_a_match",
+        PhotoFile(
+            checksum=b"not_a_match",
             source_path="/a/b/c.jpg",
             datetime="2015:08:27 04:09:36.50",
             timestamp=1440662976.5,
@@ -604,8 +648,10 @@ def test_database_add_photo_same_source_new_checksum(caplog):
     print([(r.levelname, r) for r in caplog.records])
     print(uid)
     assert uid == "uid1"
-    assert db.hash_to_uid["not_a_match"] == "uid1"
+    assert db.hash_to_uid[b"not_a_match"] == "uid1"
+    assert db.hash_to_uid[bytes.fromhex("deadbeef")] == "uid1"
     print(db.photo_db["uid1"])
+    assert len(db.photo_db["uid1"]) == 2
     print([(r.levelname, r) for r in caplog.records])
     assert any(record.levelname == "WARNING" for record in caplog.records)
     assert any(
@@ -616,10 +662,10 @@ def test_database_add_photo_same_source_new_checksum(caplog):
 
 def test_database_clean_verify_absolute_subdir(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
-    db = database.Database.from_json(example_database_json_data2)
-    with pytest.raises(database.DatabaseException):
+    db = Database.from_json(example_database_json_data2)
+    with pytest.raises(DatabaseException):
         db.clean_stored_photos(tmpdir / "a", subdirectory=tmpdir / "b")
-    with pytest.raises(database.DatabaseException):
+    with pytest.raises(DatabaseException):
         db.verify_stored_photos(tmpdir / "a", subdirectory=tmpdir / "b")
     with pytest.raises(NotImplementedError):
         db.verify_indexed_photos()
