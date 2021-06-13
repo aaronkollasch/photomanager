@@ -3,7 +3,6 @@ click>=7.1.2
 orjson>=3.5.2
 zstandard>=0.15.2
 xxhash>=2.0.2
-pybase64>=1.1.4
 pytest
 pytest-datafiles
 tox

@@ -300,7 +300,7 @@ where an example photo has the form:
 .. code-block:: json
 
     {
-      "chk": "iB8nkQi87Ftu...",
+      "chk": "881f279108bcec5b6e...",
       "src": "/path/to/photo_123.jpg",
       "dt": "2021:03:29 06:40:00+00:00",
       "ts": 1617000000,
@@ -312,7 +312,7 @@ where an example photo has the form:
 
 Attributes:
 
-    :chk (str): checksum of photo file (base64-encoded)
+    :chk (str): checksum of photo file
     :src (str): Absolute path where photo was found
     :dt (str): Datetime string for best estimated creation date (original)
     :ts (float): POSIX timestamp of best estimated creation date (derived)

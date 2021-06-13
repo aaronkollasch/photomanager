@@ -27,7 +27,7 @@ from photomanager.hasher import (
     DEFAULT_HASH_ALGO,
     HashAlgorithm,
 )
-from photomanager.photofile import PhotoFile, checksum_encode, NAME_MAP_ENC
+from photomanager.photofile import PhotoFile, NAME_MAP_ENC
 
 
 unit_list = list(zip(["bytes", "kB", "MB", "GB", "TB", "PB"], [0, 0, 1, 2, 2, 2]))
@@ -161,7 +161,7 @@ class Database:
                 for i in range(len(photos)):
                     checksum = photos[i]["checksum"]
                     checksum = checksum.split(":", 1)[0]
-                    photos[i]["checksum"] = checksum_encode(bytes.fromhex(checksum))
+                    photos[i]["checksum"] = checksum.split(":", 1)[0]
                     photos[i] = {NAME_MAP_ENC[k]: v for k, v in photos[i].items()}
 
         db = {k: db[k] for k in self.DB_KEY_ORDER}
@@ -369,6 +369,7 @@ class Database:
         """
         Generate a new uid that is not in the photo_db.
         8 base58 characters = 10^14 possible uids.
+        P(collision) ≈ 50% at 1 million uids, so we must check for collisions.
         """
         next_uid = "".join(random.choices(self.UID_ALPHABET, k=8))
         if next_uid in self.photo_db:  # pragma: no cover

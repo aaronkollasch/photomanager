@@ -47,7 +47,7 @@ def test_photofile_to_json():
     print(pf)
     print(pf.__getattribute__("__dict__"))
     assert pf.__dict__ == {
-        "chk": "3q2+7w==",
+        "chk": "deadbeef",
         "src": "/a/b/c.jpg",
         "dt": "2015:08:27 04:09:36.50",
         "ts": 1440662976.5,
@@ -263,7 +263,6 @@ def test_database_init_update_version_1():
             b'"' + k.encode() + b'"',
             b'"' + v.encode() + b'"',
         )
-    new_json_data = new_json_data.replace(b'"chk": "deadbeef"', b'"chk": "3q2+7w=="')
     db = Database.from_json(json_data)
     print(db.db)
     assert db.db["timezone_default"] == "-0400"

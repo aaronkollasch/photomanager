@@ -6,8 +6,6 @@ from datetime import datetime, tzinfo, timezone, timedelta
 from dataclasses import dataclass, asdict, fields
 from typing import Union, Optional, Type, TypeVar
 
-from pybase64 import b64decode, b64encode
-
 from photomanager.pyexiftool import ExifTool
 from photomanager.hasher import file_checksum, DEFAULT_HASH_ALGO, HashAlgorithm
 
@@ -24,14 +22,6 @@ NAME_MAP_ENC: dict[str, str] = {
     "tz_offset": "tzo",
 }
 NAME_MAP_DEC: dict[str, str] = {v: k for k, v in NAME_MAP_ENC.items()}
-
-
-def checksum_encode(checksum: bytes) -> str:
-    return b64encode(checksum).decode()
-
-
-def checksum_decode(checksum: str) -> bytes:
-    return b64decode(checksum, validate=True)
 
 
 @dataclass
@@ -61,7 +51,7 @@ class PhotoFile:
     @property
     def __dict__(self):
         d = {f.name: getattr(self, f.name) for f in fields(self)}
-        d["chk"] = checksum_encode(d["chk"])
+        d["chk"] = d["chk"].hex()
         return d
 
     @property
@@ -152,7 +142,7 @@ class PhotoFile:
 
     @classmethod
     def from_json_dict(cls: Type[PF], d: dict) -> PF:
-        d["chk"] = checksum_decode(d["chk"])
+        d["chk"] = bytes.fromhex(d["chk"])
         return cls.from_dict(d)
 
     @classmethod
