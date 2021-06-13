@@ -145,3 +145,4 @@ cython_debug/
 *.json.gz
 *.json.zst
 /log
+/src/photomanager/_version.py

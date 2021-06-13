@@ -5,4 +5,3 @@ recursive-include tests *.py
 recursive-include tests/test_files img*
 prune tests/test_files/source
 recursive-exclude tests *.pyc
-include versioneer.py
