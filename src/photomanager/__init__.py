@@ -1,8 +1,6 @@
-from ._version import get_versions
+from ._version import version
 
-__version__ = get_versions()["version"]
-del get_versions
-version = __version__
+__version__ = version
 
 
 class PhotoManagerBaseException(Exception):
