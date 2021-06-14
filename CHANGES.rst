@@ -1,13 +1,14 @@
 Changelog for PhotoManager
 ==========================
 
-Unreleased - 2021-06-13
------------------------
+0.0.3 - 2021-06-13
+------------------
 
 Reverted
 ^^^^^^^^
 
 - Use str internally to represent checksum
+  (`692f7ec <https://github.com/aaronkollasch/photomanager/commit/692f7ec49ff9e7753f3dc48e27529baa2b1fe3be>`_)
 
 0.0.2 - 2021-06-13
 ------------------
