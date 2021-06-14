@@ -4,7 +4,7 @@ from os import PathLike
 from os.path import getsize
 from datetime import datetime, tzinfo, timezone, timedelta
 from dataclasses import dataclass, asdict, fields
-from typing import Union, Optional, Type, TypeVar
+from typing import Union, Optional, Type, TypeVar, ClassVar
 
 from photomanager.pyexiftool import ExifTool
 from photomanager.hasher import file_checksum, DEFAULT_HASH_ALGO, HashAlgorithm
@@ -50,9 +50,17 @@ class PhotoFile:
 
     @property
     def __dict__(self):
-        d = {f.name: getattr(self, f.name) for f in fields(self)}
+        d = {name: getattr(self, name) for name in self.field_names()}
         d["chk"] = d["chk"].hex()
         return d
+
+    FIELD_NAMES: ClassVar = None
+
+    @classmethod
+    def field_names(cls):
+        if cls.FIELD_NAMES is None:
+            cls.FIELD_NAMES = tuple(f.name for f in fields(cls))
+        return cls.FIELD_NAMES
 
     @property
     def local_datetime(self):
@@ -143,7 +151,7 @@ class PhotoFile:
     @classmethod
     def from_json_dict(cls: Type[PF], d: dict) -> PF:
         d["chk"] = bytes.fromhex(d["chk"])
-        return cls.from_dict(d)
+        return cls(**d)
 
     @classmethod
     def from_dict(cls: Type[PF], d: dict) -> PF:
