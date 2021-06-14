@@ -49,7 +49,7 @@ def _update_hash_obj(hash_obj, fd):
 def file_checksum(
     file: Union[bytes, str, PathLike, IOBase],
     algorithm: HashAlgorithm = DEFAULT_HASH_ALGO,
-) -> bytes:
+) -> str:
     if algorithm in HASH_ALGO_DEFINITIONS:
         hash_obj = HASH_ALGO_DEFINITIONS[algorithm]["factory"]()
     else:
@@ -59,13 +59,13 @@ def file_checksum(
     else:
         with open(file, "rb") as f:
             _update_hash_obj(hash_obj, f)
-    return hash_obj.digest()
+    return hash_obj.hexdigest()
 
 
 def check_files(
     file_paths: Iterable[Union[bytes, str, PathLike, IOBase]],
     algorithm: HashAlgorithm = DEFAULT_HASH_ALGO,
-) -> dict[str, bytes]:
+) -> dict[str, str]:
     output_dict = {}
     for path in tqdm(file_paths):
         try:
@@ -135,7 +135,7 @@ class AsyncFileHasher(AsyncWorkerQueue):
             for line in stdout.decode("utf-8").splitlines(keepends=False):
                 if line.strip():
                     checksum, path = line.split(maxsplit=1)
-                    self.output_dict[path] = bytes.fromhex(checksum)
+                    self.output_dict[path] = checksum
         except Exception as e:
             print("hasher output:", stdout)
             raise e
@@ -167,11 +167,11 @@ class AsyncFileHasher(AsyncWorkerQueue):
         file_paths: Iterable[Union[str, PathLike]],
         pbar_unit: str = "it",
         file_sizes: Optional[Iterable[int]] = None,
-    ) -> dict[str, bytes]:
+    ) -> dict[str, str]:
         if not self.use_async:
             return check_files(file_paths=file_paths, algorithm=self.algorithm)
 
-        self.output_dict: dict[str, bytes] = {}
+        self.output_dict = {}
         self.pbar_unit = pbar_unit
         all_jobs = []
         all_paths = list(make_chunks(self.encode(file_paths), self.batch_size))

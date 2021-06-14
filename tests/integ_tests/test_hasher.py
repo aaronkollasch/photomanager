@@ -4,24 +4,12 @@ from io import BytesIO
 from photomanager.hasher import AsyncFileHasher, file_checksum, HashAlgorithm
 
 checksums = [
-    (
-        b"",
-        bytes.fromhex(
-            "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
-        ),
-    ),
+    (b"", "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"),
     (
         b"\xff\xd8\xff\xe0",
-        bytes.fromhex(
-            "7d13007a8afed521cfc13306cbd6747bbc59556e3ca9514c8d94f900fbb56230"
-        ),
+        "7d13007a8afed521cfc13306cbd6747bbc59556e3ca9514c8d94f900fbb56230",
     ),
-    (
-        b"test",
-        bytes.fromhex(
-            "928b20366943e2afd11ebc0eae2e53a93bf177a4fcf35bcc64d503704e65e202"
-        ),
-    ),
+    (b"test", "928b20366943e2afd11ebc0eae2e53a93bf177a4fcf35bcc64d503704e65e202"),
 ]
 for _ in range(100):
     st = bytes([random.randint(0, 255) for _ in range(1000)])

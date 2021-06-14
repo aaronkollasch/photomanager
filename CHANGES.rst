@@ -1,6 +1,14 @@
 Changelog for PhotoManager
 ==========================
 
+Unreleased - 2021-06-13
+-----------------------
+
+Reverted
+^^^^^^^^
+
+- Use str internally to represent checksum
+
 0.0.2 - 2021-06-13
 ------------------
 

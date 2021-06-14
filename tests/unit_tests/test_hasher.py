@@ -16,30 +16,22 @@ checksum_expected_results = [
     {
         "algorithm": HashAlgorithm.BLAKE2B_256,
         "bytes": b"",
-        "checksum": bytes.fromhex(
-            "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
-        ),
+        "checksum": "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8",
     },
     {
         "algorithm": HashAlgorithm.BLAKE2B_256,
         "bytes": b"\xff\xd8\xff\xe0",
-        "checksum": bytes.fromhex(
-            "7d13007a8afed521cfc13306cbd6747bbc59556e3ca9514c8d94f900fbb56230"
-        ),
+        "checksum": "7d13007a8afed521cfc13306cbd6747bbc59556e3ca9514c8d94f900fbb56230",
     },
     {
         "algorithm": HashAlgorithm.SHA256,
         "bytes": b"",
-        "checksum": bytes.fromhex(
-            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        ),
+        "checksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     },
     {
         "algorithm": HashAlgorithm.SHA256,
         "bytes": b"\xff\xd8\xff\xe0",
-        "checksum": bytes.fromhex(
-            "ba4f25bf16ba4be6bc7d3276fafeb67f9eb3c5df042bc3a405e1af15b921eed7"
-        ),
+        "checksum": "ba4f25bf16ba4be6bc7d3276fafeb67f9eb3c5df042bc3a405e1af15b921eed7",
     },
 ]
 
@@ -91,7 +83,7 @@ def test_async_file_hasher_img(monkeypatch, caplog):
     assert not any(record.levelname == "WARNING" for record in caplog.records)
     assert len(checksum_cache) == 1
     assert "img1.jpg" in checksum_cache
-    assert checksum_cache["img1.jpg"] == bytes.fromhex("ba4f25bf16ba4be6bc7d3276fafeba")
+    assert checksum_cache["img1.jpg"] == "ba4f25bf16ba4be6bc7d3276fafeba"
 
 
 def test_async_file_hasher_empty(monkeypatch, caplog):

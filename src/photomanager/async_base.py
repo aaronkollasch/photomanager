@@ -92,7 +92,7 @@ class AsyncWorkerQueue:
     async def close_worker(self, worker_id: int):
         pass
 
-    async def execute_queue(self, all_jobs: Collection[AsyncJob]) -> dict[str, str]:
+    async def execute_queue(self, all_jobs: Collection[AsyncJob]) -> dict:
         """Run jobs"""
         self.queue = Queue()
         self.workers = []

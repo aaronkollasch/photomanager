@@ -3,8 +3,8 @@ from __future__ import annotations
 from os import PathLike
 from os.path import getsize
 from datetime import datetime, tzinfo, timezone, timedelta
-from dataclasses import dataclass, asdict, fields
-from typing import Union, Optional, Type, TypeVar, ClassVar
+from dataclasses import dataclass, asdict
+from typing import Union, Optional, Type, TypeVar
 
 from photomanager.pyexiftool import ExifTool
 from photomanager.hasher import file_checksum, DEFAULT_HASH_ALGO, HashAlgorithm
@@ -29,7 +29,7 @@ class PhotoFile:
     """A dataclass describing a photo or other media file
 
     Attributes:
-        :chk (bytes): checksum of photo file
+        :chk (str): checksum of photo file
         :src (str): Absolute path where photo was found
         :dt (str): Datetime string for best estimated creation date (original)
         :ts (float): POSIX timestamp of best estimated creation date (derived)
@@ -39,7 +39,7 @@ class PhotoFile:
         :tzo (float): local time zone offset
     """
 
-    chk: bytes
+    chk: str
     src: str
     dt: str
     ts: float
@@ -47,20 +47,6 @@ class PhotoFile:
     sto: str = ""
     prio: int = 10
     tzo: float = None
-
-    @property
-    def __dict__(self):
-        d = {name: getattr(self, name) for name in self.field_names()}
-        d["chk"] = d["chk"].hex()
-        return d
-
-    FIELD_NAMES: ClassVar = None
-
-    @classmethod
-    def field_names(cls):
-        if cls.FIELD_NAMES is None:
-            cls.FIELD_NAMES = tuple(f.name for f in fields(cls))
-        return cls.FIELD_NAMES
 
     @property
     def local_datetime(self):
@@ -104,7 +90,7 @@ class PhotoFile:
     def from_file_cached(
         cls: Type[PF],
         source_path: str,
-        checksum_cache: dict[str, bytes],
+        checksum_cache: dict[str, str],
         datetime_cache: dict[str, str],
         algorithm: HashAlgorithm = DEFAULT_HASH_ALGO,
         tz_default: Optional[tzinfo] = None,
@@ -147,11 +133,6 @@ class PhotoFile:
             prio=priority,
             tzo=tz,
         )
-
-    @classmethod
-    def from_json_dict(cls: Type[PF], d: dict) -> PF:
-        d["chk"] = bytes.fromhex(d["chk"])
-        return cls(**d)
 
     @classmethod
     def from_dict(cls: Type[PF], d: dict) -> PF:

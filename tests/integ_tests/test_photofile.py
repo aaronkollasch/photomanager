@@ -12,9 +12,7 @@ ALL_IMG_DIRS = pytest.mark.datafiles(
 )
 photofile_expected_results = [
     database.PhotoFile(
-        chk=bytes.fromhex(
-            "d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb"
-        ),
+        chk="d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb",
         src="A/img1.jpg",
         dt="2015:08:01 18:28:36.90",
         ts=1438468116.9,
@@ -22,9 +20,7 @@ photofile_expected_results = [
         tzo=-14400.0,
     ),
     database.PhotoFile(
-        chk=bytes.fromhex(
-            "3b39f47d51f63e54c76417ee6e04c34bd3ff5ac47696824426dca9e200f03666"
-        ),
+        chk="3b39f47d51f63e54c76417ee6e04c34bd3ff5ac47696824426dca9e200f03666",
         src="A/img2.jpg",
         dt="2015:08:01 18:28:36.99",
         ts=1438450116.99,
@@ -32,9 +28,7 @@ photofile_expected_results = [
         tzo=3600.0,
     ),
     database.PhotoFile(
-        chk=bytes.fromhex(
-            "1e10df2e3abe4c810551525b6cb2eb805886de240e04cc7c13c58ae208cabfb9"
-        ),
+        chk="1e10df2e3abe4c810551525b6cb2eb805886de240e04cc7c13c58ae208cabfb9",
         src="A/img1.png",
         dt="2015:08:01 18:28:36.90",
         ts=1438453716.9,
@@ -42,9 +36,7 @@ photofile_expected_results = [
         tzo=0.0,
     ),
     database.PhotoFile(
-        chk=bytes.fromhex(
-            "79ac4a89fb3d81ab1245b21b11ff7512495debca60f6abf9afbb1e1fbfe9d98c"
-        ),
+        chk="79ac4a89fb3d81ab1245b21b11ff7512495debca60f6abf9afbb1e1fbfe9d98c",
         src="A/img4.jpg",
         dt="2018:08:01 20:28:36",
         ts=1533169716.0,
@@ -52,9 +44,7 @@ photofile_expected_results = [
         tzo=-14400.0,
     ),
     database.PhotoFile(
-        chk=bytes.fromhex(
-            "d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb"
-        ),
+        chk="d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb",
         src="B/img1.jpg",
         dt="2015:08:01 18:28:36.90",
         ts=1438468116.9,
@@ -62,9 +52,7 @@ photofile_expected_results = [
         tzo=-14400.0,
     ),
     database.PhotoFile(
-        chk=bytes.fromhex(
-            "e9fec87008fd240309b81c997e7ec5491fee8da7eb1a76fc39b8fcafa76bb583"
-        ),
+        chk="e9fec87008fd240309b81c997e7ec5491fee8da7eb1a76fc39b8fcafa76bb583",
         src="B/img2.jpg",
         dt="2015:08:01 18:28:36.99",
         ts=1438468116.99,
@@ -72,9 +60,7 @@ photofile_expected_results = [
         tzo=-14400.0,
     ),
     database.PhotoFile(
-        chk=bytes.fromhex(
-            "2b0f304f86655ebd04272cc5e7e886e400b79a53ecfdc789f75dd380cbcc8317"
-        ),
+        chk="2b0f304f86655ebd04272cc5e7e886e400b79a53ecfdc789f75dd380cbcc8317",
         src="B/img4.jpg",
         dt="2018:08:01 20:28:36",
         ts=1533169716.0,
@@ -82,9 +68,7 @@ photofile_expected_results = [
         tzo=-14400.0,
     ),
     database.PhotoFile(
-        chk=bytes.fromhex(
-            "2aca4e78afbcebf2526ad8ac544d90b92991faae22499eec45831ef7be392391"
-        ),
+        chk="2aca4e78afbcebf2526ad8ac544d90b92991faae22499eec45831ef7be392391",
         src="C/img3.tiff",
         dt="2018:08:01 19:28:36",
         ts=1533166116.0,

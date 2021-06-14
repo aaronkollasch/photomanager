@@ -82,6 +82,11 @@ DB = TypeVar("DB", bound="Database")
 
 class Database:
     VERSION = 3
+    """
+    Database version history:
+    2: added tz_offset
+    3: shortened PhotoFile attribute names
+    """
     DB_KEY_ORDER = (
         "version",
         "hash_algorithm",
@@ -98,7 +103,7 @@ class Database:
             "photo_db": {},
             "command_history": {},
         }
-        self.hash_to_uid: dict[bytes, str] = {}
+        self.hash_to_uid: dict[str, str] = {}
         self.timestamp_to_uids: dict[float, dict[str, None]] = {}
 
     def __eq__(self, other: DB) -> bool:
@@ -159,17 +164,12 @@ class Database:
             for uid in db["photo_db"].keys():
                 photos = db["photo_db"][uid]
                 for i in range(len(photos)):
-                    checksum = photos[i]["checksum"]
-                    checksum = checksum.split(":", 1)[0]
-                    photos[i]["checksum"] = checksum.split(":", 1)[0]
                     photos[i] = {NAME_MAP_ENC[k]: v for k, v in photos[i].items()}
 
         db = {k: db[k] for k in self.DB_KEY_ORDER}
         db["hash_algorithm"] = HashAlgorithm(db["hash_algorithm"])
         for uid in db["photo_db"].keys():
-            db["photo_db"][uid] = [
-                PhotoFile.from_json_dict(d) for d in db["photo_db"][uid]
-            ]
+            db["photo_db"][uid] = [PhotoFile.from_dict(d) for d in db["photo_db"][uid]]
 
         db["version"] = self.VERSION
         self._db = db
@@ -562,7 +562,7 @@ class Database:
                 )
                 rel_store_path = (
                     f"{photo.local_datetime.strftime('%Y/%m-%b/%Y-%m-%d_%H-%M-%S')}-"
-                    f"{photo.chk[:4].hex()[:7]}-"
+                    f"{photo.chk[:7]}-"
                     f"{Path(photo.src).name}"
                 )
                 abs_store_path = directory / rel_store_path
@@ -805,8 +805,8 @@ class Database:
         return num_uids, num_photos, num_stored_photos, total_file_size
 
     def make_hash_map(
-        self, new_algo: HashAlgorithm, hash_map: Optional[dict[bytes, bytes]] = None
-    ) -> dict[bytes, bytes]:  # pragma: no cover
+        self, new_algo: HashAlgorithm, hash_map: Optional[dict[str, str]] = None
+    ) -> dict[str, str]:  # pragma: no cover
         """Make a map of file checksums in order to migrate hashing algorithms.
 
         Checks source file hashes using the old algorithm to make sure the new hashes
@@ -855,7 +855,7 @@ class Database:
         return hash_map
 
     def map_hashes(
-        self, new_algo: str, hash_map: dict[bytes, bytes], map_all: bool = False
+        self, new_algo: str, hash_map: dict[str, str], map_all: bool = False
     ) -> Optional[int]:  # pragma: no cover
         """Map the database's checksums to a new algorithm.
 
@@ -877,7 +877,7 @@ class Database:
         all_photos = [photo for photos in self.photo_db.values() for photo in photos]
         if map_all and (
             num_skipped_photos := sum(
-                photo.chk.split(b":", 1)[0] not in hash_map for photo in all_photos
+                photo.chk.split(":", 1)[0] not in hash_map for photo in all_photos
             )
         ):
             print(f"Not all items will be mapped: {num_skipped_photos}")
@@ -886,12 +886,12 @@ class Database:
             if photo.chk in hash_map:
                 photo.chk = hash_map[photo.chk]
                 num_correct_photos += 1
-            elif (ca := photo.chk.split(b":", 1)) and len(ca) == 2:
+            elif (ca := photo.chk.split(":", 1)) and len(ca) == 2:
                 if c := hash_map.get(ca[0], None):
                     photo.chk = c
                 num_correct_photos += 1
             else:
-                photo.chk = photo.chk + f":{old_algo}".encode()
+                photo.chk = f"{photo.chk}:{old_algo}"
                 num_skipped_photos += 1
         self.hash_algorithm = new_algo
         print(f"Mapped {num_correct_photos} items")

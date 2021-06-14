@@ -13,7 +13,7 @@ from photomanager.hasher import HashAlgorithm
 def test_photofile_to_dict():
     """ """
     assert PhotoFile(
-        chk=b"deadbeef",
+        chk="deadbeef",
         src="/a/b/c.jpg",
         dt="2015:08:27 04:09:36.50",
         ts=1440662976.5,
@@ -22,7 +22,7 @@ def test_photofile_to_dict():
         prio=11,
         tzo=-14400,
     ).to_dict() == {
-        "chk": b"deadbeef",
+        "chk": "deadbeef",
         "src": "/a/b/c.jpg",
         "dt": "2015:08:27 04:09:36.50",
         "ts": 1440662976.5,
@@ -35,7 +35,7 @@ def test_photofile_to_dict():
 
 def test_photofile_to_json():
     pf = PhotoFile(
-        chk=b"\xde\xad\xbe\xef",
+        chk="deadbeef",
         src="/a/b/c.jpg",
         dt="2015:08:27 04:09:36.50",
         ts=1440662976.5,
@@ -60,7 +60,7 @@ def test_photofile_to_json():
 
 def test_photofile_eq():
     assert PhotoFile(
-        chk=b"\xde\xad\xbe\xef",
+        chk="deadbeef",
         src="/a/b/c.jpg",
         dt="2015:08:27 04:09:36.50",
         ts=1440662976.5,
@@ -68,7 +68,7 @@ def test_photofile_eq():
         sto="/d/e/f.jpg",
         prio=11,
     ) == PhotoFile(
-        chk=b"\xde\xad\xbe\xef",
+        chk="deadbeef",
         src="/a/b/c.jpg",
         dt="2015:08:27 04:09:36.50",
         ts=1440662976.5,
@@ -80,7 +80,7 @@ def test_photofile_eq():
 
 def test_photofile_neq():
     pf1 = PhotoFile(
-        chk=b"deadbeef",
+        chk="deadbeef",
         src="/a/b/c.jpg",
         dt="2015:08:27 04:09:36.50",
         ts=1440662976.5,
@@ -89,7 +89,7 @@ def test_photofile_neq():
         prio=11,
     )
     assert pf1 != PhotoFile(
-        chk=b"deadfeed",
+        chk="deadfeed",
         src="/a/b/c.jpg",
         dt="2015:08:27 04:09:36.50",
         ts=1440662976.5,
@@ -98,7 +98,7 @@ def test_photofile_neq():
         prio=11,
     )
     assert pf1 != PhotoFile(
-        chk=b"deadbeef",
+        chk="deadbeef",
         src="/a/b/d.jpg",
         dt="2015:08:27 04:09:36.50",
         ts=1440662976.5,
@@ -107,7 +107,7 @@ def test_photofile_neq():
         prio=11,
     )
     assert pf1 != PhotoFile(
-        chk=b"deadbeef",
+        chk="deadbeef",
         src="/a/b/d.jpg",
         dt="2015:08:27 04:09:36.50",
         ts=1440662976.0,
@@ -176,7 +176,7 @@ def test_database_load_version_1():
         "d239210f00534b76a2b215e073f75832": [
             PhotoFile.from_dict(
                 {
-                    "chk": bytes.fromhex("deadbeef"),
+                    "chk": "deadbeef",
                     "src": "/a/b/c.jpg",
                     "dt": "2015:08:27 04:09:36.50",
                     "ts": 1440662976.5,
@@ -187,7 +187,7 @@ def test_database_load_version_1():
             ),
             PhotoFile.from_dict(
                 {
-                    "chk": bytes.fromhex("deadbeef"),
+                    "chk": "deadbeef",
                     "src": "/g/b/c.jpg",
                     "dt": "2015:08:27 04:09:36.50",
                     "ts": 1440662976.5,
@@ -314,7 +314,7 @@ def test_database_load_version_3():
     assert db.timezone_default is None
     photo_db_expected = {
         "QKEsTn2X": [
-            PhotoFile.from_json_dict(
+            PhotoFile.from_dict(
                 {
                     "chk": "deadbeef",
                     "src": "/a/b/c.jpg",
@@ -325,7 +325,7 @@ def test_database_load_version_3():
                     "prio": 11,
                 }
             ),
-            PhotoFile.from_json_dict(
+            PhotoFile.from_dict(
                 {
                     "chk": "deadbeef",
                     "src": "/g/b/c.jpg",
@@ -480,7 +480,7 @@ def test_database_add_photo_sort(caplog):
     db = Database.from_json(example_database_json_data)
     uid = db.add_photo(
         PhotoFile(
-            chk=bytes.fromhex("deadbeef"),
+            chk="deadbeef",
             src="/x/y/c.jpg",
             dt="2015:08:27 04:09:36.50",
             ts=1440662976.5,
@@ -492,7 +492,7 @@ def test_database_add_photo_sort(caplog):
     )
     db.add_photo(
         PhotoFile(
-            chk=bytes.fromhex("deadbeef"),
+            chk="deadbeef",
             src="/z/y/c.jpg",
             dt="2015:08:27 04:09:36.50",
             ts=1440662976.5,
@@ -504,7 +504,7 @@ def test_database_add_photo_sort(caplog):
     )
     db.add_photo(
         PhotoFile(
-            chk=bytes.fromhex("deadbeef"),
+            chk="deadbeef",
             src="/0/1/c.jpg",
             dt="2015:08:27 04:09:36.50",
             ts=1440662976.5,
@@ -562,7 +562,7 @@ def test_database_find_photo_ambiguous(caplog):
     db = Database.from_json(example_database_json_data2)
     uid = db.find_photo(
         PhotoFile(
-            chk=b"not_a_match",
+            chk="not_a_match",
             src="/x/y/c.jpg",
             dt="2015:08:27 04:09:36.50",
             ts=1440662976.5,
@@ -589,7 +589,7 @@ def test_database_add_photo_wrong_uid(caplog):
     db = Database.from_json(example_database_json_data2)
     uid = db.add_photo(
         PhotoFile(
-            chk=bytes.fromhex("deadbeef"),
+            chk="deadbeef",
             src="/x/y/c.jpg",
             dt="2015:08:27 04:09:36.50",
             ts=1440662976.5,
@@ -613,7 +613,7 @@ def test_database_add_photo_already_present(caplog):
     db = Database.from_json(example_database_json_data2)
     uid = db.add_photo(
         PhotoFile(
-            chk=bytes.fromhex("deadbeef"),
+            chk="deadbeef",
             src="/a/b/c.jpg",
             dt="2015:08:27 04:09:36.50",
             ts=1440662976.5,
@@ -637,7 +637,7 @@ def test_database_add_photo_same_source_new_checksum(caplog):
     db = Database.from_json(example_database_json_data2)
     uid = db.add_photo(
         PhotoFile(
-            chk=b"not_a_match",
+            chk="not_a_match",
             src="/a/b/c.jpg",
             dt="2015:08:27 04:09:36.50",
             ts=1440662976.5,
@@ -650,8 +650,8 @@ def test_database_add_photo_same_source_new_checksum(caplog):
     print([(r.levelname, r) for r in caplog.records])
     print(uid)
     assert uid == "uid1"
-    assert db.hash_to_uid[b"not_a_match"] == "uid1"
-    assert db.hash_to_uid[bytes.fromhex("deadbeef")] == "uid1"
+    assert db.hash_to_uid["not_a_match"] == "uid1"
+    assert db.hash_to_uid["deadbeef"] == "uid1"
     print(db.photo_db["uid1"])
     assert len(db.photo_db["uid1"]) == 2
     print([(r.levelname, r) for r in caplog.records])

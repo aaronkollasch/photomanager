@@ -118,7 +118,6 @@ class AsyncExifTool(AsyncWorkerQueue):
         )
         self.executable = executable if executable_ is None else executable_
         self.running = False
-        self.output_dict = {}
         self.queue = None
         self.batch_size = batch_size
         self.pbar = None
