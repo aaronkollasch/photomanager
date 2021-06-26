@@ -65,13 +65,33 @@ def file_checksum(
 def check_files(
     file_paths: Iterable[Union[bytes, str, PathLike, IOBase]],
     algorithm: HashAlgorithm = DEFAULT_HASH_ALGO,
+    pbar_unit: str = "it",
+    file_sizes: Optional[Iterable[int]] = None,
 ) -> dict[str, str]:
+    file_paths = list(file_paths)
+    if pbar_unit == "B" and file_sizes is not None:
+        file_sizes = list(file_sizes)
+        p_bar = tqdm(
+            total=sum(file_sizes),
+            unit="B",
+            unit_scale=True,
+            unit_divisor=1024,
+        )
+    else:
+        pbar_unit = "it"
+        p_bar = tqdm(total=len(file_paths))
     output_dict = {}
-    for path in tqdm(file_paths):
+    for i, path in enumerate(file_paths):
         try:
             output_dict[path] = file_checksum(path, algorithm)
         except FileNotFoundError:
             pass
+        finally:
+            if pbar_unit == "B":
+                p_bar.update(file_sizes[i])
+            else:
+                p_bar.update(1)
+    p_bar.close()
     return output_dict
 
 
@@ -169,7 +189,12 @@ class AsyncFileHasher(AsyncWorkerQueue):
         file_sizes: Optional[Iterable[int]] = None,
     ) -> dict[str, str]:
         if not self.use_async:
-            return check_files(file_paths=file_paths, algorithm=self.algorithm)
+            return check_files(
+                file_paths=file_paths,
+                algorithm=self.algorithm,
+                pbar_unit=pbar_unit,
+                file_sizes=file_sizes,
+            )
 
         self.output_dict = {}
         self.pbar_unit = pbar_unit

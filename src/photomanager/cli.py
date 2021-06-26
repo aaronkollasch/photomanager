@@ -5,32 +5,20 @@ import sys
 from os import makedirs, PathLike
 from pathlib import Path
 import shlex
-import re
 from typing import Union, Optional, Iterable
 import logging
 import click
-from photomanager.database import Database, DEFAULT_HASH_ALGO, HashAlgorithm
+from photomanager.database import (
+    Database,
+    DEFAULT_HASH_ALGO,
+    HashAlgorithm,
+    sizeof_fmt,
+)
+from photomanager.actions import fileops, actions
 from photomanager import version
 
 
 DEFAULT_DB = "photos.json"
-
-
-# fmt: off
-photo_extensions = {
-    "jpeg", "jpg", "png", "apng", "gif", "nef", "cr2", "orf", "tif", "tiff", "ico",
-    "bmp", "dng", "arw", "rw2", "heic", "avif", "heif", "heics", "heifs", "avics",
-    "avci", "avcs", "mng", "webp", "psd", "jp2", "psb",
-}
-video_extensions = {
-    "mov", "mp4", "m4v", "avi", "mpg", "mpeg", "avchd", "mts", "ts", "m2ts", "3gp",
-    "gifv", "mkv", "asf", "ogg", "webm", "flv", "3g2", "svi", "mpv"
-}
-audio_extensions = {
-    "m4a", "ogg", "aiff", "wav", "flac", "caf", "mp3",
-}
-extensions = photo_extensions | video_extensions | audio_extensions
-# fmt: on
 
 
 def config_logging(debug: bool = False):
@@ -118,75 +106,20 @@ def _index(
         click_exit(1)
     config_logging(debug=debug)
     database = Database.from_file(db, create_new=True)
-    filtered_files = list_files(source=source, file=file, exclude=exclude, paths=paths)
-    database.index_photos(
+    filtered_files = fileops.list_files(
+        source=source, file=file, exclude=exclude, paths=paths
+    )
+    index_result = actions.index(
+        database=database,
         files=filtered_files,
         priority=priority,
-        storage_type=storage_type,
         timezone_default=timezone_default,
+        storage_type=storage_type,
     )
     database.add_command(shlex.join(sys.argv))
     if not dry_run:
         database.to_file(db)
-
-
-def list_files(
-    source: Optional[Union[str, PathLike]] = None,
-    file: Optional[Union[str, PathLike]] = None,
-    paths: Iterable[Union[str, PathLike]] = tuple(),
-    exclude: Iterable[str] = tuple(),
-) -> dict[str, None]:
-    """List all files in sources, excluding regex patterns.
-
-    :param source: Directory to list. If `-`, read directories from stdin.
-    :param file: File to list. If `-`, read files from stdin.
-    :param paths: Paths (directories or files) to list.
-    :param exclude: Regex patterns to exclude.
-    :return: A dictionary with paths as keys.
-    """
-    paths = {Path(p).expanduser().resolve(): None for p in paths}
-    if source == "-":
-        with click.open_file("-", "r") as f:
-            sources: str = f.read()
-        paths.update(
-            {
-                Path(p).expanduser().resolve(): None
-                for p in sources.splitlines(keepends=False)
-            }
-        )
-    elif source:
-        paths[Path(source).expanduser().resolve()] = None
-
-    files = {}
-    if file == "-":
-        with click.open_file("-", "r") as f:
-            sources: str = f.read()
-        files.update(
-            {
-                Path(p).expanduser().resolve(): None
-                for p in sources.splitlines(keepends=False)
-            }
-        )
-    elif file:
-        files[Path(file).expanduser().resolve()] = None
-    for path in paths:
-        for p in path.glob("**/*.*"):
-            files[p] = None
-
-    filtered_files = {}
-    exclude_patterns = [re.compile(pat) for pat in set(exclude)]
-    skipped_extensions = set()
-    for p in files:
-        if p.suffix.lower().lstrip(".") not in extensions:
-            skipped_extensions.add(p.suffix.lower().lstrip("."))
-            continue
-        if any(regex.search(str(p)) for regex in exclude_patterns):
-            continue
-        filtered_files[str(p)] = None
-    if skipped_extensions:
-        print(f"Skipped extensions: {skipped_extensions}")
-
-    return filtered_files
+    click_exit(1 if index_result["num_error_photos"] else 0)
 
 
 # fmt: off
@@ -211,14 +144,20 @@ def _collect(
 ):
     config_logging(debug=debug)
     database = Database.from_file(db)
-    _, _, num_missed, _ = database.collect_to_directory(destination, dry_run=dry_run)
+    collect_result = actions.collect(
+        database=database, destination=destination, dry_run=dry_run
+    )
     database.add_command(shlex.join(sys.argv))
     if not dry_run:
         database.to_file(db)
         if collect_db:
             makedirs(Path(destination) / "database", exist_ok=True)
             database.to_file(Path(destination) / "database" / Path(db).name)
-    click_exit(1 if num_missed else 0)
+    click_exit(
+        1
+        if collect_result["num_missed_photos"] or collect_result["num_error_photos"]
+        else 0
+    )
 
 
 # fmt: off
@@ -237,6 +176,9 @@ def _collect(
               help="Name patterns to exclude")
 @click.option("--priority", type=int, default=10,
               help="Priority of indexed photos (lower is preferred, default=10)")
+@click.option("--timezone-default", type=str, default=None,
+              help="Timezone to use when indexing timezone-naive photos "
+                   "(example=\"-0400\", default=\"local\")")
 @click.option("--storage-type", type=str, default="HDD",
               help="Class of storage medium (HDD, SSD, RAID)")
 @click.option("--debug", default=False, is_flag=True,
@@ -257,23 +199,38 @@ def _import(
     debug: bool = False,
     dry_run: bool = False,
     priority: int = 10,
+    timezone_default: Optional[str] = None,
     storage_type: str = "HDD",
     collect_db: bool = False,
 ):
     config_logging(debug=debug)
     database = Database.from_file(db, create_new=True)
-    filtered_files = list_files(source=source, file=file, exclude=exclude, paths=paths)
-    database.index_photos(
-        files=filtered_files, priority=priority, storage_type=storage_type
+    filtered_files = fileops.list_files(
+        source=source, file=file, exclude=exclude, paths=paths
     )
-    _, _, num_missed, _ = database.collect_to_directory(destination, dry_run=dry_run)
+    index_result = actions.index(
+        database=database,
+        files=filtered_files,
+        priority=priority,
+        timezone_default=timezone_default,
+        storage_type=storage_type,
+    )
+    collect_result = actions.collect(
+        database=database, destination=destination, dry_run=dry_run
+    )
     database.add_command(shlex.join(sys.argv))
     if not dry_run:
         database.to_file(db)
         if collect_db:
             makedirs(Path(destination) / "database", exist_ok=True)
             database.to_file(Path(destination) / "database" / Path(db).name)
-    click_exit(1 if num_missed else 0)
+    click_exit(
+        1
+        if index_result["num_error_photos"]
+        or collect_result["num_missed_photos"]
+        or collect_result["num_error_photos"]
+        else 0
+    )
 
 
 # fmt: off
@@ -298,13 +255,16 @@ def _clean(
 ):
     config_logging(debug=debug)
     database = Database.from_file(db)
-    _, num_missed, _ = database.clean_stored_photos(
-        destination, subdirectory=subdir, dry_run=dry_run
+    result = actions.clean(
+        database=database,
+        destination=destination,
+        subdir=subdir,
+        dry_run=dry_run,
     )
     database.add_command(shlex.join(sys.argv))
     if not dry_run:
         database.to_file(db)
-    click_exit(1 if num_missed else 0)
+    click_exit(1 if result["num_missing_photos"] else 0)
 
 
 # fmt: off
@@ -325,10 +285,15 @@ def _verify(
     storage_type: str = "HDD",
 ):
     database = Database.from_file(db)
-    num_errors = database.verify_stored_photos(
-        destination, subdirectory=subdir, storage_type=storage_type
+    result = actions.verify(
+        database=database,
+        directory=destination,
+        subdir=subdir,
+        storage_type=storage_type,
     )
-    click_exit(1 if num_errors else 0)
+    click_exit(
+        1 if result["num_incorrect_photos"] or result["num_missing_photos"] else 0
+    )
 
 
 # fmt: off
@@ -338,7 +303,11 @@ def _verify(
 # fmt: on
 def _stats(db: Union[str, PathLike]):
     database = Database.from_file(db)
-    database.get_stats()
+    num_uids, num_photos, num_stored_photos, total_file_size = database.get_stats()
+    print(f"Total items:        {num_photos}")
+    print(f"Total unique items: {num_uids}")
+    print(f"Total stored items: {num_stored_photos}")
+    print(f"Total file size:    {sizeof_fmt(total_file_size)}")
 
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])

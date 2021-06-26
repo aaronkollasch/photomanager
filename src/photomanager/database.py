@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-from os import PathLike, rename, cpu_count, makedirs, chmod, remove
+from os import PathLike, rename, cpu_count
 from os.path import exists
-import stat
 from math import log
 import random
 from pathlib import Path
 from datetime import datetime, tzinfo
-import shutil
 import gzip
 import logging
-import traceback
 from typing import Union, Optional, Type, TypeVar
-from collections.abc import Collection
+from collections.abc import Iterable
 
 from tqdm import tqdm
 import orjson
@@ -20,10 +17,7 @@ import zstandard as zstd
 import xxhash
 
 from photomanager import PhotoManagerBaseException
-from photomanager.pyexiftool import ExifTool, AsyncExifTool
 from photomanager.hasher import (
-    AsyncFileHasher,
-    file_checksum,
     DEFAULT_HASH_ALGO,
     HashAlgorithm,
 )
@@ -368,7 +362,7 @@ class Database:
     def generate_uuid(self) -> str:
         """
         Generate a new uid that is not in the photo_db.
-        8 base58 characters = 10^14 possible uids.
+        8 base58 characters ~= 10^14 possible uids.
         P(collision) ≈ 50% at 1 million uids, so we must check for collisions.
         """
         next_uid = "".join(random.choices(self.UID_ALPHABET, k=8))
@@ -377,7 +371,8 @@ class Database:
         return next_uid
 
     def add_photo(self, photo: PhotoFile, uid: Optional[str]) -> Optional[str]:
-        """Adds a photo into the database with specified uid (can be None).
+        """
+        Adds a photo into the database with specified uid (can be None).
 
         Skips and returns None if the photo checksum is already in the database
         under a different uid or the photo checksum+source_path pair is already
@@ -422,115 +417,46 @@ class Database:
             self.timestamp_to_uids[photo.ts] = {uid: None}
         return uid
 
-    def index_photos(
-        self,
-        files: Collection[Union[str, PathLike]],
-        priority: int = 10,
-        timezone_default: Optional[str] = None,
-        storage_type: str = "HDD",
-    ) -> (int, int, int, int):
-        """Indexes photo files and adds them to the database with a designated priority.
-
-        :param files: the photo file paths to index
-        :param priority: the photos' priority
-        :param timezone_default: the default timezone to use when importing
-            If None, use the database default
-        :param storage_type: the storage type being indexed (uses more async if SSD)
-        :return: the number of photos added, merged, skipped, or errored
+    def add_photos(self, photos: Iterable[PhotoFile]) -> tuple[int, int, int]:
         """
-        logger = logging.getLogger(__name__)
-        num_added_photos = num_merged_photos = num_skipped_photos = num_error_photos = 0
-        if storage_type in ("SSD", "RAID"):
-            async_hashes = True
-            async_exif = cpu_count()
-        else:
-            async_hashes = (
-                False  # concurrent reads of sequential files can lead to thrashing
-            )
-            async_exif = min(
-                4, cpu_count()
-            )  # exiftool is partially CPU-bound and benefits from async
-        logger.info("Collecting media hashes")
-        checksum_cache = AsyncFileHasher(
-            algorithm=self.hash_algorithm, use_async=async_hashes
-        ).check_files(files, pbar_unit="B")
-        logger.info("Collecting media dates and times")
-        datetime_cache = AsyncExifTool(num_workers=async_exif).get_best_datetime_batch(
-            files
-        )
-        timezone_default = (
-            tz_str_to_tzinfo(timezone_default)
-            if timezone_default is not None
-            else self.timezone_default
-        )
-        logger.info("Indexing media")
-        exiftool = ExifTool()
-        exiftool.start()
-        for current_file in tqdm(files):
-            if logger.isEnabledFor(logging.DEBUG):
-                tqdm.write(f"Indexing {current_file}")
-            try:
-                pf = PhotoFile.from_file_cached(
-                    current_file,
-                    checksum_cache=checksum_cache,
-                    datetime_cache=datetime_cache,
-                    algorithm=self.hash_algorithm,
-                    tz_default=timezone_default,
-                    priority=priority,
-                )
-                uid = self.find_photo(photo=pf)
-                result = self.add_photo(photo=pf, uid=uid)
+        Add photos to the database.
+        :param photos: an Iterable of photos to add
+        :return: the number of photos added, merged, and skipped
+        """
+        num_added_photos = num_merged_photos = num_skipped_photos = 0
+        for pf in photos:
+            uid = self.find_photo(photo=pf)
+            result = self.add_photo(photo=pf, uid=uid)
 
-                if result is None:
-                    num_skipped_photos += 1
-                elif uid is None:
-                    num_added_photos += 1
-                else:
-                    num_merged_photos += 1
-            except Exception as e:  # pragma: no cover
-                tqdm.write(f"Error indexing {current_file}")
-                tb_str = traceback.format_exception(
-                    etype=type(e), value=e, tb=e.__traceback__
-                )
-                tqdm.write(tb_str)
-                num_error_photos += 1
-        exiftool.terminate()
+            if result is None:
+                num_skipped_photos += 1
+            elif uid is None:
+                num_added_photos += 1
+            else:
+                num_merged_photos += 1
+        return num_added_photos, num_merged_photos, num_skipped_photos
 
-        print(f"Indexed {num_added_photos+num_merged_photos}/{len(files)} items")
-        print(
-            f"Added {num_added_photos} new items and merged {num_merged_photos} items"
-        )
-        if num_skipped_photos or num_error_photos:
-            print(
-                f"Skipped {num_skipped_photos} items and errored on "
-                f"{num_error_photos} items"
-            )
-        return num_added_photos, num_merged_photos, num_skipped_photos, num_error_photos
+    def get_photos_to_collect(
+        self, directory: Union[str, PathLike]
+    ) -> tuple[list[tuple[PhotoFile, Optional[str]]], tuple[int, int, int, int]]:
+        """
+        Finds photos that can be collected
 
-    def collect_to_directory(
-        self, directory: Union[str, PathLike], dry_run: bool = False
-    ) -> (int, int, int, int):
-        """Collects photos in the database into a directory.
-
-        Collects only photos that have a store_path set or that have the highest
+        Returns only photos that have a store_path set or that have the highest
         priority and whose checksum does not match any stored alternative photo
 
-        Updates the store_path for photos newly stored. Store_paths are
-        relative to the storage directory.
-        Stored photos have permissions set to read-only for all.
-
-        :param directory the photo storage directory
-        :param dry_run if True, do not copy photos
-        :return the number of photos that could not be collected
+        :param directory: the photo storage directory
+        :return: PhotoFiles to copy, and their destination path,
+            and the numbers of copied, added, missed and stored photos
         """
         logger = logging.getLogger(__name__)
         directory = Path(directory).expanduser().resolve()
         num_copied_photos = num_added_photos = num_missed_photos = num_stored_photos = 0
-        photos_to_copy = []
+        photos_to_copy: list[tuple[PhotoFile, Optional[str]]] = []
         logger.info("Checking stored photos")
         for uid, photos in tqdm(self.photo_db.items()):
             highest_priority = min(photo.prio for photo in photos)
-            stored_checksums = {}
+            stored_checksums: dict[str, int] = {}
             photos_marked_as_stored = [photo for photo in photos if photo.sto]
             highest_priority_photos = [
                 photo
@@ -584,62 +510,32 @@ class Database:
                 else:
                     logger.warning(f"Photo not found: {photo.src}")
                     num_missed_photos += 1
-
-        estimated_copy_size = sum(photo.fsz for photo, _ in photos_to_copy)
-        logger.info(
-            f"{'Will copy' if dry_run else 'Copying'} {len(photos_to_copy)} items, "
-            f"estimated size: {sizeof_fmt(estimated_copy_size)}"
+        return (
+            photos_to_copy,
+            (num_copied_photos, num_added_photos, num_missed_photos, num_stored_photos),
         )
-        p_bar = tqdm(
-            total=estimated_copy_size, unit="B", unit_scale=True, unit_divisor=1024
-        )
-        for photo, rel_store_path in photos_to_copy:
-            if rel_store_path is None:
-                abs_store_path = directory / photo.sto
-            else:
-                abs_store_path = directory / rel_store_path
-            if logger.isEnabledFor(logging.DEBUG):
-                tqdm.write(
-                    f"{'Will copy' if dry_run else 'Copying'}: {photo.src} "
-                    f"to {abs_store_path}"
-                )
-            if not dry_run:
-                makedirs(abs_store_path.parent, exist_ok=True)
-                shutil.copy2(photo.src, abs_store_path)
-                chmod(abs_store_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
-                if rel_store_path is not None:
-                    photo.sto = rel_store_path
-            p_bar.update(photo.fsz)
-        p_bar.close()
 
-        print(
-            f"Copied {len(photos_to_copy)} items, estimated size: "
-            f"{sizeof_fmt(estimated_copy_size)}: "
-            f"{num_added_photos} new items and {num_copied_photos} "
-            f"items marked as stored elsewhere"
-        )
-        if num_stored_photos or num_missed_photos:
-            print(
-                f"Skipped {num_stored_photos} items already stored "
-                f"and {num_missed_photos} missing items"
-            )
-        return num_copied_photos, num_added_photos, num_missed_photos, num_stored_photos
-
-    def clean_stored_photos(
+    def get_photos_to_remove(
         self,
         directory: Union[str, PathLike],
         subdirectory: Union[str, PathLike] = "",
         dry_run: bool = False,
-    ) -> (int, int, float):
-        """Removes lower-priority stored photos if a higher-priority version is stored.
+    ) -> list[PhotoFile]:
+        """
+        Finds lower-priority stored photos to remove
 
-        :param directory the photo storage directory
-        :param subdirectory remove only photos within subdirectory
-        :param dry_run if True, do not remove photos
-        :return the number of photos removed
+        Returns lower-priority photos if a higher-priority alternative is stored.
+
+        If a lower-priority version is marked as stored and its checksum matches
+        a higher-priority stored photo, it will be "de-listed":
+        it will no longer be marked as stored.
+
+        :param directory: the photo storage directory
+        :param subdirectory: remove only photos within subdirectory
+        :param dry_run: if True, do not delist photos
+        :return: the number of photos removed
         """
         logger = logging.getLogger(__name__)
-        num_removed_photos = num_missing_photos = total_file_size = 0
         directory = Path(directory).expanduser().resolve()
         subdirectory = Path(subdirectory)
         if subdirectory.is_absolute():
@@ -667,7 +563,6 @@ class Database:
                 ):
                     if photo.chk not in highest_priority_checksums:
                         photos_to_remove.append(photo)
-                        total_file_size += photo.fsz
                     else:
                         logger.debug(
                             f"{'Will de-list' if dry_run else 'De-listing'}: "
@@ -675,111 +570,21 @@ class Database:
                         )
                         if not dry_run:
                             photo.sto = ""
-        print(f"Identified {len(photos_to_remove)} lower-priority items for removal")
-        print(f"Total file size: {sizeof_fmt(total_file_size)}")
-        for photo in tqdm(photos_to_remove):
-            abs_store_path = directory / photo.sto
-            if abs_store_path.exists():
-                if logger.isEnabledFor(logging.DEBUG):
-                    tqdm.write(
-                        f"{'Will remove' if dry_run else 'Removing'}: {abs_store_path}"
-                    )
-                if not dry_run:
-                    remove(abs_store_path)
-                    photo.sto = ""
-                num_removed_photos += 1
-            else:
-                if logger.isEnabledFor(logging.DEBUG):
-                    tqdm.write(f"Missing photo: {abs_store_path}")
-                num_missing_photos += 1
-        print(
-            f"{'Found' if dry_run else 'Removed'} {num_removed_photos} items "
-            f"and skipped {num_missing_photos} missing items"
-        )
-        return num_removed_photos, num_missing_photos, total_file_size
+        return photos_to_remove
 
-    def verify_stored_photos(
+    def get_stored_photos(
         self,
-        directory: Union[str, PathLike],
         subdirectory: Union[str, PathLike] = "",
-        storage_type: str = "HDD",
-    ) -> int:
-        """Check the files stored in directory against checksums in the database.
-
-        :param directory: the photo storage directory
-        :param subdirectory: verify only photos within subdirectory
-        :param storage_type: the type of media the photos are stored on
-            (uses async if SSD)
-        :return: the number of errors found
-        """
-        num_correct_photos = (
-            num_incorrect_photos
-        ) = num_missing_photos = total_file_size = 0
-        directory = Path(directory).expanduser().resolve()
+    ):
         subdirectory = Path(subdirectory)
         if subdirectory.is_absolute():
             raise DatabaseException("Absolute subdirectory not supported")
-        abs_subdirectory = directory / subdirectory
         stored_photos = []
         for photos in self.photo_db.values():
             for photo in photos:
-                abs_store_path = directory / photo.sto
-                if photo.sto and path_is_relative_to(abs_store_path, abs_subdirectory):
+                if photo.sto and path_is_relative_to(Path(photo.sto), subdirectory):
                     stored_photos.append(photo)
-                    total_file_size += photo.fsz
-        print(f"Verifying {len(stored_photos)} items")
-        print(f"Total file size: {sizeof_fmt(total_file_size)}")
-        if storage_type in ("SSD", "RAID"):
-            files, sizes = [], []
-            for photo in stored_photos:
-                abs_store_path = directory / photo.sto
-                if abs_store_path.exists():
-                    files.append(str(abs_store_path))
-                    sizes.append(photo.fsz)
-            print("Collecting media hashes")
-            checksum_cache = AsyncFileHasher(algorithm=self.hash_algorithm).check_files(
-                file_paths=files, pbar_unit="B", file_sizes=sizes
-            )
-            p_bar = tqdm(total=len(stored_photos))
-        else:
-            checksum_cache = {}
-            p_bar = tqdm(
-                total=total_file_size, unit="B", unit_scale=True, unit_divisor=1024
-            )
-
-        for photo in stored_photos:
-            abs_store_path = directory / photo.sto
-            if not abs_store_path.exists():
-                tqdm.write(f"Missing photo: {abs_store_path}")
-                num_missing_photos += 1
-            elif (
-                checksum_cache[str(abs_store_path)]
-                if str(abs_store_path) in checksum_cache
-                else file_checksum(abs_store_path, self.hash_algorithm)
-            ) == photo.chk:
-                num_correct_photos += 1
-            else:
-                tqdm.write(f"Incorrect checksum: {abs_store_path}")
-                num_incorrect_photos += 1
-            if checksum_cache:
-                p_bar.update()
-            else:
-                p_bar.update(photo.fsz)
-        p_bar.close()
-
-        print(
-            f"Checked "
-            f"{num_correct_photos+num_incorrect_photos+num_missing_photos} "
-            f"items"
-        )
-        if num_incorrect_photos or num_missing_photos:
-            print(
-                f"Found {num_incorrect_photos} incorrect and "
-                f"{num_missing_photos} missing items"
-            )
-        else:
-            print("No errors found")
-        return num_incorrect_photos + num_missing_photos
+        return stored_photos
 
     def verify_indexed_photos(self):
         """Check available source files against checksums in the database."""
@@ -798,174 +603,4 @@ class Database:
                 if photo.sto:
                     num_stored_photos += 1
                     total_file_size += photo.fsz
-        print(f"Total items:        {num_photos}")
-        print(f"Total unique items: {num_uids}")
-        print(f"Total stored items: {num_stored_photos}")
-        print(f"Total file size:    {sizeof_fmt(total_file_size)}")
         return num_uids, num_photos, num_stored_photos, total_file_size
-
-    def make_hash_map(
-        self, new_algo: HashAlgorithm, hash_map: Optional[dict[str, str]] = None
-    ) -> dict[str, str]:  # pragma: no cover
-        """Make a map of file checksums in order to migrate hashing algorithms.
-
-        Checks source file hashes using the old algorithm to make sure the new hashes
-        are correct. If the source has an incorrect hash, does not map checksum and
-        instead sets the mapped checksum to '{old_checksum}:{old_algorithm}'
-
-        Note: This method is not accessed by the CLI or covered by testing
-        and is intended to be used interactively, i.e. in a Jupyter notebook
-        or other environment, with spot checking of the output hash map.
-
-        :param new_algo: the new algorithm to use
-        :param hash_map: a map from old hashes to new hashes; will be updated with
-            new mappings as they are found
-        :return: the hash map
-        """
-        if hash_map is None:
-            hash_map = {}
-        old_algo = self.hash_algorithm
-        print(f"Converting {old_algo} to {new_algo}")
-        num_correct_photos = (
-            num_incorrect_photos
-        ) = num_missing_photos = num_skipped_photos = 0
-        all_photos = [photo for photos in self.photo_db.values() for photo in photos]
-        for photo in tqdm(all_photos):
-            if photo.chk in hash_map:
-                num_skipped_photos += 1
-            elif exists(photo.src):
-                if photo.chk == file_checksum(photo.src, old_algo):
-                    hash_map[photo.chk] = file_checksum(photo.src, new_algo)
-                    num_correct_photos += 1
-                else:
-                    tqdm.write(f"Incorrect checksum: {photo.src}")
-                    hash_map[photo.chk] = photo.chk + f":{old_algo}".encode()
-                    num_incorrect_photos += 1
-            else:
-                num_missing_photos += 1
-
-        print(f"Mapped {num_correct_photos} items")
-        if num_skipped_photos:
-            print(f"Skipped {num_skipped_photos} items")
-        if num_incorrect_photos or num_missing_photos:
-            print(
-                f"Found {num_incorrect_photos} incorrect and "
-                f"{num_missing_photos} missing items"
-            )
-        return hash_map
-
-    def map_hashes(
-        self, new_algo: str, hash_map: dict[str, str], map_all: bool = False
-    ) -> Optional[int]:  # pragma: no cover
-        """Map the database's checksums to a new algorithm.
-
-        If a checksum cannot be mapped, it is appended by ':{old_algorithm}'
-        to denote that it was made with a different algorithm
-
-        Note: This method is not accessed by the CLI or covered by testing
-        and is intended to be used interactively, i.e. in a Jupyter notebook
-        or other environment, with spot checking of the newly mapped hashes.
-
-        :param new_algo: the hashing algorithm used to make hash_map
-        :param hash_map: the map from old hashes to new hashes
-        :param map_all: set to True to enforce that all hashes must be in hash_map
-            before mapping starts
-        :return: the number of hashes not mapped
-        """
-        num_correct_photos = num_skipped_photos = 0
-        old_algo = self.hash_algorithm
-        all_photos = [photo for photos in self.photo_db.values() for photo in photos]
-        if map_all and (
-            num_skipped_photos := sum(
-                photo.chk.split(":", 1)[0] not in hash_map for photo in all_photos
-            )
-        ):
-            print(f"Not all items will be mapped: {num_skipped_photos}")
-            return None
-        for photo in tqdm(all_photos):
-            if photo.chk in hash_map:
-                photo.chk = hash_map[photo.chk]
-                num_correct_photos += 1
-            elif (ca := photo.chk.split(":", 1)) and len(ca) == 2:
-                if c := hash_map.get(ca[0], None):
-                    photo.chk = c
-                num_correct_photos += 1
-            else:
-                photo.chk = f"{photo.chk}:{old_algo}"
-                num_skipped_photos += 1
-        self.hash_algorithm = new_algo
-        print(f"Mapped {num_correct_photos} items")
-        if num_skipped_photos:
-            print(f"Did not map {num_skipped_photos} items")
-        return num_skipped_photos
-
-    def update_stored_filename_hashes(
-        self,
-        directory: Union[str, PathLike],
-        verify: bool = True,
-        dry_run: bool = False,
-    ) -> dict[str, str]:  # pragma: no cover
-        """Updates filenames to match checksums.
-
-        Run after mapping hashes to new algorithm with self.map_hashes()
-        Skips files whose filename checksum matches the stored checksum.
-
-        Note: This method is not accessed by the CLI or covered by testing
-        and is intended to be used interactively, i.e. in a Jupyter notebook
-        or other environment, with dry runs and spot checking of proposed
-        changes before they are performed. Use at your own risk.
-
-        :param directory: the photo storage directory
-        :param verify: if True, verify that file checksums match
-        :param dry_run: if True, perform a dry run and do not move photos
-        :return: the mapping of files moved
-        """
-        num_correct_photos = (
-            num_skipped_photos
-        ) = num_incorrect_photos = num_missing_photos = 0
-        directory = Path(directory).expanduser().resolve()
-        stored_photos = [
-            photo for photos in self.photo_db.values() for photo in photos if photo.sto
-        ]
-        total_file_size = sum(photo.fsz for photo in stored_photos)
-        print(f"Updating {len(stored_photos)} filename hashes")
-        print(f"Total file size: {sizeof_fmt(total_file_size)}")
-        logger = logging.getLogger()
-        file_map = {}
-        for photo in tqdm(stored_photos):
-            abs_store_path = directory / photo.sto
-            new_store_path = f"{photo.sto[:32]}{photo.chk[:7]}{photo.sto[39:]}"
-            new_abs_store_path = directory / new_store_path
-            if new_abs_store_path.exists():
-                num_skipped_photos += 1
-            elif not abs_store_path.exists():
-                tqdm.write(f"Missing photo: {abs_store_path}")
-                num_missing_photos += 1
-            elif photo.sto[32:39] == photo.chk[:7]:
-                num_skipped_photos += 1
-            elif (
-                not verify
-                or file_checksum(abs_store_path, self.hash_algorithm) == photo.chk
-            ):
-                if logger.isEnabledFor(logging.DEBUG):
-                    tqdm.write(
-                        f"{'Will move' if dry_run else 'Moving'} {abs_store_path} "
-                        f"to {new_abs_store_path}"
-                    )
-                file_map[str(abs_store_path)] = str(new_abs_store_path)
-                if not dry_run:
-                    rename(abs_store_path, new_abs_store_path)
-                    photo.sto = new_store_path
-                num_correct_photos += 1
-            else:
-                tqdm.write(f"Incorrect checksum: {abs_store_path}")
-                num_incorrect_photos += 1
-        print(f"{'Would move' if dry_run else 'Moved'} {num_correct_photos} items")
-        if num_skipped_photos:
-            print(f"Skipped {num_skipped_photos} items")
-        if num_incorrect_photos or num_missing_photos:
-            print(
-                f"Found {num_incorrect_photos} incorrect and "
-                f"{num_missing_photos} missing items"
-            )
-        return file_map

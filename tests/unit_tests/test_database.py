@@ -663,11 +663,14 @@ def test_database_add_photo_same_source_new_checksum(caplog):
 
 
 def test_database_clean_verify_absolute_subdir(tmpdir, caplog):
+    """
+    An exception is raised if subdir is an absolute path
+    """
     caplog.set_level(logging.DEBUG)
     db = Database.from_json(example_database_json_data2)
     with pytest.raises(DatabaseException):
-        db.clean_stored_photos(tmpdir / "a", subdirectory=tmpdir / "b")
+        db.get_photos_to_remove(tmpdir / "a", subdirectory=tmpdir / "b")
     with pytest.raises(DatabaseException):
-        db.verify_stored_photos(tmpdir / "a", subdirectory=tmpdir / "b")
+        db.get_stored_photos(subdirectory=tmpdir / "b")
     with pytest.raises(NotImplementedError):
         db.verify_indexed_photos()
