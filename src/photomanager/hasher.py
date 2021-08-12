@@ -100,10 +100,17 @@ class FileHasherJob(AsyncJob):
     file_paths: list[bytes] = field(default_factory=list)
     known_total_size: Optional[int] = None
 
+    @staticmethod
+    def _getsize(path):
+        try:
+            return getsize(path)
+        except FileNotFoundError:
+            return 0
+
     @property
     def size(self) -> int:
         if self.known_total_size is None:
-            self.known_total_size = sum(getsize(path) for path in self.file_paths)
+            self.known_total_size = sum(self._getsize(path) for path in self.file_paths)
         return self.known_total_size
 
 
