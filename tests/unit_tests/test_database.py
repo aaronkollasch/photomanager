@@ -10,113 +10,6 @@ from photomanager.photofile import PhotoFile, NAME_MAP_ENC
 from photomanager.hasher import HashAlgorithm
 
 
-def test_photofile_to_dict():
-    """ """
-    assert PhotoFile(
-        chk="deadbeef",
-        src="/a/b/c.jpg",
-        dt="2015:08:27 04:09:36.50",
-        ts=1440662976.5,
-        fsz=1024,
-        sto="/d/e/f.jpg",
-        prio=11,
-        tzo=-14400,
-    ).to_dict() == {
-        "chk": "deadbeef",
-        "src": "/a/b/c.jpg",
-        "dt": "2015:08:27 04:09:36.50",
-        "ts": 1440662976.5,
-        "fsz": 1024,
-        "sto": "/d/e/f.jpg",
-        "prio": 11,
-        "tzo": -14400,
-    }
-
-
-def test_photofile_to_json():
-    pf = PhotoFile(
-        chk="deadbeef",
-        src="/a/b/c.jpg",
-        dt="2015:08:27 04:09:36.50",
-        ts=1440662976.5,
-        fsz=1024,
-        sto="/d/e/f.jpg",
-        prio=11,
-        tzo=-14400,
-    )
-    print(pf)
-    print(pf.__getattribute__("__dict__"))
-    assert pf.__dict__ == {
-        "chk": "deadbeef",
-        "src": "/a/b/c.jpg",
-        "dt": "2015:08:27 04:09:36.50",
-        "ts": 1440662976.5,
-        "fsz": 1024,
-        "sto": "/d/e/f.jpg",
-        "prio": 11,
-        "tzo": -14400,
-    }
-
-
-def test_photofile_eq():
-    assert PhotoFile(
-        chk="deadbeef",
-        src="/a/b/c.jpg",
-        dt="2015:08:27 04:09:36.50",
-        ts=1440662976.5,
-        fsz=1024,
-        sto="/d/e/f.jpg",
-        prio=11,
-    ) == PhotoFile(
-        chk="deadbeef",
-        src="/a/b/c.jpg",
-        dt="2015:08:27 04:09:36.50",
-        ts=1440662976.5,
-        fsz=1024,
-        sto="/d/e/f.jpg",
-        prio=11,
-    )
-
-
-def test_photofile_neq():
-    pf1 = PhotoFile(
-        chk="deadbeef",
-        src="/a/b/c.jpg",
-        dt="2015:08:27 04:09:36.50",
-        ts=1440662976.5,
-        fsz=1024,
-        sto="/d/e/f.jpg",
-        prio=11,
-    )
-    assert pf1 != PhotoFile(
-        chk="deadfeed",
-        src="/a/b/c.jpg",
-        dt="2015:08:27 04:09:36.50",
-        ts=1440662976.5,
-        fsz=1024,
-        sto="/d/e/f.jpg",
-        prio=11,
-    )
-    assert pf1 != PhotoFile(
-        chk="deadbeef",
-        src="/a/b/d.jpg",
-        dt="2015:08:27 04:09:36.50",
-        ts=1440662976.5,
-        fsz=1024,
-        sto="/d/e/f.jpg",
-        prio=11,
-    )
-    assert pf1 != PhotoFile(
-        chk="deadbeef",
-        src="/a/b/d.jpg",
-        dt="2015:08:27 04:09:36.50",
-        ts=1440662976.0,
-        fsz=1024,
-        sto="/d/e/f.jpg",
-        prio=11,
-    )
-
-
 def test_sizeof_fmt():
     assert sizeof_fmt(-1) is None
     assert sizeof_fmt(0) == "0 bytes"
@@ -674,3 +567,56 @@ def test_database_clean_verify_absolute_subdir(tmpdir, caplog):
         db.get_stored_photos(subdirectory=tmpdir / "b")
     with pytest.raises(NotImplementedError):
         db.verify_indexed_photos()
+
+
+def test_database_get_photos_to_collect_same_checksum_same_priority(caplog, tmpdir):
+    """
+    Photos with the same priority and checksum will not be recollected
+    """
+    caplog.set_level(logging.DEBUG)
+    example_database = {
+        "version": 1,
+        "hash_algorithm": "sha256",
+        "photo_db": {
+            "uid1": [
+                {
+                    "checksum": "deadbeef",
+                    "source_path": str(tmpdir / "source1" / "a.jpg"),
+                    "datetime": "2015:08:27 04:09:36.50",
+                    "timestamp": 1440662976.5,
+                    "file_size": 1024,
+                    "store_path": str(tmpdir / "store" / "a.jpg"),
+                    "priority": 11,
+                },
+                {
+                    "checksum": "deadbeef",
+                    "source_path": str(tmpdir / "source2" / "a.jpg"),
+                    "datetime": "2015:08:27 04:09:36.50",
+                    "timestamp": 1440662976.5,
+                    "file_size": 1024,
+                    "store_path": "",
+                    "priority": 11,
+                }
+            ]
+        },
+        "command_history": {
+            "2021-03-08_23-56-00Z": "photomanager create --db test.json"
+        },
+    }
+    os.makedirs(tmpdir / "source1")
+    os.makedirs(tmpdir / "source2")
+    os.makedirs(tmpdir / "store")
+    Path(tmpdir / "source1" / "a.jpg").touch()
+    Path(tmpdir / "source2" / "a.jpg").touch()
+    Path(tmpdir / "store" / "a.jpg").touch()
+    db = Database.from_dict(example_database)
+    (
+        photos_to_copy,
+        (num_copied_photos, num_added_photos, num_missed_photos, num_stored_photos),
+    ) = db.get_photos_to_collect(tmpdir)
+    print(photos_to_copy)
+    print(num_copied_photos, num_added_photos, num_missed_photos, num_stored_photos)
+    assert num_copied_photos == 0
+    assert num_added_photos == 0
+    assert num_missed_photos == 0
+    assert num_stored_photos == 1

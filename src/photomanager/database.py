@@ -458,11 +458,6 @@ class Database:
             highest_priority = min(photo.prio for photo in photos)
             stored_checksums: dict[str, int] = {}
             photos_marked_as_stored = [photo for photo in photos if photo.sto]
-            highest_priority_photos = [
-                photo
-                for photo in photos
-                if photo.prio == highest_priority and not photo.sto
-            ]
             for photo in photos_marked_as_stored:
                 abs_store_path = directory / photo.sto
                 if abs_store_path.exists():
@@ -481,6 +476,15 @@ class Database:
                 else:
                     logger.warning(f"Photo not found: {photo.src}")
                     num_missed_photos += 1
+            highest_priority_photos = [
+                photo
+                for photo in photos
+                if (
+                    photo.prio == highest_priority
+                    and not photo.sto
+                    and photo.chk not in stored_checksums
+                )
+            ]
             for photo in highest_priority_photos:
                 assert not (
                     photo.chk in stored_checksums
