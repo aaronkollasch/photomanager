@@ -486,17 +486,16 @@ class Database:
                 )
             ]
             for photo in highest_priority_photos:
-                assert not (
-                    photo.chk in stored_checksums
-                    and photo.prio >= stored_checksums[photo.chk]
-                )
                 rel_store_path = (
                     f"{photo.local_datetime.strftime('%Y/%m-%b/%Y-%m-%d_%H-%M-%S')}-"
                     f"{photo.chk[:7]}-"
                     f"{Path(photo.src).name}"
                 )
                 abs_store_path = directory / rel_store_path
-                if abs_store_path.exists():
+                if photo.chk in stored_checksums:
+                    logger.debug(f"Photo duplicate already stored: {photo.src}")
+                    num_stored_photos += 1
+                elif abs_store_path.exists():
                     logger.debug(f"Photo already present: {abs_store_path}")
                     photo.sto = rel_store_path
                     stored_checksums[photo.chk] = min(
