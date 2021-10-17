@@ -90,7 +90,7 @@ def test_cli_import(datafiles, caplog):
         with open(datafiles / "test.json", "rb") as f:
             s = f.read()
             db = database.Database.from_json(s)
-        print(db.db)
+        print(db.json)
 
         for rel_path, checksum in EXPECTED_HASHES.items():
             if not rel_path.startswith("A"):
@@ -121,7 +121,7 @@ def test_cli_import(datafiles, caplog):
         with open(datafiles / "test.json", "rb") as f:
             s = f.read()
             db = database.Database.from_json(s)
-        print(db.db)
+        print(db.json)
 
         for rel_path, checksum in EXPECTED_HASHES.items():
             if not rel_path.startswith("B"):
@@ -176,7 +176,7 @@ def test_cli_import(datafiles, caplog):
         with open(datafiles / "test.json", "rb") as f:
             s = f.read()
             db = database.Database.from_json(s)
-        print(db.db)
+        print(db.json)
 
         for rel_path, checksum in EXPECTED_HASHES.items():
             if not rel_path.startswith("C"):
@@ -208,7 +208,7 @@ def test_cli_import(datafiles, caplog):
         with open(datafiles / "test.json", "rb") as f:
             s = f.read()
             db = database.Database.from_json(s)
-        print(db.db)
+        print(db.json)
         assert db.photo_db == db_prev.photo_db
 
         os.makedirs(datafiles / "pm_store", exist_ok=True)
@@ -234,7 +234,7 @@ def test_cli_import(datafiles, caplog):
         with open(datafiles / "test.json", "rb") as f:
             s = f.read()
             db = database.Database.from_json(s)
-        print(db.db)
+        print(db.json)
 
         collected_dbs = list(
             Path(datafiles / "pm_store" / "database").glob("test*.json")
@@ -373,7 +373,7 @@ def test_cli_import(datafiles, caplog):
         with open(datafiles / "test.json", "rb") as f:
             s = f.read()
             db = database.Database.from_json(s)
-        print(db.db)
+        print(db.json)
 
         for rel_path, checksum in EXPECTED_HASHES.items():
             assert checksum in db.hash_to_uid
@@ -427,7 +427,7 @@ def test_cli_import_no_overwrite(datafiles, caplog):
         with open(datafiles / "test.json", "rb") as f:
             s = f.read()
             db = database.Database.from_json(s)
-        print(db.db)
+        print(db.json)
 
         os.makedirs(datafiles / "pm_store" / "2018" / "08-Aug", exist_ok=True)
         with open(
@@ -471,7 +471,7 @@ def test_cli_import_no_overwrite(datafiles, caplog):
         with open(datafiles / "test.json", "rb") as f:
             s = f.read()
             db = database.Database.from_json(s)
-        print(db.db)
+        print(db.json)
 
         assert (
             next(iter(db.photo_db.values()))[0].sto
@@ -641,7 +641,7 @@ def test_cli_clean(datafiles, caplog):
         with open(datafiles / "test.json", "rb") as f:
             s = f.read()
             db = database.Database.from_json(s)
-        print(db.db)
+        print(db.json)
 
         for rel_path, checksum in EXPECTED_HASHES.items():
             abs_path = datafiles / rel_path
@@ -703,7 +703,7 @@ def test_cli_clean(datafiles, caplog):
         with open(datafiles / "test.json", "rb") as f:
             s = f.read()
             db = database.Database.from_json(s)
-        print(db.db)
+        print(db.json)
 
         for rel_path, checksum in EXPECTED_HASHES.items():
             if not rel_path.startswith("A") and not rel_path.startswith("B"):
@@ -712,11 +712,15 @@ def test_cli_clean(datafiles, caplog):
             assert db.hash_to_uid[checksum] in db.photo_db
             photos = db.photo_db[db.hash_to_uid[checksum]]
             if rel_path.startswith("A"):
+                # photos in the /A directory are higher priority
+                # and all should have been collected.
                 assert photos[0].src == datafiles / rel_path
                 print(rel_path)
                 assert photos[0].sto != ""
                 assert (datafiles / "pm_store" / photos[0].sto).exists()
             elif rel_path.startswith("B"):
+                # photos in the /B directory all have alternates in A
+                # so 2 photos should be present
                 assert len(photos) == 2
                 assert photos[1].src == datafiles / rel_path
                 assert photos[1].sto != ""
@@ -751,7 +755,7 @@ def test_cli_clean(datafiles, caplog):
         with open(datafiles / "test.json", "rb") as f:
             s = f.read()
             db = database.Database.from_json(s)
-        print(db.db)
+        print(db.json)
 
         for rel_path, checksum in EXPECTED_HASHES.items():
             if not rel_path.startswith("A") and not rel_path.startswith("B"):
@@ -877,7 +881,7 @@ def test_cli_clean(datafiles, caplog):
         with open(datafiles / "test.json", "rb") as f:
             s = f.read()
             db = database.Database.from_json(s)
-        print(db.db)
+        print(db.json)
         print(list(Path(datafiles / "pm_store").glob("**/*.*")))
 
         for rel_path, checksum in EXPECTED_HASHES.items():

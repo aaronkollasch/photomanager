@@ -23,6 +23,22 @@ NAME_MAP_ENC: dict[str, str] = {
 }
 NAME_MAP_DEC: dict[str, str] = {v: k for k, v in NAME_MAP_ENC.items()}
 
+# fmt: off
+photo_extensions = {
+    "jpeg", "jpg", "png", "apng", "gif", "nef", "cr2", "orf", "tif", "tiff", "ico",
+    "bmp", "dng", "arw", "rw2", "heic", "avif", "heif", "heics", "heifs", "avics",
+    "avci", "avcs", "mng", "webp", "psd", "jp2", "psb",
+}
+video_extensions = {
+    "mov", "mp4", "m4v", "avi", "mpg", "mpeg", "avchd", "mts", "ts", "m2ts", "3gp",
+    "gifv", "mkv", "asf", "ogg", "webm", "flv", "3g2", "svi", "mpv"
+}
+audio_extensions = {
+    "m4a", "ogg", "aiff", "wav", "flac", "caf", "mp3",
+}
+extensions = photo_extensions | video_extensions | audio_extensions
+# fmt: on
+
 
 @dataclass
 class PhotoFile:

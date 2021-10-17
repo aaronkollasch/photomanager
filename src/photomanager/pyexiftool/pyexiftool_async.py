@@ -207,7 +207,7 @@ class AsyncExifTool(AsyncWorkerQueue):
         all_jobs = tuple(make_chunk_jobs(filenames, self.batch_size, init=params))
         return run(self.execute_queue(all_jobs))
 
-    def get_best_datetime_batch(self, filenames: Collection[str]) -> dict[str, str]:
+    def get_best_datetime_batch(self, filenames: Iterable[str]) -> dict[str, str]:
         params = tuple("-" + t for t in datetime_tags)
         all_jobs = tuple(
             make_chunk_jobs(
