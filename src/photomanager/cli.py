@@ -23,9 +23,15 @@ DEFAULT_DB = "photos.json"
 
 def config_logging(debug: bool = False):
     if debug:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(levelname)s:%(name)s: %(message)s",
+        )
     else:
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(message)s",
+        )
 
 
 def click_exit(value: int = 0):
@@ -47,12 +53,16 @@ def click_exit(value: int = 0):
 @click.option("--timezone-default", type=str, default="local",
               help="Timezone to use when indexing timezone-naive photos "
                    "(example=\"-0400\", default=\"local\")")
+@click.option("--debug", default=False, is_flag=True,
+              help="Run in debug mode")
 # fmt: on
 def _create(
     db: Union[str, PathLike],
     hash_algorithm: str = DEFAULT_HASH_ALGO,
     timezone_default: str = "local",
+    debug: bool = False,
 ):
+    config_logging(debug=debug)
     try:
         database = Database.from_file(db)
     except FileNotFoundError:
@@ -279,6 +289,8 @@ def _clean(
               help="Class of storage medium (HDD, SSD, RAID)")
 @click.option("--random-fraction", type=float, default=None,
               help="Verify a randomly sampled fraction of the photos")
+@click.option("--debug", default=False, is_flag=True,
+              help="Run in debug mode")
 # fmt: on
 def _verify(
     db: Union[str, PathLike],
@@ -286,7 +298,9 @@ def _verify(
     subdir: Union[str, PathLike] = "",
     storage_type: str = "HDD",
     random_fraction: Optional[float] = None,
+    debug: bool = False,
 ):
+    config_logging(debug=debug)
     database = Database.from_file(db)
     result = actions.verify(
         database=database,
@@ -306,6 +320,7 @@ def _verify(
               default=DEFAULT_DB, help="PhotoManager database path")
 # fmt: on
 def _stats(db: Union[str, PathLike]):
+    config_logging()
     database = Database.from_file(db)
     num_uids, num_photos, num_stored_photos, total_file_size = database.get_stats()
     print(f"Total items:        {num_photos}")

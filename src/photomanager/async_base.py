@@ -79,7 +79,7 @@ class AsyncWorkerQueue:
                     if self.show_progress:
                         self.update_pbar(job)
                 except (Exception,):
-                    logging.warning(
+                    logging.getLogger(__name__).warning(
                         f"{self.__class__.__name__} worker encountered an exception!\n"
                         f"hasher job: {job}\n"
                         f"{traceback.format_exc()}",
@@ -123,7 +123,7 @@ class AsyncWorkerQueue:
         self.queue = None
         self.close_pbar()
 
-        logging.info(
+        logging.getLogger(__name__).info(
             f"{num_workers} subprocesses worked in parallel for "
             f"{total_time:.2f} seconds"
         )
