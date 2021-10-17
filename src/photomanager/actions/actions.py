@@ -138,13 +138,13 @@ def verify(
     """
     logger = logging.getLogger(__name__)
     num_correct_photos = num_incorrect_photos = num_missing_photos = 0
-    total_file_size = 0
     destination = Path(directory).expanduser().resolve()
     stored_photos = database.get_stored_photos(subdir)
     if random_fraction is not None:
         n = len(stored_photos)
         k = max(min(round(random_fraction * n), n), 0)
         stored_photos = random.sample(stored_photos, k=k)
+    total_file_size = sum(pf.fsz for pf in stored_photos)
     logger.info(f"Verifying {len(stored_photos)} items")
     logger.info(f"Total file size: {sizeof_fmt(total_file_size)}")
 
