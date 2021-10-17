@@ -47,3 +47,120 @@ def test_local_time_string_none():
             tzinfo=timezone.utc,
         ).astimezone(local_tzinfo)
     )
+
+
+class TestPhotoFile:
+    def test_to_dict(self):
+        """
+        PhotoFile.to_dict() returns a dictionary with the PhotoFile's attributes.
+        """
+        assert PhotoFile(
+            chk="deadbeef",
+            src="/a/b/c.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.5,
+            fsz=1024,
+            sto="/d/e/f.jpg",
+            prio=11,
+            tzo=-14400,
+        ).to_dict() == {
+            "chk": "deadbeef",
+            "src": "/a/b/c.jpg",
+            "dt": "2015:08:27 04:09:36.50",
+            "ts": 1440662976.5,
+            "fsz": 1024,
+            "sto": "/d/e/f.jpg",
+            "prio": 11,
+            "tzo": -14400,
+        }
+
+    def test_to_json(self):
+        """
+        PhotoFile.__dict__ is a dictionary with the PhotoFile's attributes.
+        The __dict__ property is used by orjson for json conversion.
+        """
+        pf = PhotoFile(
+            chk="deadbeef",
+            src="/a/b/c.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.5,
+            fsz=1024,
+            sto="/d/e/f.jpg",
+            prio=11,
+            tzo=-14400,
+        )
+        print(pf)
+        print(pf.__getattribute__("__dict__"))
+        assert pf.__dict__ == {
+            "chk": "deadbeef",
+            "src": "/a/b/c.jpg",
+            "dt": "2015:08:27 04:09:36.50",
+            "ts": 1440662976.5,
+            "fsz": 1024,
+            "sto": "/d/e/f.jpg",
+            "prio": 11,
+            "tzo": -14400,
+        }
+
+    def test_eq(self):
+        """
+        PhotoFiles with the same attributes are equal.
+        """
+        assert PhotoFile(
+            chk="deadbeef",
+            src="/a/b/c.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.5,
+            fsz=1024,
+            sto="/d/e/f.jpg",
+            prio=11,
+        ) == PhotoFile(
+            chk="deadbeef",
+            src="/a/b/c.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.5,
+            fsz=1024,
+            sto="/d/e/f.jpg",
+            prio=11,
+        )
+
+    def test_neq(self):
+        """
+        PhotoFiles with different attributes are not equal.
+        """
+        pf1 = PhotoFile(
+            chk="deadbeef",
+            src="/a/b/c.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.5,
+            fsz=1024,
+            sto="/d/e/f.jpg",
+            prio=11,
+        )
+        assert pf1 != PhotoFile(
+            chk="deadfeed",
+            src="/a/b/c.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.5,
+            fsz=1024,
+            sto="/d/e/f.jpg",
+            prio=11,
+        )
+        assert pf1 != PhotoFile(
+            chk="deadbeef",
+            src="/a/b/d.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.5,
+            fsz=1024,
+            sto="/d/e/f.jpg",
+            prio=11,
+        )
+        assert pf1 != PhotoFile(
+            chk="deadbeef",
+            src="/a/b/d.jpg",
+            dt="2015:08:27 04:09:36.50",
+            ts=1440662976.0,
+            fsz=1024,
+            sto="/d/e/f.jpg",
+            prio=11,
+        )
