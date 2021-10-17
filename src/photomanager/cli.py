@@ -277,12 +277,15 @@ def _clean(
               help="Verify only items within subdirectory")
 @click.option("--storage-type", type=str, default="HDD",
               help="Class of storage medium (HDD, SSD, RAID)")
+@click.option("--random-fraction", type=float, default=None,
+              help="Verify a randomly sampled fraction of the photos")
 # fmt: on
 def _verify(
     db: Union[str, PathLike],
     destination: Union[str, PathLike],
     subdir: Union[str, PathLike] = "",
     storage_type: str = "HDD",
+    random_fraction: Optional[float] = None,
 ):
     database = Database.from_file(db)
     result = actions.verify(
@@ -290,6 +293,7 @@ def _verify(
         directory=destination,
         subdir=subdir,
         storage_type=storage_type,
+        random_fraction=random_fraction,
     )
     click_exit(
         1 if result["num_incorrect_photos"] or result["num_missing_photos"] else 0

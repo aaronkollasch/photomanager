@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Union, Optional
 from collections.abc import Iterable
 import logging
+import random
 
 from tqdm import tqdm
 
@@ -122,6 +123,7 @@ def verify(
     directory: Union[str, PathLike],
     subdir: Union[str, PathLike] = "",
     storage_type: str = "HDD",
+    random_fraction: Optional[float] = None,
 ) -> dict[str, int]:
     """
     Check the files stored in directory against checksums in the database.
@@ -131,6 +133,7 @@ def verify(
     :param subdir: verify only photos within subdirectory
     :param storage_type: the type of media the photos are stored on
         (uses async if SSD)
+    :param random_fraction: verify a randomly sampled fraction of the photos
     :return: the number of errors found
     """
     logger = logging.getLogger(__name__)
@@ -138,6 +141,10 @@ def verify(
     total_file_size = 0
     destination = Path(directory).expanduser().resolve()
     stored_photos = database.get_stored_photos(subdir)
+    if random_fraction is not None:
+        n = len(stored_photos)
+        k = max(min(round(random_fraction * n), n), 0)
+        stored_photos = random.sample(stored_photos, k=k)
     logger.info(f"Verifying {len(stored_photos)} items")
     logger.info(f"Total file size: {sizeof_fmt(total_file_size)}")
 
