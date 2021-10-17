@@ -40,6 +40,7 @@ def list_files(
     :param exclude: Regex patterns to exclude.
     :return: A dictionary with paths as keys.
     """
+    logger = logging.getLogger(__name__)
     paths = {Path(p).expanduser().resolve(): None for p in paths}
     if source == "-":
         with click.open_file("-", "r") as f:
@@ -80,7 +81,7 @@ def list_files(
             continue
         filtered_files[str(p)] = None
     if skipped_extensions:
-        print(f"Skipped extensions: {skipped_extensions}")
+        logger.info(f"Skipped extensions: {skipped_extensions}")
 
     return filtered_files
 
@@ -170,7 +171,7 @@ def copy_photos(
     num_copied_photos = num_error_photos = total_copy_size = 0
     estimated_copy_size = sum(photo.fsz for photo, _ in photos)
     logger.info(
-        f"{'Will copy' if dry_run else 'Copying'} {len(photos)} items, "
+        f"{'Would copy' if dry_run else 'Copying'} {len(photos)} items, "
         f"estimated size: {sizeof_fmt(estimated_copy_size)}"
     )
     p_bar = tqdm(
@@ -183,7 +184,7 @@ def copy_photos(
             abs_store_path = directory / rel_store_path
         if logger.isEnabledFor(logging.DEBUG):
             tqdm.write(
-                f"{'Will copy' if dry_run else 'Copying'}: {photo.src} "
+                f"{'Would copy' if dry_run else 'Copying'}: {photo.src} "
                 f"to {abs_store_path}"
             )
         try:
@@ -231,7 +232,7 @@ def remove_photos(
         if abs_store_path.exists():
             if logger.isEnabledFor(logging.DEBUG):
                 tqdm.write(
-                    f"{'Will remove' if dry_run else 'Removing'}: {abs_store_path}"
+                    f"{'Would remove' if dry_run else 'Removing'}: {abs_store_path}"
                 )
             if not dry_run:
                 remove(abs_store_path)

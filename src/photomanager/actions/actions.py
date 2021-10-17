@@ -68,8 +68,8 @@ def collect(
         destination, photos_to_copy, dry_run=dry_run
     )
     logger.info(
-        f"Copied {total_copied_photos} items, total size: "
-        f"{sizeof_fmt(total_copy_size)}: "
+        f"{'Would copy' if dry_run else 'Copied'} {total_copied_photos} items, "
+        f"total size: {sizeof_fmt(total_copy_size)}: "
         f"{num_added_photos} new items and {num_copied_photos} "
         f"items marked as stored elsewhere"
     )
@@ -79,7 +79,7 @@ def collect(
             f"and {num_missed_photos} missing items"
         )
     if num_error_photos:  # pragma: no cover
-        logger.info(f"Encountered errors copying {num_error_photos} items")
+        logger.warning(f"Encountered errors copying {num_error_photos} items")
     return dict(
         num_copied_photos=num_copied_photos,
         num_added_photos=num_added_photos,
@@ -173,7 +173,7 @@ def verify(
         f"items"
     )
     if num_incorrect_photos or num_missing_photos:
-        logger.info(
+        logger.warning(
             f"Found {num_incorrect_photos} incorrect and "
             f"{num_missing_photos} missing items"
         )
