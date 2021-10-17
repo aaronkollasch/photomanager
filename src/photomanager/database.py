@@ -479,11 +479,7 @@ class Database:
             highest_priority_photos = [
                 photo
                 for photo in photos
-                if (
-                    photo.prio == highest_priority
-                    and not photo.sto
-                    and photo.chk not in stored_checksums
-                )
+                if photo.prio == highest_priority and not photo.sto
             ]
             for photo in highest_priority_photos:
                 rel_store_path = (
@@ -492,7 +488,10 @@ class Database:
                     f"{Path(photo.src).name}"
                 )
                 abs_store_path = directory / rel_store_path
-                if photo.chk in stored_checksums:
+                if (
+                    photo.chk in stored_checksums
+                    and stored_checksums[photo.chk] <= photo.prio
+                ):
                     logger.debug(f"Photo duplicate already stored: {photo.src}")
                     num_stored_photos += 1
                 elif abs_store_path.exists():

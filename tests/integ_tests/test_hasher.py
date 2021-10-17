@@ -1,7 +1,7 @@
 import logging
 import random
 from io import BytesIO
-from typing import Union
+from typing import Union, Dict
 import pytest
 from photomanager.hasher import AsyncFileHasher, file_checksum, HashAlgorithm
 
@@ -61,7 +61,7 @@ def test_file_hasher(tmpdir):
     ],
 )
 def test_async_file_hasher(
-    tmpdir, caplog, hasher_kwargs, check_kwargs: dict[str, Union[str, list]]
+    tmpdir, caplog, hasher_kwargs, check_kwargs: Dict[str, Union[str, list]]
 ):
     """
     AsyncFileHasher returns the correct checksums and skips nonexistent files

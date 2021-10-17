@@ -596,7 +596,7 @@ def test_database_get_photos_to_collect_same_checksum_same_priority(caplog, tmpd
                     "file_size": 1024,
                     "store_path": "",
                     "priority": 11,
-                }
+                },
             ]
         },
         "command_history": {
@@ -616,7 +616,8 @@ def test_database_get_photos_to_collect_same_checksum_same_priority(caplog, tmpd
     ) = db.get_photos_to_collect(tmpdir)
     print(photos_to_copy)
     print(num_copied_photos, num_added_photos, num_missed_photos, num_stored_photos)
+    assert len(photos_to_copy) == 0
     assert num_copied_photos == 0
     assert num_added_photos == 0
     assert num_missed_photos == 0
-    assert num_stored_photos == 1
+    assert num_stored_photos == 2
