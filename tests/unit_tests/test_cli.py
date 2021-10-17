@@ -176,3 +176,85 @@ def test_cli_collect_no_db(tmpdir, caplog):
         print(result)
         assert result.exit_code == 1
         assert isinstance(result.exception, FileNotFoundError)
+
+
+def test_cli_verify_random_sample(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
+    CliRunner.isolated_filesystem(tmpdir)
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmpdir):
+        caplog.set_level(logging.DEBUG)
+        example_database = {
+            "version": 1,
+            "hash_algorithm": "sha256",
+            "photo_db": {
+                "uid1": [
+                    {
+                        "checksum": "deadbeef",
+                        "source_path": str(tmpdir / "source1" / "a.jpg"),
+                        "datetime": "2015:08:27 04:09:36.50",
+                        "timestamp": 1440662976.5,
+                        "file_size": 1024,
+                        "store_path": "a.jpg",
+                        "priority": 11,
+                    },
+                ],
+                "uid2": [
+                    {
+                        "checksum": "asdf",
+                        "source_path": str(tmpdir / "source2" / "b.jpg"),
+                        "datetime": "2015:08:27 04:09:36.50",
+                        "timestamp": 1440662976.5,
+                        "file_size": 1024,
+                        "store_path": "b.jpg",
+                        "priority": 11,
+                    },
+                ],
+                "uid3": [
+                    {
+                        "checksum": "ffff",
+                        "source_path": str(tmpdir / "source1" / "c.jpg"),
+                        "datetime": "2015:08:27 04:09:36.50",
+                        "timestamp": 1440662976.5,
+                        "file_size": 1024,
+                        "store_path": "c.jpg",
+                        "priority": 11,
+                    },
+                ],
+                "uid4": [
+                    {
+                        "checksum": "beef",
+                        "source_path": str(tmpdir / "source2" / "d.jpg"),
+                        "datetime": "2015:08:27 04:09:36.50",
+                        "timestamp": 1440662976.5,
+                        "file_size": 1024,
+                        "store_path": "d.jpg",
+                        "priority": 11,
+                    },
+                ],
+            },
+            "command_history": {
+                "2021-03-08_23-56-00Z": "photomanager create --db test.json"
+            },
+        }
+        with open(tmpdir / "db.json", "w") as f:
+            f.write(json.dumps(example_database))
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "verify",
+                "--db",
+                str(tmpdir / "db.json"),
+                "--destination",
+                str(tmpdir / "dest"),
+                "--random-fraction",
+                "0.5",
+            ],
+        )
+        print("\nVERIFY 50%")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 1
+        assert "Verifying 2 items" in caplog.messages
+        assert "Checked 2 items" in caplog.messages
+        assert "Found 0 incorrect and 2 missing items" in caplog.messages

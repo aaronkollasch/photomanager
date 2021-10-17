@@ -1,8 +1,10 @@
+import os
 from pathlib import Path
 import logging
 import pytest
 from click.testing import CliRunner
-from photomanager.actions import fileops
+from photomanager.database import Database
+from photomanager.actions import fileops, actions
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"
 
@@ -61,3 +63,94 @@ class TestFileOps:
         ):
             files = fileops.list_files(file="-")
         assert len(files) == 2
+
+
+def test_cli_verify_random_sample(tmpdir, caplog):
+    """
+    The random_fraction parameter in actions.verify will verify
+    the specified fraction of the stored photos
+    (rounded to the nearest integer)
+    """
+    caplog.set_level(logging.DEBUG)
+    example_database = {
+        "version": 1,
+        "hash_algorithm": "sha256",
+        "photo_db": {
+            "uid1": [
+                {
+                    "checksum": "deadbeef",
+                    "source_path": str(tmpdir / "source1" / "a.jpg"),
+                    "datetime": "2015:08:27 04:09:36.50",
+                    "timestamp": 1440662976.5,
+                    "file_size": 1024,
+                    "store_path": "a.jpg",
+                    "priority": 11,
+                },
+            ],
+            "uid2": [
+                {
+                    "checksum": "asdf",
+                    "source_path": str(tmpdir / "source2" / "b.jpg"),
+                    "datetime": "2015:08:27 04:09:36.50",
+                    "timestamp": 1440662976.5,
+                    "file_size": 1024,
+                    "store_path": "b.jpg",
+                    "priority": 11,
+                },
+            ],
+            "uid3": [
+                {
+                    "checksum": "ffff",
+                    "source_path": str(tmpdir / "source1" / "c.jpg"),
+                    "datetime": "2015:08:27 04:09:36.50",
+                    "timestamp": 1440662976.5,
+                    "file_size": 1024,
+                    "store_path": "c.jpg",
+                    "priority": 11,
+                },
+            ],
+            "uid4": [
+                {
+                    "checksum": "beef",
+                    "source_path": str(tmpdir / "source2" / "d.jpg"),
+                    "datetime": "2015:08:27 04:09:36.50",
+                    "timestamp": 1440662976.5,
+                    "file_size": 1024,
+                    "store_path": "d.jpg",
+                    "priority": 11,
+                },
+            ],
+        },
+        "command_history": {
+            "2021-03-08_23-56-00Z": "photomanager create --db test.json"
+        },
+    }
+    os.makedirs(tmpdir / "store")
+    db = Database.from_dict(example_database)
+    assert len(db.get_stored_photos()) == 4
+
+    result = actions.verify(
+        database=db,
+        directory=tmpdir / "store",
+        random_fraction=0.33,
+    )
+    print("\nVERIFY 33% (missing photos)")
+    print(result)
+    assert result["num_correct_photos"] == 0
+    assert result["num_incorrect_photos"] == 0
+    assert result["num_missing_photos"] == 1
+
+    Path(tmpdir / "store" / "a.jpg").touch()
+    Path(tmpdir / "store" / "b.jpg").touch()
+    Path(tmpdir / "store" / "c.jpg").touch()
+    Path(tmpdir / "store" / "d.jpg").touch()
+    result = actions.verify(
+        database=db,
+        directory=tmpdir / "store",
+        random_fraction=0.5,
+    )
+    print("\nVERIFY 50% (incorrect photos)")
+    print(result)
+    assert result["num_correct_photos"] == 0
+    assert result["num_incorrect_photos"] == 2
+    assert result["num_missing_photos"] == 0
