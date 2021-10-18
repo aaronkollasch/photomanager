@@ -10,21 +10,27 @@ from photomanager.photofile import PhotoFile, NAME_MAP_ENC
 from photomanager.hasher import HashAlgorithm
 
 
-def test_sizeof_fmt():
-    assert sizeof_fmt(-1) is None
-    assert sizeof_fmt(0) == "0 bytes"
-    assert sizeof_fmt(1) == "1 byte"
-    assert sizeof_fmt(1023) == "1023 bytes"
-    assert sizeof_fmt(1024) == "1 kB"
-    assert sizeof_fmt(1024 ** 2 - 1) == "1024 kB"
-    assert sizeof_fmt(1024 ** 2) == "1.0 MB"
-    assert sizeof_fmt(1024 ** 3 - 1) == "1024.0 MB"
-    assert sizeof_fmt(1024 ** 3) == "1.00 GB"
-    assert sizeof_fmt(1024 ** 3 * 5.34) == "5.34 GB"
-    assert sizeof_fmt(1024 ** 4 - 1) == "1024.00 GB"
-    assert sizeof_fmt(1024 ** 4) == "1.00 TB"
-    assert sizeof_fmt(1024 ** 5 - 10) == "1024.00 TB"
-    assert sizeof_fmt(1024 ** 5) == "1.00 PB"
+sizeof_fmt_expected_results = [
+    (-1, None),
+    (0, "0 bytes"),
+    (1, "1 byte"),
+    (1023, "1023 bytes"),
+    (1024, "1 kB"),
+    (1024 ** 2 - 1, "1024 kB"),
+    (1024 ** 2, "1.0 MB"),
+    (1024 ** 3 - 1, "1024.0 MB"),
+    (1024 ** 3, "1.00 GB"),
+    (1024 ** 3 * 5.34, "5.34 GB"),
+    (1024 ** 4 - 1, "1024.00 GB"),
+    (1024 ** 4, "1.00 TB"),
+    (1024 ** 5 - 10, "1024.00 TB"),
+    (1024 ** 5, "1.00 PB"),
+]
+
+
+@pytest.mark.parametrize("sizeof_fmt_tup", sizeof_fmt_expected_results)
+def test_sizeof_fmt(sizeof_fmt_tup):
+    assert sizeof_fmt(sizeof_fmt_tup[0]) == sizeof_fmt_tup[1]
 
 
 def test_database_load_version_1():

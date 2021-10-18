@@ -52,7 +52,7 @@ class PhotoFile:
         :fsz (int): Photo file size, in bytes
         :sto (str): Relative path where photo is stored, empty if not stored
         :prio (int): Photo priority (lower is preferred)
-        :tzo (float): local time zone offset
+        :tzo (float or None): local time zone offset
     """
 
     chk: str
@@ -62,7 +62,7 @@ class PhotoFile:
     fsz: int
     sto: str = ""
     prio: int = 10
-    tzo: float = None
+    tzo: Optional[float] = None
 
     @property
     def local_datetime(self):
