@@ -362,11 +362,13 @@ class Database:
     def generate_uuid(self) -> str:
         """
         Generate a new uid that is not in the photo_db.
-        8 base58 characters ~= 10^14 possible uids.
-        P(collision) ≈ 50% at 1 million uids, so we must check for collisions.
         """
         next_uid = "".join(random.choices(self.UID_ALPHABET, k=8))
         if next_uid in self.photo_db:  # pragma: no cover
+            # 8 base58 characters ~= 10^14 possible uids.
+            # P(collision) ≈ 50% at 1 million uids, so we must check for collisions.
+            # However, collisions cannot be easily replicated in testing,
+            # so this branch will not be checked.
             return self.generate_uuid()
         return next_uid
 

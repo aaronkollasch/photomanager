@@ -3,6 +3,7 @@ from pathlib import Path
 import logging
 import pytest
 from click.testing import CliRunner
+from photomanager.photofile import PhotoFile
 from photomanager.database import Database
 from photomanager.actions import fileops, actions
 
@@ -16,56 +17,198 @@ def check_dir_empty(dir_path):
 
 
 class TestFileOps:
-    @pytest.mark.datafiles(
-        FIXTURE_DIR / "A",
-        keep_top_dir=True,
-    )
+    @pytest.mark.datafiles(FIXTURE_DIR)
     def test_list_files_stdin_source(self, datafiles, caplog):
+        """
+        list_files accepts multiple directories piped to stdin when source == "-"
+        """
         caplog.set_level(logging.DEBUG)
         runner = CliRunner()
-        with runner.isolation(input=str(datafiles / "A") + "\n"):
+        with runner.isolation(
+            input=str(datafiles / "A") + "\n" + str(datafiles / "B") + "\n"
+        ):
             files = fileops.list_files(source="-")
-            assert len(files) == 4
+        print(files)
+        assert set(files.keys()) == {
+            str(datafiles / "A" / "img1.jpg"),
+            str(datafiles / "A" / "img1.png"),
+            str(datafiles / "A" / "img2.jpg"),
+            str(datafiles / "A" / "img4.jpg"),
+            str(datafiles / "B" / "img1.jpg"),
+            str(datafiles / "B" / "img2.jpg"),
+            str(datafiles / "B" / "img4.jpg"),
+        }
 
     @pytest.mark.datafiles(
-        FIXTURE_DIR / "C",
+        FIXTURE_DIR / "A",
         keep_top_dir=True,
     )
     def test_list_files_source(self, datafiles, caplog):
+        """
+        list_files lists a directory in the source argument
+        """
         caplog.set_level(logging.DEBUG)
-        files = fileops.list_files(source=str(datafiles / "C"))
-        assert len(files) == 1
+        files = fileops.list_files(source=str(datafiles / "A"))
+        print(files)
+        assert set(files.keys()) == {
+            str(datafiles / "A" / "img1.jpg"),
+            str(datafiles / "A" / "img1.png"),
+            str(datafiles / "A" / "img2.jpg"),
+            str(datafiles / "A" / "img4.jpg"),
+        }
 
-    @pytest.mark.datafiles(
-        FIXTURE_DIR / "A",
-        keep_top_dir=True,
-    )
+    @pytest.mark.datafiles(FIXTURE_DIR)
     def test_list_files_paths_exclude(self, datafiles, caplog):
+        """
+        The list_files exclude argument removes filenames matching the patterns
+        """
         caplog.set_level(logging.DEBUG)
-        files = fileops.list_files(paths=[str(datafiles / "A")], exclude=["img1"])
-        assert len(files) == 2
+        files = fileops.list_files(paths=[str(datafiles)], exclude=["img1", ".tiff"])
+        print(files)
+        assert set(files.keys()) == {
+            str(datafiles / "A" / "img2.jpg"),
+            str(datafiles / "A" / "img4.jpg"),
+            str(datafiles / "B" / "img2.jpg"),
+            str(datafiles / "B" / "img4.jpg"),
+        }
 
     @pytest.mark.datafiles(FIXTURE_DIR / "A" / "img1.png")
     def test_list_files_file(self, datafiles, caplog):
+        """
+        list_files will return a file provided with the file argument
+        """
         caplog.set_level(logging.DEBUG)
         files = fileops.list_files(file=str(datafiles / "img1.png"))
-        assert len(files) == 1
+        print(files)
+        assert set(files.keys()) == {
+            str(datafiles / "img1.png"),
+        }
 
     @pytest.mark.datafiles(
         FIXTURE_DIR / "A" / "img1.png",
         FIXTURE_DIR / "A" / "img1.jpg",
     )
     def test_list_files_stdin_file(self, datafiles, caplog):
+        """
+        list_files accepts multiple files piped to stdin when file == "-"
+        """
         caplog.set_level(logging.DEBUG)
         runner = CliRunner()
         with runner.isolation(
             input=f"{datafiles / 'img1.png'}\n{datafiles / 'img1.jpg'}\n"
         ):
             files = fileops.list_files(file="-")
-        assert len(files) == 2
+        print(files)
+        assert set(files.keys()) == {
+            str(datafiles / "img1.jpg"),
+            str(datafiles / "img1.png"),
+        }
+
+    @pytest.mark.datafiles(
+        FIXTURE_DIR / "B",
+        keep_top_dir=True,
+    )
+    def test_copy_photos(self, datafiles, caplog):
+        """
+        copy_photos will copy the supplied PhotoFiles to the destination folder
+        using the provided relative store path, or PhotoFile.sto if no path is provided.
+        """
+        caplog.set_level(logging.DEBUG)
+        photos_to_copy = [
+            (
+                PhotoFile(
+                    chk="deadbeef",
+                    src="B/img2.jpg",
+                    sto="2015/08/2015-08-01_img2.jpg",
+                    dt="2015:08:01 18:28:36.99",
+                    ts=1438468116.99,
+                    fsz=789,
+                    tzo=-14400.0,
+                ),
+                None,
+            ),
+            (
+                PhotoFile(
+                    chk="deadbeef",
+                    src="B/img4.jpg",
+                    dt="2018:08:01 20:28:36",
+                    ts=1533169716.0,
+                    fsz=777,
+                    tzo=-14400.0,
+                ),
+                "2018/08/2018-08-01_img4.jpg",
+            ),
+            (
+                PhotoFile(
+                    chk="deadbeef",
+                    src="B/img_missing.jpg",
+                    sto="2018/08/2018-08-08_img_missing.jpg",
+                    dt="2018:08:01 20:28:36",
+                    ts=1533169716.0,
+                    fsz=777,
+                    tzo=-14400.0,
+                ),
+                None,
+            ),
+        ]
+        for pf, rel_store_path in photos_to_copy:
+            pf.src = str(datafiles / pf.src)
+        num_copied_photos, total_copy_size, num_error_photos = fileops.copy_photos(
+            datafiles / "dest", photos_to_copy
+        )
+        print(num_copied_photos, total_copy_size, num_error_photos)
+        assert num_copied_photos == 2
+        assert total_copy_size == 789 + 777
+        assert num_error_photos == 1
+        assert os.listdir(datafiles / "dest/2015/08") == ["2015-08-01_img2.jpg"]
+        assert os.listdir(datafiles / "dest/2018/08") == ["2018-08-01_img4.jpg"]
+
+    @pytest.mark.datafiles(
+        FIXTURE_DIR / "B",
+        keep_top_dir=True,
+    )
+    def test_remove_photos(self, datafiles, caplog):
+        """
+        remove_photos will remove the supplied PhotoFiles if they are not missing
+        """
+        caplog.set_level(logging.DEBUG)
+        photos_to_remove = [
+            PhotoFile(
+                chk="deadbeef",
+                src="B/img2.jpg",
+                dt="2015:08:01 18:28:36.99",
+                ts=1438468116.99,
+                fsz=789,
+                tzo=-14400.0,
+            ),
+            PhotoFile(
+                chk="deadbeef",
+                src="B/img4.jpg",
+                dt="2018:08:01 20:28:36",
+                ts=1533169716.0,
+                fsz=777,
+                tzo=-14400.0,
+            ),
+            PhotoFile(
+                chk="deadbeef",
+                src="B/img_missing.jpg",
+                dt="2018:08:01 20:28:36",
+                ts=1533169716.0,
+                fsz=777,
+                tzo=-14400.0,
+            ),
+        ]
+        for pf in photos_to_remove:
+            pf.sto = str(datafiles / pf.src)
+        num_removed_photos, num_missing_photos = fileops.remove_photos(
+            directory=datafiles, photos=photos_to_remove
+        )
+        assert num_removed_photos == 2
+        assert num_missing_photos == 1
+        assert os.listdir(datafiles / "B") == ["img1.jpg"]
 
 
-def test_cli_verify_random_sample(tmpdir, caplog):
+def test_verify_random_sample(tmpdir, caplog):
     """
     The random_fraction parameter in actions.verify will verify
     the specified fraction of the stored photos
