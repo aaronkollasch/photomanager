@@ -134,7 +134,7 @@ def _index(
 
 # fmt: off
 @click.command("collect", help="Collect highest-priority items into storage")
-@click.option("--db", type=click.Path(dir_okay=False), required=True,
+@click.option("--db", type=click.Path(dir_okay=False, exists=True), required=True,
               default=DEFAULT_DB, help="PhotoManager database path")
 @click.option("--destination", type=click.Path(file_okay=False), required=True,
               help="Photo storage base directory")
@@ -245,7 +245,7 @@ def _import(
 
 # fmt: off
 @click.command("clean", help="Remove lower-priority alternatives of stored items")
-@click.option("--db", type=click.Path(dir_okay=False), required=True,
+@click.option("--db", type=click.Path(dir_okay=False, exists=True), required=True,
               default=DEFAULT_DB, help="PhotoManager database path")
 @click.option("--destination", type=click.Path(file_okay=False), required=True,
               help="Photo storage base directory")
@@ -279,7 +279,7 @@ def _clean(
 
 # fmt: off
 @click.command("verify", help="Verify checksums of stored items")
-@click.option("--db", type=click.Path(dir_okay=False), required=True,
+@click.option("--db", type=click.Path(dir_okay=False, exists=True), required=True,
               default=DEFAULT_DB, help="PhotoManager database path")
 @click.option("--destination", type=click.Path(file_okay=False), required=True,
               help="Photo storage base directory")
@@ -316,7 +316,7 @@ def _verify(
 
 # fmt: off
 @click.command("stats", help="Get database statistics")
-@click.option("--db", type=click.Path(dir_okay=False), required=True,
+@click.option("--db", type=click.Path(dir_okay=False, exists=True), required=True,
               default=DEFAULT_DB, help="PhotoManager database path")
 # fmt: on
 def _stats(db: Union[str, PathLike]):

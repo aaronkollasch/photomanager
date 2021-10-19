@@ -60,8 +60,8 @@ def test_photomanager_bin_error(tmpdir):
         stdout, stderr = p.communicate()
         print(stdout, stderr)
         print("exit", p.returncode)
-        assert p.returncode == 1
-        assert b"FileNotFoundError" in stderr
+        assert p.returncode == 2
+        assert b"does not exist" in stderr
         check_dir_empty(fs)
 
 

@@ -174,8 +174,8 @@ def test_cli_collect_no_db(tmpdir, caplog):
         print("\nCOLLECT no-db")
         print(result.output)
         print(result)
-        assert result.exit_code == 1
-        assert isinstance(result.exception, FileNotFoundError)
+        assert result.exit_code == 2
+        assert "does not exist" in result.output
 
 
 def test_cli_verify_random_sample(tmpdir, caplog):
