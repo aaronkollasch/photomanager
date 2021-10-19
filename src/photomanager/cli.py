@@ -69,7 +69,7 @@ def _create(
         database = Database()
         database.hash_algorithm = HashAlgorithm(hash_algorithm)
         database.db["timezone_default"] = timezone_default
-        database.add_command(shlex.join(sys.argv))
+        database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     database.to_file(db)
 
 
@@ -126,7 +126,7 @@ def _index(
         timezone_default=timezone_default,
         storage_type=storage_type,
     )
-    database.add_command(shlex.join(sys.argv))
+    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
         database.to_file(db)
     click_exit(1 if index_result["num_error_photos"] else 0)
@@ -157,7 +157,7 @@ def _collect(
     collect_result = actions.collect(
         database=database, destination=destination, dry_run=dry_run
     )
-    database.add_command(shlex.join(sys.argv))
+    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
         database.to_file(db)
         if collect_db:
@@ -228,7 +228,7 @@ def _import(
     collect_result = actions.collect(
         database=database, destination=destination, dry_run=dry_run
     )
-    database.add_command(shlex.join(sys.argv))
+    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
         database.to_file(db)
         if collect_db:
@@ -271,7 +271,7 @@ def _clean(
         subdir=subdir,
         dry_run=dry_run,
     )
-    database.add_command(shlex.join(sys.argv))
+    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
         database.to_file(db)
     click_exit(1 if result["num_missing_photos"] else 0)
