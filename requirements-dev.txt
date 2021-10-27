@@ -4,6 +4,7 @@ orjson>=3.5.2
 zstandard>=0.15.2
 xxhash>=2.0.2
 pytest
+pytest-cov
 pytest-datafiles
 tox
 black
