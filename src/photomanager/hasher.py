@@ -3,6 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from io import IOBase
 import hashlib
+from blake3 import blake3
 from dataclasses import dataclass, field
 from asyncio import run
 from asyncio import subprocess as subprocess_async
@@ -15,13 +16,13 @@ from tqdm import tqdm
 from photomanager import PhotoManagerBaseException
 from photomanager.async_base import AsyncWorkerQueue, AsyncJob, make_chunks
 
-
 BLOCK_SIZE = 65536
 
 
 class HashAlgorithm(Enum):
     SHA256 = "sha256"
     BLAKE2B_256 = "blake2b-256"
+    BLAKE3 = "blake3"
 
 
 DEFAULT_HASH_ALGO = HashAlgorithm.BLAKE2B_256  # b2sum -l 256
@@ -29,10 +30,17 @@ HASH_ALGO_DEFINITIONS = {
     HashAlgorithm.SHA256: {
         "factory": lambda: hashlib.sha256(),
         "command": ("sha256sum",),
+        "block_size": 2 ** 16,
     },
     HashAlgorithm.BLAKE2B_256: {
         "factory": lambda: hashlib.blake2b(digest_size=32),
         "command": ("b2sum", "-l", "256"),
+        "block_size": 2 ** 16,
+    },
+    HashAlgorithm.BLAKE3: {
+        "factory": lambda: blake3(multithreading=True),
+        "command": ("b3sum",),
+        "block_size": 2 ** 24,
     },
 }
 
@@ -41,8 +49,8 @@ class HasherException(PhotoManagerBaseException):
     pass
 
 
-def _update_hash_obj(hash_obj, fd):
-    while block := fd.read(BLOCK_SIZE):
+def _update_hash_obj(hash_obj, fd, s=BLOCK_SIZE):
+    while block := fd.read(s):
         hash_obj.update(block)
 
 
@@ -55,10 +63,14 @@ def file_checksum(
     else:
         raise HasherException(f"Hash algorithm not supported: {algorithm}")
     if isinstance(file, IOBase):
-        _update_hash_obj(hash_obj, file)
+        _update_hash_obj(
+            hash_obj, file, s=HASH_ALGO_DEFINITIONS[algorithm]["block_size"]
+        )
     else:
         with open(file, "rb") as f:
-            _update_hash_obj(hash_obj, f)
+            _update_hash_obj(
+                hash_obj, f, s=HASH_ALGO_DEFINITIONS[algorithm]["block_size"]
+            )
     return hash_obj.hexdigest()
 
 
