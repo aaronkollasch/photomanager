@@ -59,6 +59,28 @@ def test_cli_create(tmpdir, caplog):
         check_dir_empty(fs)
 
 
+def test_cli_create_wrong_algorithm(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "create",
+                "--db",
+                str(tmpdir / "test.json"),
+                "--hash-algorithm",
+                "nonexistent-asdf",
+            ],
+        )
+        print("\nCREATE invalid hash algorithm")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 2
+        assert "Invalid value" in result.output
+        check_dir_empty(fs)
+
+
 def test_cli_index_directory_db(tmpdir, caplog):
     caplog.set_level(logging.DEBUG)
     runner = CliRunner()
@@ -176,6 +198,24 @@ def test_cli_collect_no_db(tmpdir, caplog):
         print(result)
         assert result.exit_code == 2
         assert "does not exist" in result.output
+
+
+def test_cli_verify_wrong_storage_type(tmpdir, caplog):
+    caplog.set_level(logging.DEBUG)
+    CliRunner.isolated_filesystem(tmpdir)
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
+        caplog.set_level(logging.DEBUG)
+        result = runner.invoke(
+            cast(Group, cli.main),
+            ["verify", "--storage-type", "nonexistent-asdf"],
+        )
+        print("\nVERIFY invalid storage type")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 2
+        assert "Invalid value" in result.output
+        check_dir_empty(fs)
 
 
 def test_cli_verify_random_sample(tmpdir, caplog):

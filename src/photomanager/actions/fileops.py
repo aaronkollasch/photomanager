@@ -25,6 +25,9 @@ from photomanager.pyexiftool import ExifTool, AsyncExifTool
 from photomanager.database import sizeof_fmt
 
 
+STORAGE_TYPES = ("HDD", "SSD", "RAID")
+
+
 def list_files(
     source: Optional[Union[str, PathLike]] = None,
     file: Optional[Union[str, PathLike]] = None,

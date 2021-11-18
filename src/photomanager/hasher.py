@@ -26,6 +26,7 @@ class HashAlgorithm(Enum):
 
 
 DEFAULT_HASH_ALGO = HashAlgorithm.BLAKE2B_256  # b2sum -l 256
+HASH_ALGORITHMS = tuple(v.value for v in HashAlgorithm.__members__.values())
 HASH_ALGO_DEFINITIONS = {
     HashAlgorithm.SHA256: {
         "factory": lambda: hashlib.sha256(),
