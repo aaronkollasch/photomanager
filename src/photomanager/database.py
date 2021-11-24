@@ -246,16 +246,17 @@ class Database:
         db = cls.from_dict(db)
         return db
 
-    def to_file(self, path: Union[str, PathLike]) -> None:
+    def to_file(self, path: Union[str, PathLike], overwrite=False) -> None:
         """Save the Database to path.
 
-        Moves an existing database at that path to a new location
-        based on its last modified timestamp.
+        :param path: the destination path
+        :param overwrite: if false, do not overwrite an existing database at `path`
+            and instead rename the it based on its last modified timestamp.
         """
         logger = logging.getLogger(__name__)
         logger.debug(f"Saving database to {path}")
         path = Path(path)
-        if path.is_file():
+        if not overwrite and path.is_file():
             base_path = path
             for _ in path.suffixes:
                 base_path = base_path.with_suffix("")
