@@ -8,12 +8,8 @@ import shlex
 from typing import Union, Optional, Iterable
 import logging
 import click
-from photomanager.database import (
-    Database,
-    DEFAULT_HASH_ALGO,
-    HashAlgorithm,
-    sizeof_fmt,
-)
+from photomanager.hasher import DEFAULT_HASH_ALGO, HASH_ALGORITHMS, HashAlgorithm
+from photomanager.database import Database, sizeof_fmt
 from photomanager.actions import fileops, actions
 from photomanager import version
 
@@ -47,7 +43,7 @@ def click_exit(value: int = 0):
               help="PhotoManager database filepath (.json). "
                    "Add extensions .zst or .gz to compress.")
 @click.option("--hash-algorithm",
-              type=click.Choice([v.value for v in HashAlgorithm.__members__.values()]),
+              type=click.Choice(HASH_ALGORITHMS),
               default=DEFAULT_HASH_ALGO.value,
               help=f"Hash algorithm (default={DEFAULT_HASH_ALGO.value})")
 @click.option("--timezone-default", type=str, default="local",
@@ -69,7 +65,7 @@ def _create(
         database = Database()
         database.hash_algorithm = HashAlgorithm(hash_algorithm)
         database.db["timezone_default"] = timezone_default
-        database.add_command(shlex.join(sys.argv))
+        database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     database.to_file(db)
 
 
@@ -90,7 +86,7 @@ def _create(
 @click.option("--timezone-default", type=str, default=None,
               help="Timezone to use when indexing timezone-naive photos "
                    "(example=\"-0400\", default=\"local\")")
-@click.option("--storage-type", type=str, default="HDD",
+@click.option("--storage-type", type=click.Choice(fileops.STORAGE_TYPES), default="HDD",
               help="Class of storage medium (HDD, SSD, RAID)")
 @click.option("--debug", default=False, is_flag=True,
               help="Run in debug mode")
@@ -126,7 +122,7 @@ def _index(
         timezone_default=timezone_default,
         storage_type=storage_type,
     )
-    database.add_command(shlex.join(sys.argv))
+    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
         database.to_file(db)
     click_exit(1 if index_result["num_error_photos"] else 0)
@@ -134,7 +130,7 @@ def _index(
 
 # fmt: off
 @click.command("collect", help="Collect highest-priority items into storage")
-@click.option("--db", type=click.Path(dir_okay=False), required=True,
+@click.option("--db", type=click.Path(dir_okay=False, exists=True), required=True,
               default=DEFAULT_DB, help="PhotoManager database path")
 @click.option("--destination", type=click.Path(file_okay=False), required=True,
               help="Photo storage base directory")
@@ -157,7 +153,7 @@ def _collect(
     collect_result = actions.collect(
         database=database, destination=destination, dry_run=dry_run
     )
-    database.add_command(shlex.join(sys.argv))
+    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
         database.to_file(db)
         if collect_db:
@@ -189,7 +185,7 @@ def _collect(
 @click.option("--timezone-default", type=str, default=None,
               help="Timezone to use when indexing timezone-naive photos "
                    "(example=\"-0400\", default=\"local\")")
-@click.option("--storage-type", type=str, default="HDD",
+@click.option("--storage-type", type=click.Choice(fileops.STORAGE_TYPES), default="HDD",
               help="Class of storage medium (HDD, SSD, RAID)")
 @click.option("--debug", default=False, is_flag=True,
               help="Run in debug mode")
@@ -228,7 +224,7 @@ def _import(
     collect_result = actions.collect(
         database=database, destination=destination, dry_run=dry_run
     )
-    database.add_command(shlex.join(sys.argv))
+    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
         database.to_file(db)
         if collect_db:
@@ -245,7 +241,7 @@ def _import(
 
 # fmt: off
 @click.command("clean", help="Remove lower-priority alternatives of stored items")
-@click.option("--db", type=click.Path(dir_okay=False), required=True,
+@click.option("--db", type=click.Path(dir_okay=False, exists=True), required=True,
               default=DEFAULT_DB, help="PhotoManager database path")
 @click.option("--destination", type=click.Path(file_okay=False), required=True,
               help="Photo storage base directory")
@@ -271,7 +267,7 @@ def _clean(
         subdir=subdir,
         dry_run=dry_run,
     )
-    database.add_command(shlex.join(sys.argv))
+    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
         database.to_file(db)
     click_exit(1 if result["num_missing_photos"] else 0)
@@ -279,13 +275,13 @@ def _clean(
 
 # fmt: off
 @click.command("verify", help="Verify checksums of stored items")
-@click.option("--db", type=click.Path(dir_okay=False), required=True,
+@click.option("--db", type=click.Path(dir_okay=False, exists=True), required=True,
               default=DEFAULT_DB, help="PhotoManager database path")
 @click.option("--destination", type=click.Path(file_okay=False), required=True,
               help="Photo storage base directory")
 @click.option("--subdir", type=str, default="",
               help="Verify only items within subdirectory")
-@click.option("--storage-type", type=str, default="HDD",
+@click.option("--storage-type", type=click.Choice(fileops.STORAGE_TYPES), default="HDD",
               help="Class of storage medium (HDD, SSD, RAID)")
 @click.option("--random-fraction", type=float, default=None,
               help="Verify a randomly sampled fraction of the photos")
@@ -316,7 +312,7 @@ def _verify(
 
 # fmt: off
 @click.command("stats", help="Get database statistics")
-@click.option("--db", type=click.Path(dir_okay=False), required=True,
+@click.option("--db", type=click.Path(dir_okay=False, exists=True), required=True,
               default=DEFAULT_DB, help="PhotoManager database path")
 # fmt: on
 def _stats(db: Union[str, PathLike]):
