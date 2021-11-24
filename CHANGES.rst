@@ -1,6 +1,34 @@
 Changelog for PhotoManager
 ==========================
 
+0.0.6 - 2021-11-24
+------------------
+
+Added
+^^^^^
+- BLAKE3 support (`55f749c <https://github.com/aaronkollasch/photomanager/commit/55f749c422b2e5e4b740146d332ea0269a6c481a>`_)
+- Benchmarking scripts (`3d5261f <https://github.com/aaronkollasch/photomanager/commit/3d5261fa716089c41ab539832226f9f1602694c2>`_)
+- Check for the existence of database file when parsing arguments (`32d7aa4 <https://github.com/aaronkollasch/photomanager/commit/32d7aa436c81ac45e9b9b606f258a4711585250f>`_)
+
+0.0.5 - 2021-10-17
+------------------
+
+Added
+^^^^^
+- Fixed total file size in verify command (#16)
+
+0.0.4 - 2021-10-17
+------------------
+
+Added
+^^^^^
+- Moved I/O operations from the Database class into a new subpackage. (#13)
+- Added an option to verify a random fraction of photos (#14)
+
+Fixed
+^^^^^
+- Fixed log message display for the verify command and improved formatting (#15)
+
 0.0.3 - 2021-06-13
 ------------------
 
