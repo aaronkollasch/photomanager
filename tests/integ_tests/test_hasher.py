@@ -93,6 +93,7 @@ def test_async_file_hasher(
         ("b2sum", True),
         (("b2sum", "-l", "256"), True),
         (("sha256sum",), True),
+        ("b3sum", True),
         ("nonexistent", False),
         (("sh", "-c", "exit 1"), False),
     ],
@@ -102,4 +103,6 @@ def test_async_file_hasher_command_available(cmd):
     AsyncFileHasher.cmd_available returns True for existent hash commands
     and False for nonexistent functions
     """
-    assert AsyncFileHasher.cmd_available(cmd[0]) == cmd[1]
+    assert (
+        AsyncFileHasher.cmd_available(cmd[0]) == cmd[1]
+    ), f"{cmd[0]}{' not' if cmd[1] else ''} available"

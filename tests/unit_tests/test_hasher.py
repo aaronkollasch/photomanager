@@ -33,6 +33,16 @@ checksum_expected_results = [
         "bytes": b"\xff\xd8\xff\xe0",
         "checksum": "ba4f25bf16ba4be6bc7d3276fafeb67f9eb3c5df042bc3a405e1af15b921eed7",
     },
+    {
+        "algorithm": HashAlgorithm.BLAKE3,
+        "bytes": b"",
+        "checksum": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+    },
+    {
+        "algorithm": HashAlgorithm.BLAKE3,
+        "bytes": b"\xff\xd8\xff\xe0",
+        "checksum": "4c1aae2ac7bedcc0449a6d5db09be996889d9163f48142a9f3a3a49602447dfe",
+    },
 ]
 
 
@@ -51,6 +61,20 @@ def test_file_checksum_path(checksum, tmpdir):
         file_checksum(tmpdir / "test.bin", algorithm=checksum["algorithm"])
         == checksum["checksum"]
     )
+
+
+@pytest.mark.parametrize("checksum", checksum_expected_results)
+def test_async_checksum_path(checksum, tmpdir):
+    files = [tmpdir / "test.bin"]
+    with open(files[0], "wb") as f:
+        f.write(checksum["bytes"])
+    checksum_cache = AsyncFileHasher(
+        algorithm=checksum["algorithm"], use_async=True
+    ).check_files(files, pbar_unit="B")
+    print(checksum_cache)
+    assert len(checksum_cache) == len(files)
+    assert files[0] in checksum_cache
+    assert checksum_cache[files[0]] == checksum["checksum"]
 
 
 # noinspection PyTypeChecker
