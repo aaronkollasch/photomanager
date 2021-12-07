@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from os import PathLike, rename, cpu_count
+from os import PathLike, rename, cpu_count, makedirs
 from os.path import exists
 from math import log
 import random
@@ -10,11 +10,13 @@ import gzip
 import logging
 from typing import Union, Optional, Type, TypeVar
 from collections.abc import Iterable
+import shlex
 
 from tqdm import tqdm
 import orjson
 import zstandard as zstd
 import xxhash
+import blake3
 
 from photomanager import PhotoManagerBaseException
 from photomanager.hasher import (
@@ -99,9 +101,19 @@ class Database:
         }
         self.hash_to_uid: dict[str, str] = {}
         self.timestamp_to_uids: dict[float, dict[str, None]] = {}
+        self._hash: int = hash(self)
 
     def __eq__(self, other: DB) -> bool:
         return self.db == other.db
+
+    def __hash__(self) -> int:
+        return hash(blake3.blake3(self.json, multithreading=True).digest())
+
+    def reset_saved(self):
+        self._hash = hash(self)
+
+    def is_modified(self) -> bool:
+        return self._hash != hash(self)
 
     @property
     def version(self) -> int:
@@ -136,6 +148,12 @@ class Database:
     def command_history(self) -> dict[str, str]:
         """Get the Database command history."""
         return self.db["command_history"]
+
+    @property
+    def sources(self) -> str:
+        for photos in self.photo_db.values():
+            for photo in photos:
+                yield photo.src
 
     @property
     def db(self) -> dict:
@@ -175,6 +193,8 @@ class Database:
                     self.timestamp_to_uids[photo.ts][uid] = None
                 else:
                     self.timestamp_to_uids[photo.ts] = {uid: None}
+
+        self.reset_saved()
 
     @classmethod
     def from_dict(cls: Type[DB], db_dict: dict) -> DB:
@@ -246,7 +266,7 @@ class Database:
         db = cls.from_dict(db)
         return db
 
-    def to_file(self, path: Union[str, PathLike], overwrite=False) -> None:
+    def to_file(self, path: Union[str, PathLike], overwrite: bool = False) -> None:
         """Save the Database to path.
 
         :param path: the destination path
@@ -317,6 +337,44 @@ class Database:
         else:
             with open(path, "wb") as f:
                 f.write(save_bytes)
+
+    def save(
+        self,
+        path: Union[str, PathLike],
+        argv: list[str],
+        overwrite: bool = False,
+        force: bool = False,
+        collect_db: bool = False,
+        destination: Optional[Union[str, PathLike]] = None,
+    ) -> bool:
+        """Save the database if it has been modified.
+
+        :param path: the destination path
+        :param overwrite: if false, do not overwrite an existing database at `path`
+            and instead rename the it based on its last modified timestamp.
+        :param argv: Add argv to the databases command_history
+        :param force: save even if not modified
+        :param collect_db: also collect the database to the storage destination
+        :param destination: the base storage directory for collect_db
+        :return True if save was successful
+        """
+        if force or self.is_modified():
+            self.add_command(shlex.join(["photomanager"] + argv[1:]))
+            try:
+                self.to_file(path, overwrite=overwrite)
+            except (OSError, PermissionError):  # pragma: no cover
+                return False
+            if collect_db and destination:
+                try:
+                    makedirs(Path(destination) / "database", exist_ok=True)
+                    self.to_file(Path(destination) / "database" / Path(path).name)
+                except (OSError, PermissionError):  # pragma: no cover
+                    return False
+            self.reset_saved()
+            return True
+        else:
+            logging.info("The database was not modified and will not be saved")
+            return False
 
     def add_command(self, command: str) -> str:
         """Adds a command to the command history.

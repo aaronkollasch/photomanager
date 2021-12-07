@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 import sys
-from os import makedirs, PathLike
-from pathlib import Path
-import shlex
+from os import PathLike
 from typing import Union, Optional, Iterable
 import logging
 import click
@@ -63,10 +61,9 @@ def _create(
         database = Database.from_file(db)
     except FileNotFoundError:
         database = Database()
-        database.hash_algorithm = HashAlgorithm(hash_algorithm)
-        database.db["timezone_default"] = timezone_default
-        database.add_command("photomanager " + shlex.join(sys.argv[1:]))
-    database.to_file(db)
+    database.hash_algorithm = HashAlgorithm(hash_algorithm)
+    database.db["timezone_default"] = timezone_default
+    database.save(path=db, argv=sys.argv, force=True)
 
 
 # fmt: off
@@ -81,6 +78,8 @@ def _create(
               help="File to index")
 @click.option("--exclude", multiple=True,
               help="Name patterns to exclude")
+@click.option("--skip-existing", default=False, is_flag=True,
+              help="Don't index files that are already in the database")
 @click.option("--priority", type=int, default=10,
               help="Priority of indexed photos (lower is preferred, default=10)")
 @click.option("--timezone-default", type=str, default=None,
@@ -100,11 +99,12 @@ def _index(
     file: Optional[Union[str, PathLike]] = None,
     paths: Iterable[Union[str, PathLike]] = tuple(),
     exclude: Iterable[str] = tuple(),
-    debug=False,
-    dry_run=False,
-    priority=10,
+    skip_existing: bool = False,
+    debug: bool = False,
+    dry_run: bool = False,
+    priority: int = 10,
     timezone_default: Optional[str] = None,
-    storage_type="HDD",
+    storage_type: str = "HDD",
 ):
     if not source and not file and not paths:
         print("Nothing to index")
@@ -112,8 +112,13 @@ def _index(
         click_exit(1)
     config_logging(debug=debug)
     database = Database.from_file(db, create_new=True)
+    skip_existing = set(database.sources) if skip_existing else set()
     filtered_files = fileops.list_files(
-        source=source, file=file, exclude=exclude, paths=paths
+        source=source,
+        file=file,
+        exclude=exclude,
+        exclude_files=skip_existing,
+        paths=paths,
     )
     index_result = actions.index(
         database=database,
@@ -122,9 +127,8 @@ def _index(
         timezone_default=timezone_default,
         storage_type=storage_type,
     )
-    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
-        database.to_file(db)
+        database.save(path=db, argv=sys.argv)
     click_exit(1 if index_result["num_error_photos"] else 0)
 
 
@@ -153,12 +157,10 @@ def _collect(
     collect_result = actions.collect(
         database=database, destination=destination, dry_run=dry_run
     )
-    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
-        database.to_file(db)
-        if collect_db:
-            makedirs(Path(destination) / "database", exist_ok=True)
-            database.to_file(Path(destination) / "database" / Path(db).name)
+        database.save(
+            path=db, argv=sys.argv, collect_db=collect_db, destination=destination
+        )
     click_exit(
         1
         if collect_result["num_missed_photos"] or collect_result["num_error_photos"]
@@ -180,6 +182,8 @@ def _collect(
               help="File to index")
 @click.option("--exclude", multiple=True,
               help="Name patterns to exclude")
+@click.option("--skip-existing", default=False, is_flag=True,
+              help="Don't index files that are already in the database")
 @click.option("--priority", type=int, default=10,
               help="Priority of indexed photos (lower is preferred, default=10)")
 @click.option("--timezone-default", type=str, default=None,
@@ -202,6 +206,7 @@ def _import(
     file: Optional[Union[str, PathLike]] = None,
     paths: Iterable[Union[str, PathLike]] = tuple(),
     exclude: Iterable[str] = tuple(),
+    skip_existing: bool = False,
     debug: bool = False,
     dry_run: bool = False,
     priority: int = 10,
@@ -211,8 +216,13 @@ def _import(
 ):
     config_logging(debug=debug)
     database = Database.from_file(db, create_new=True)
+    skip_existing = set(database.sources) if skip_existing else set()
     filtered_files = fileops.list_files(
-        source=source, file=file, exclude=exclude, paths=paths
+        source=source,
+        file=file,
+        exclude=exclude,
+        exclude_files=skip_existing,
+        paths=paths,
     )
     index_result = actions.index(
         database=database,
@@ -224,12 +234,10 @@ def _import(
     collect_result = actions.collect(
         database=database, destination=destination, dry_run=dry_run
     )
-    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
-        database.to_file(db)
-        if collect_db:
-            makedirs(Path(destination) / "database", exist_ok=True)
-            database.to_file(Path(destination) / "database" / Path(db).name)
+        database.save(
+            path=db, argv=sys.argv, collect_db=collect_db, destination=destination
+        )
     click_exit(
         1
         if index_result["num_error_photos"]
@@ -267,9 +275,8 @@ def _clean(
         subdir=subdir,
         dry_run=dry_run,
     )
-    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
-        database.to_file(db)
+        database.save(path=db, argv=sys.argv)
     click_exit(1 if result["num_missing_photos"] else 0)
 
 
