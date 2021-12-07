@@ -1,6 +1,14 @@
 Changelog for PhotoManager
 ==========================
 
+0.0.7 - 2021-12-07
+------------------
+
+Added
+^^^^^
+- Incremental indexing and importing with ``--skip-indexing`` (`c984ee7 <https://github.com/aaronkollasch/photomanager/commit/c984ee786cbe4c27cf6b0b12ed953a78b2bfd8dd>`_)
+- ``save()`` function to Database (`751f94b <https://github.com/aaronkollasch/photomanager/commit/751f94bef448291ada7c9cf2815d9828cf3d53d9>`_)
+
 0.0.6 - 2021-11-24
 ------------------
 
