@@ -138,6 +138,12 @@ class Database:
         return self.db["command_history"]
 
     @property
+    def sources(self) -> str:
+        for photos in self.photo_db.values():
+            for photo in photos:
+                yield photo.src
+
+    @property
     def db(self) -> dict:
         """Get the Database parameters as a dict."""
         return self._db

@@ -496,6 +496,159 @@ def test_cli_import_no_overwrite(datafiles, caplog):
         check_dir_empty(fs)
 
 
+@pytest.mark.datafiles(FIXTURE_DIR / "C", keep_top_dir=True)
+def test_cli_index_skip_existing(datafiles, caplog):
+    """
+    The --skip-existing flag prevents indexing existing source files
+    """
+    caplog.set_level(logging.DEBUG)
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=datafiles) as fs:
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "index",
+                "--db",
+                str(datafiles / "test.json"),
+                "--priority",
+                "10",
+                "--debug",
+                str(datafiles / "C"),
+            ],
+        )
+        print("\nINDEX C")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 0
+        assert "Indexed 1/1 items" in caplog.messages
+        assert "Added 1 new items and merged 0 items" in caplog.messages
+
+        with open(datafiles / "test.json", "rb") as f:
+            s = f.read()
+            db = database.Database.from_json(s)
+        print(db.json)
+        assert sum(1 for _ in db.sources) == 1
+        assert set(db.sources) == {str(datafiles / "C" / "img3.tiff")}
+
+        with open(datafiles / "C" / "newphoto.jpg", "wb") as f:
+            f.write(b"contents")
+
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "index",
+                "--db",
+                str(datafiles / "test.json"),
+                "--priority",
+                "10",
+                "--skip-existing",
+                "--debug",
+                str(datafiles / "C"),
+            ],
+        )
+        print("\nINDEX C skip-existing")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 0
+        assert "Indexed 1/1 items" in caplog.messages
+        assert "Added 1 new items and merged 0 items" in caplog.messages
+
+        with open(datafiles / "test.json", "rb") as f:
+            s = f.read()
+            db = database.Database.from_json(s)
+        print(db.json)
+        assert sum(1 for _ in db.sources) == 2
+        assert set(db.sources) == {
+            str(datafiles / "C" / "img3.tiff"),
+            str(datafiles / "C" / "newphoto.jpg"),
+        }
+
+        check_dir_empty(fs)
+
+
+@pytest.mark.datafiles(FIXTURE_DIR / "C", keep_top_dir=True)
+def test_cli_import_skip_existing(datafiles, caplog):
+    """
+    The --skip-existing flag prevents indexing existing source files
+    but not collecting them
+    """
+    caplog.set_level(logging.DEBUG)
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=datafiles) as fs:
+        os.makedirs(datafiles / "dest")
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "import",
+                "--db",
+                str(datafiles / "test.json"),
+                "--destination",
+                str(datafiles / "dest"),
+                "--priority",
+                "10",
+                "--debug",
+                str(datafiles / "C"),
+            ],
+        )
+        print("\nIMPORT C")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 0
+        assert "Indexed 1/1 items" in caplog.messages
+        assert "Added 1 new items and merged 0 items" in caplog.messages
+        assert any("Copied 1 items" in m for m in caplog.messages)
+        imported_files = list(Path(datafiles / "dest").glob("**/*.*"))
+        assert len(imported_files) == 1
+        os.remove(imported_files[0])
+
+        with open(datafiles / "test.json", "rb") as f:
+            s = f.read()
+            db = database.Database.from_json(s)
+        print(db.json)
+        assert sum(1 for _ in db.sources) == 1
+        assert set(db.sources) == {str(datafiles / "C" / "img3.tiff")}
+
+        with open(datafiles / "C" / "newphoto.jpg", "wb") as f:
+            f.write(b"contents")
+
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "import",
+                "--db",
+                str(datafiles / "test.json"),
+                "--destination",
+                str(datafiles / "dest"),
+                "--priority",
+                "10",
+                "--skip-existing",
+                "--debug",
+                str(datafiles / "C"),
+            ],
+        )
+        print("\nINDEX C skip-existing")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 0
+        assert "Indexed 1/1 items" in caplog.messages
+        assert "Added 1 new items and merged 0 items" in caplog.messages
+        assert any("Copied 2 items" in m for m in caplog.messages)
+        imported_files = list(Path(datafiles / "dest").glob("**/*.*"))
+        assert len(imported_files) == 2
+
+        with open(datafiles / "test.json", "rb") as f:
+            s = f.read()
+            db = database.Database.from_json(s)
+        print(db.json)
+        assert sum(1 for _ in db.sources) == 2
+        assert set(db.sources) == {
+            str(datafiles / "C" / "img3.tiff"),
+            str(datafiles / "C" / "newphoto.jpg"),
+        }
+
+        check_dir_empty(fs)
+
+
 @ALL_IMG_DIRS
 def test_cli_verify(datafiles, caplog):
     caplog.set_level(logging.DEBUG)

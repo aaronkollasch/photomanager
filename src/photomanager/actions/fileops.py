@@ -33,6 +33,7 @@ def list_files(
     file: Optional[Union[str, PathLike]] = None,
     paths: Iterable[Union[str, PathLike]] = tuple(),
     exclude: Iterable[str] = tuple(),
+    exclude_files: Iterable[Union[str, PathLike]] = tuple(),
 ) -> dict[str, None]:
     """
     List all files in sources, excluding regex patterns.
@@ -41,6 +42,7 @@ def list_files(
     :param file: File to list. If `-`, read files from stdin.
     :param paths: Paths (directories or files) to list.
     :param exclude: Regex patterns to exclude.
+    :param exclude_files: File paths to exclude
     :return: A dictionary with paths as keys.
     """
     logger = logging.getLogger(__name__)
@@ -73,10 +75,13 @@ def list_files(
         for p in path.glob("**/*.*"):
             files[p] = None
 
+    exclude_files = {Path(f).expanduser().resolve() for f in exclude_files}
     filtered_files = {}
     exclude_patterns = [re.compile(pat) for pat in set(exclude)]
     skipped_extensions = set()
     for p in files:
+        if p in exclude_files:
+            continue
         if p.suffix.lower().lstrip(".") not in extensions:
             skipped_extensions.add(p.suffix.lower().lstrip("."))
             continue

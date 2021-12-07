@@ -81,6 +81,8 @@ def _create(
               help="File to index")
 @click.option("--exclude", multiple=True,
               help="Name patterns to exclude")
+@click.option("--skip-existing", default=False, is_flag=True,
+              help="Don't index files that are already in the database")
 @click.option("--priority", type=int, default=10,
               help="Priority of indexed photos (lower is preferred, default=10)")
 @click.option("--timezone-default", type=str, default=None,
@@ -100,11 +102,12 @@ def _index(
     file: Optional[Union[str, PathLike]] = None,
     paths: Iterable[Union[str, PathLike]] = tuple(),
     exclude: Iterable[str] = tuple(),
-    debug=False,
-    dry_run=False,
-    priority=10,
+    skip_existing: bool = False,
+    debug: bool = False,
+    dry_run: bool = False,
+    priority: int = 10,
     timezone_default: Optional[str] = None,
-    storage_type="HDD",
+    storage_type: str = "HDD",
 ):
     if not source and not file and not paths:
         print("Nothing to index")
@@ -112,8 +115,13 @@ def _index(
         click_exit(1)
     config_logging(debug=debug)
     database = Database.from_file(db, create_new=True)
+    skip_existing = set(database.sources) if skip_existing else set()
     filtered_files = fileops.list_files(
-        source=source, file=file, exclude=exclude, paths=paths
+        source=source,
+        file=file,
+        exclude=exclude,
+        exclude_files=skip_existing,
+        paths=paths,
     )
     index_result = actions.index(
         database=database,
@@ -180,6 +188,8 @@ def _collect(
               help="File to index")
 @click.option("--exclude", multiple=True,
               help="Name patterns to exclude")
+@click.option("--skip-existing", default=False, is_flag=True,
+              help="Don't index files that are already in the database")
 @click.option("--priority", type=int, default=10,
               help="Priority of indexed photos (lower is preferred, default=10)")
 @click.option("--timezone-default", type=str, default=None,
@@ -202,6 +212,7 @@ def _import(
     file: Optional[Union[str, PathLike]] = None,
     paths: Iterable[Union[str, PathLike]] = tuple(),
     exclude: Iterable[str] = tuple(),
+    skip_existing: bool = False,
     debug: bool = False,
     dry_run: bool = False,
     priority: int = 10,
@@ -211,8 +222,13 @@ def _import(
 ):
     config_logging(debug=debug)
     database = Database.from_file(db, create_new=True)
+    skip_existing = set(database.sources) if skip_existing else set()
     filtered_files = fileops.list_files(
-        source=source, file=file, exclude=exclude, paths=paths
+        source=source,
+        file=file,
+        exclude=exclude,
+        exclude_files=skip_existing,
+        paths=paths,
     )
     index_result = actions.index(
         database=database,

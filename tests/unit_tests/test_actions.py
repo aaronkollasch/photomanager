@@ -105,6 +105,30 @@ class TestFileOps:
         }
 
     @pytest.mark.datafiles(
+        FIXTURE_DIR / "A",
+        keep_top_dir=True,
+    )
+    def test_list_files_exclude_files(self, datafiles, caplog):
+        """
+        list_files excludes files with exact paths provided to exclude_files
+        """
+        caplog.set_level(logging.DEBUG)
+        files = fileops.list_files(
+            source=str(datafiles / "A"),
+            exclude_files=[
+                str(datafiles) + "/A/img1.jpg",
+                datafiles / "A" / "img4.jpg",
+                "A/img1.png",
+                "img2.jpg",
+            ],
+        )
+        print(files)
+        assert set(files.keys()) == {
+            str(datafiles / "A" / "img1.png"),
+            str(datafiles / "A" / "img2.jpg"),
+        }
+
+    @pytest.mark.datafiles(
         FIXTURE_DIR / "B",
         keep_top_dir=True,
     )

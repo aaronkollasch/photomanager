@@ -627,3 +627,56 @@ def test_database_get_photos_to_collect_same_checksum_same_priority(caplog, tmpd
     assert num_added_photos == 0
     assert num_missed_photos == 0
     assert num_stored_photos == 2
+
+
+example_database_json_data3 = b"""{
+"version": 2,
+"hash_algorithm": "blake3",
+"photo_db": {
+    "uid1": [
+        {
+            "checksum": "deadbeef",
+            "source_path": "/a/b/c.jpg",
+            "datetime": "2015:08:27 04:09:36.50",
+            "timestamp": 1440662976.5,
+            "file_size": 1024,
+            "store_path": "/d/e/c.jpg",
+            "priority": 11
+        },
+        {
+            "checksum": "deedbeaf",
+            "source_path": "/o/b/c.jpg",
+            "datetime": "2015:08:27 04:09:36.50",
+            "timestamp": 1440662976.5,
+            "file_size": 1024,
+            "store_path": "",
+            "priority": 13
+        }
+    ],
+    "uid2": [
+        {
+            "checksum": "aedfaedf",
+            "source_path": "/a/c/e.jpg",
+            "datetime": "2015:08:27 04:09:36.50",
+            "timestamp": 1440662976.5,
+            "file_size": 1024,
+            "store_path": "/d/f/e.jpg",
+            "priority": 11
+        }
+    ]
+},
+"command_history": {"2021-03-08_23-56-00Z": "photomanager create --db test.json"}
+}"""
+
+
+def test_database_list_sources(caplog):
+    """
+    The Database.sources property yields all src paths in the database
+    """
+    caplog.set_level(logging.DEBUG)
+    db = Database.from_json(example_database_json_data3)
+    assert set(db.sources) == {
+        "/a/b/c.jpg",
+        "/o/b/c.jpg",
+        "/a/c/e.jpg",
+    }
