@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 import logging
@@ -124,10 +125,16 @@ def test_cli_index_nothing(tmpdir, caplog):
 
 
 def test_cli_index_collect_no_db(tmpdir, caplog):
+    """
+    If index is run with no db argument, db is created at DEFAULT_DB
+    """
     caplog.set_level(logging.DEBUG)
     CliRunner.isolated_filesystem(tmpdir)
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
+        with open(tmpdir / "test.jpg", "wb") as f:
+            f.write(b"contents")
+
         result = runner.invoke(
             cast(Group, cli.main),
             [
@@ -158,10 +165,16 @@ def test_cli_index_collect_no_db(tmpdir, caplog):
 
 
 def test_cli_import_no_db(tmpdir, caplog):
+    """
+    If import is run with no db argument, db is created at DEFAULT_DB
+    """
     caplog.set_level(logging.DEBUG)
     CliRunner.isolated_filesystem(tmpdir)
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
+        with open(tmpdir / "test.jpg", "wb") as f:
+            f.write(b"contents")
+
         result = runner.invoke(
             cast(Group, cli.main),
             [
@@ -178,6 +191,88 @@ def test_cli_import_no_db(tmpdir, caplog):
         print(result)
         assert result.exit_code == 0
         assert (Path(fs) / cli.DEFAULT_DB).is_file()
+
+
+def test_cli_import_no_changes(tmpdir, caplog):
+    """
+    If import is run with no new files, no new db is written
+    """
+    caplog.set_level(logging.DEBUG)
+    CliRunner.isolated_filesystem(tmpdir)
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmpdir) as fs:
+        os.makedirs(tmpdir / "src")
+        with open(tmpdir / "src" / "test.jpg", "wb") as f:
+            f.write(b"contents")
+
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "import",
+                "--destination",
+                "dest",
+                "--priority",
+                "10",
+                str(tmpdir / "src"),
+            ],
+        )
+        print("\nIMPORT")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 0
+        assert (Path(fs) / cli.DEFAULT_DB).is_file()
+        imported_dbs = list(Path(fs).glob(("*." + cli.DEFAULT_DB.split(".", 1)[1])))
+        assert len(imported_dbs) == 1
+        assert (
+            "The database was not modified and will not be saved" not in caplog.messages
+        )
+        caplog.clear()
+
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "import",
+                "--destination",
+                "dest",
+                "--priority",
+                "10",
+                str(tmpdir / "src"),
+            ],
+        )
+        print("\nIMPORT no-new-files")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 0
+        assert (Path(fs) / cli.DEFAULT_DB).is_file()
+        imported_dbs = list(Path(fs).glob(("*." + cli.DEFAULT_DB.split(".", 1)[1])))
+        assert len(imported_dbs) == 1
+        assert "The database was not modified and will not be saved" in caplog.messages
+        caplog.clear()
+
+        with open(tmpdir / "src" / "test2.jpg", "wb") as f:
+            f.write(b"contents")
+
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "import",
+                "--destination",
+                "dest",
+                "--priority",
+                "10",
+                str(tmpdir / "src"),
+            ],
+        )
+        print("\nIMPORT new-file")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 0
+        assert (Path(fs) / cli.DEFAULT_DB).is_file()
+        imported_dbs = list(Path(fs).glob(("*." + cli.DEFAULT_DB.split(".", 1)[1])))
+        assert len(imported_dbs) == 2
+        assert (
+            "The database was not modified and will not be saved" not in caplog.messages
+        )
 
 
 def test_cli_collect_no_db(tmpdir, caplog):

@@ -680,3 +680,45 @@ def test_database_list_sources(caplog):
         "/o/b/c.jpg",
         "/a/c/e.jpg",
     }
+
+
+def test_database_is_modified(caplog):
+    """
+    Database.is_modified() is True if Database.db has been modified
+    """
+    caplog.set_level(logging.DEBUG)
+    db = Database.from_json(example_database_json_data3)
+    assert not db.is_modified()
+    db.add_command("test")
+    assert db.is_modified()
+    db.reset_saved()
+    assert not db.is_modified()
+    db.photo_db["uid1"][1].sto = "/path/to/sto.jpg"
+    assert db.is_modified()
+
+
+def test_database_save_not_modified(tmpdir, caplog):
+    """
+    Database.save() will not save if the database is unchanged from loading
+    """
+    caplog.set_level(logging.DEBUG)
+    db = Database.from_json(example_database_json_data3)
+    db_path = tmpdir / "photos.json"
+    db.save(db_path, ["photomanager", "test"])
+    assert "The database was not modified and will not be saved" in caplog.messages
+    assert not db_path.exists()
+
+
+def test_database_save_modified(tmpdir, caplog):
+    """
+    Database.save() will save if the database has been modified
+    """
+    caplog.set_level(logging.DEBUG)
+    db = Database.from_json(example_database_json_data3)
+    db.photo_db["uid1"][1].sto = "/path/to/sto.jpg"
+    db_path = tmpdir / "photos.json"
+    db.save(db_path, ["photomanager", "test"])
+    assert "The database was not modified and will not be saved" not in caplog.messages
+    assert db_path.exists()
+    with open(db_path, "rb") as f:
+        assert len(orjson.loads(f.read())["command_history"]) == 2

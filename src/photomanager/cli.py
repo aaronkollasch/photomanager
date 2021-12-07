@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 import sys
-from os import makedirs, PathLike
-from pathlib import Path
-import shlex
+from os import PathLike
 from typing import Union, Optional, Iterable
 import logging
 import click
@@ -63,10 +61,9 @@ def _create(
         database = Database.from_file(db)
     except FileNotFoundError:
         database = Database()
-        database.hash_algorithm = HashAlgorithm(hash_algorithm)
-        database.db["timezone_default"] = timezone_default
-        database.add_command("photomanager " + shlex.join(sys.argv[1:]))
-    database.to_file(db)
+    database.hash_algorithm = HashAlgorithm(hash_algorithm)
+    database.db["timezone_default"] = timezone_default
+    database.save(path=db, argv=sys.argv, force=True)
 
 
 # fmt: off
@@ -130,9 +127,8 @@ def _index(
         timezone_default=timezone_default,
         storage_type=storage_type,
     )
-    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
-        database.to_file(db)
+        database.save(path=db, argv=sys.argv)
     click_exit(1 if index_result["num_error_photos"] else 0)
 
 
@@ -161,12 +157,10 @@ def _collect(
     collect_result = actions.collect(
         database=database, destination=destination, dry_run=dry_run
     )
-    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
-        database.to_file(db)
-        if collect_db:
-            makedirs(Path(destination) / "database", exist_ok=True)
-            database.to_file(Path(destination) / "database" / Path(db).name)
+        database.save(
+            path=db, argv=sys.argv, collect_db=collect_db, destination=destination
+        )
     click_exit(
         1
         if collect_result["num_missed_photos"] or collect_result["num_error_photos"]
@@ -240,12 +234,10 @@ def _import(
     collect_result = actions.collect(
         database=database, destination=destination, dry_run=dry_run
     )
-    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
-        database.to_file(db)
-        if collect_db:
-            makedirs(Path(destination) / "database", exist_ok=True)
-            database.to_file(Path(destination) / "database" / Path(db).name)
+        database.save(
+            path=db, argv=sys.argv, collect_db=collect_db, destination=destination
+        )
     click_exit(
         1
         if index_result["num_error_photos"]
@@ -283,9 +275,8 @@ def _clean(
         subdir=subdir,
         dry_run=dry_run,
     )
-    database.add_command("photomanager " + shlex.join(sys.argv[1:]))
     if not dry_run:
-        database.to_file(db)
+        database.save(path=db, argv=sys.argv)
     click_exit(1 if result["num_missing_photos"] else 0)
 
 
