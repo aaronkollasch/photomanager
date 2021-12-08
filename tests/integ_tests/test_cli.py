@@ -597,6 +597,8 @@ def test_cli_import_skip_existing(datafiles, caplog):
         assert "Indexed 1/1 items" in caplog.messages
         assert "Added 1 new items and merged 0 items" in caplog.messages
         assert any("Copied 1 items" in m for m in caplog.messages)
+        caplog.clear()
+
         imported_files = list(Path(datafiles / "dest").glob("**/*.*"))
         assert len(imported_files) == 1
         os.remove(imported_files[0])
@@ -632,9 +634,9 @@ def test_cli_import_skip_existing(datafiles, caplog):
         assert result.exit_code == 0
         assert "Indexed 1/1 items" in caplog.messages
         assert "Added 1 new items and merged 0 items" in caplog.messages
-        assert any("Copied 2 items" in m for m in caplog.messages)
+        assert any("Copied 1 items" in m for m in caplog.messages)
         imported_files = list(Path(datafiles / "dest").glob("**/*.*"))
-        assert len(imported_files) == 2
+        assert len(imported_files) == 1
 
         with open(datafiles / "test.json", "rb") as f:
             s = f.read()
