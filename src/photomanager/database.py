@@ -107,7 +107,7 @@ class Database:
         return self.db == other.db
 
     def __hash__(self) -> int:
-        return hash(blake3.blake3(self.json, multithreading=True).digest())
+        return hash(blake3.blake3(self.json, max_threads=blake3.blake3.AUTO).digest())
 
     def reset_saved(self):
         self._hash = hash(self)

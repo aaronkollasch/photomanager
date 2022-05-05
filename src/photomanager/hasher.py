@@ -39,7 +39,7 @@ HASH_ALGO_DEFINITIONS = {
         "block_size": 2 ** 16,
     },
     HashAlgorithm.BLAKE3: {
-        "factory": lambda: blake3(multithreading=True),
+        "factory": lambda: blake3(max_threads=blake3.AUTO),
         "command": ("b3sum",),
         "block_size": 2 ** 24,
     },
