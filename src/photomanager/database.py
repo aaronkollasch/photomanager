@@ -35,7 +35,7 @@ def sizeof_fmt(num: int) -> str:
     get-human-readable-version-of-file-size"""
     if num > 1:
         exponent = min(int(log(num, 1024)), len(unit_list) - 1)
-        quotient = float(num) / 1024 ** exponent
+        quotient = float(num) / 1024**exponent
         unit, num_decimals = unit_list[exponent]
         format_string = "{:.%sf} {}" % num_decimals
         return format_string.format(quotient, unit)
@@ -478,9 +478,7 @@ class Database:
             self.timestamp_to_uids[photo.ts] = {uid: None}
         return uid
 
-    def add_photos(
-        self, photos: Iterable[PhotoFile]
-    ) -> tuple[set[str], int, int, int]:
+    def add_photos(self, photos: Iterable[PhotoFile]) -> tuple[set[str], int, int, int]:
         """
         Add photos to the database.
         :param photos: an Iterable of photos to add

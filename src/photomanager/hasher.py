@@ -31,17 +31,17 @@ HASH_ALGO_DEFINITIONS = {
     HashAlgorithm.SHA256: {
         "factory": lambda: hashlib.sha256(),
         "command": ("sha256sum",),
-        "block_size": 2 ** 16,
+        "block_size": 2**16,
     },
     HashAlgorithm.BLAKE2B_256: {
         "factory": lambda: hashlib.blake2b(digest_size=32),
         "command": ("b2sum", "-l", "256"),
-        "block_size": 2 ** 16,
+        "block_size": 2**16,
     },
     HashAlgorithm.BLAKE3: {
         "factory": lambda: blake3(max_threads=blake3.AUTO),
         "command": ("b3sum",),
-        "block_size": 2 ** 24,
+        "block_size": 2**24,
     },
 }
 

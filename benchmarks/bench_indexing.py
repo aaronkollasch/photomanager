@@ -21,10 +21,10 @@ def make_test_files(directory, n_folders=20, r_seed=42):
         photo_directory = Path(directory) / c
         os.makedirs(photo_directory, exist_ok=True)
         with open(photo_directory / f"{c}_16.jpg", "wb") as f:  # 1 16 MiB "photo"
-            f.write(random.randbytes(2 ** 24))
+            f.write(random.randbytes(2**24))
         for i_photo in range(16):  # 16 1 MiB "photos"
             with open(photo_directory / f"{c}_{i_photo}_1.jpg", "wb") as f:
-                f.write(random.randbytes(2 ** 20))
+                f.write(random.randbytes(2**20))
 
 
 def main():

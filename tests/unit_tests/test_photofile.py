@@ -17,13 +17,10 @@ def test_tz_offset_local_datetime(offset):
         tzo=offset,
     )
     print(repr(pf.local_datetime))
-    assert (
-        pf.local_datetime
-        == datetime(
-            *(2015, 8, 1, 22, 28, 36, 900000),
-            tzinfo=timezone.utc,
-        ).astimezone(timezone(timedelta(seconds=offset)))
-    )
+    assert pf.local_datetime == datetime(
+        *(2015, 8, 1, 22, 28, 36, 900000),
+        tzinfo=timezone.utc,
+    ).astimezone(timezone(timedelta(seconds=offset)))
 
 
 def test_local_time_string_none():
@@ -40,13 +37,10 @@ def test_local_time_string_none():
     )
     print(repr(pf.local_datetime))
     local_tzinfo = datetime.now().astimezone().tzinfo
-    assert (
-        pf.local_datetime
-        == datetime(
-            *(2015, 8, 1, 22, 28, 36, 900000),
-            tzinfo=timezone.utc,
-        ).astimezone(local_tzinfo)
-    )
+    assert pf.local_datetime == datetime(
+        *(2015, 8, 1, 22, 28, 36, 900000),
+        tzinfo=timezone.utc,
+    ).astimezone(local_tzinfo)
 
 
 class TestPhotoFile:
