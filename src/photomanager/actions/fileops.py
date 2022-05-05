@@ -147,11 +147,9 @@ def index_photos(
                 priority=priority,
             )
             photos.append(pf)
-        except Exception as e:
+        except Exception:
             tqdm.write(f"Error indexing {current_file}", file=sys.stderr)
-            tb_str = "".join(
-                traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
-            )
+            tb_str = "".join(traceback.format_exc())
             tqdm.write(tb_str, file=sys.stderr)
             photos.append(None)
     exiftool.terminate()
@@ -202,13 +200,11 @@ def copy_photos(
                 chmod(abs_store_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
                 if rel_store_path is not None:
                     photo.sto = rel_store_path
-        except Exception as e:
+        except Exception:
             tqdm.write(
                 f"Error copying {photo.src} to {abs_store_path}", file=sys.stderr
             )
-            tb_str = "".join(
-                traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
-            )
+            tb_str = "".join(traceback.format_exc())
             tqdm.write(tb_str, file=sys.stderr)
             num_error_photos += 1
         else:
