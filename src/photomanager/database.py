@@ -9,7 +9,7 @@ from datetime import datetime, tzinfo
 import gzip
 import logging
 from typing import Union, Optional, Type, TypeVar
-from collections.abc import Iterable
+from collections.abc import Iterable, Container
 import shlex
 
 from tqdm import tqdm
@@ -35,7 +35,7 @@ def sizeof_fmt(num: int) -> str:
     get-human-readable-version-of-file-size"""
     if num > 1:
         exponent = min(int(log(num, 1024)), len(unit_list) - 1)
-        quotient = float(num) / 1024 ** exponent
+        quotient = float(num) / 1024**exponent
         unit, num_decimals = unit_list[exponent]
         format_string = "{:.%sf} {}" % num_decimals
         return format_string.format(quotient, unit)
@@ -107,7 +107,7 @@ class Database:
         return self.db == other.db
 
     def __hash__(self) -> int:
-        return hash(blake3.blake3(self.json, multithreading=True).digest())
+        return hash(blake3.blake3(self.json, max_threads=blake3.blake3.AUTO).digest())
 
     def reset_saved(self):
         self._hash = hash(self)
@@ -478,27 +478,32 @@ class Database:
             self.timestamp_to_uids[photo.ts] = {uid: None}
         return uid
 
-    def add_photos(self, photos: Iterable[PhotoFile]) -> tuple[int, int, int]:
+    def add_photos(self, photos: Iterable[PhotoFile]) -> tuple[set[str], int, int, int]:
         """
         Add photos to the database.
         :param photos: an Iterable of photos to add
-        :return: the number of photos added, merged, and skipped
+        :return: the uids changed, number of photos added, merged, and skipped
         """
+        changed_uids = set()
         num_added_photos = num_merged_photos = num_skipped_photos = 0
         for pf in photos:
             uid = self.find_photo(photo=pf)
             result = self.add_photo(photo=pf, uid=uid)
 
-            if result is None:
+            if result is None:  # photo not added
                 num_skipped_photos += 1
-            elif uid is None:
+            elif uid is None:  # new uid added
                 num_added_photos += 1
-            else:
+                changed_uids.add(result)
+            else:  # photo already in database
                 num_merged_photos += 1
-        return num_added_photos, num_merged_photos, num_skipped_photos
+                changed_uids.add(result)
+        return changed_uids, num_added_photos, num_merged_photos, num_skipped_photos
 
     def get_photos_to_collect(
-        self, directory: Union[str, PathLike]
+        self,
+        directory: Union[str, PathLike],
+        filter_uids: Optional[Container[str]] = None,
     ) -> tuple[list[tuple[PhotoFile, Optional[str]]], tuple[int, int, int, int]]:
         """
         Finds photos that can be collected
@@ -507,6 +512,7 @@ class Database:
         priority and whose checksum does not match any stored alternative photo
 
         :param directory: the photo storage directory
+        :param filter_uids: optional, only collect the specified photo uids
         :return: PhotoFiles to copy, and their destination path,
             and the numbers of copied, added, missed and stored photos
         """
@@ -515,7 +521,15 @@ class Database:
         num_copied_photos = num_added_photos = num_missed_photos = num_stored_photos = 0
         photos_to_copy: list[tuple[PhotoFile, Optional[str]]] = []
         logger.info("Checking stored photos")
-        for uid, photos in tqdm(self.photo_db.items()):
+        if filter_uids is not None:
+            photo_db = {
+                uid: photos
+                for uid, photos in self.photo_db.items()
+                if uid in filter_uids
+            }
+        else:
+            photo_db = self.photo_db
+        for uid, photos in tqdm(photo_db.items()):
             highest_priority = min(photo.prio for photo in photos)
             stored_checksums: dict[str, int] = {}
             photos_marked_as_stored = [photo for photo in photos if photo.sto]

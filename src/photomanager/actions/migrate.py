@@ -16,6 +16,7 @@ def make_hash_map(
     database: Database,
     new_algo: HashAlgorithm,
     hash_map: Optional[dict[str, str]] = None,
+    destination: Optional[Union[str, PathLike]] = None,
 ) -> dict[str, str]:  # pragma: no cover
     """Make a map of file checksums in order to migrate hashing algorithms.
 
@@ -31,6 +32,7 @@ def make_hash_map(
     :param new_algo: the new algorithm to use
     :param hash_map: a map from old hashes to new hashes; will be updated with
         new mappings as they are found
+    :param destination: the library storage destination
     :return: the hash map
     """
     if hash_map is None:
@@ -50,8 +52,15 @@ def make_hash_map(
                 num_correct_photos += 1
             else:
                 tqdm.write(f"Incorrect checksum: {photo.src}")
-                hash_map[photo.chk] = photo.chk + f":{old_algo}".encode()
+                hash_map[photo.chk] = photo.chk + f":{old_algo}"
                 num_incorrect_photos += 1
+        elif destination:
+            sto_path = Path(destination).expanduser().resolve() / photo.sto
+            if exists(sto_path) and photo.chk == file_checksum(sto_path, old_algo):
+                hash_map[photo.chk] = file_checksum(sto_path, new_algo)
+                num_correct_photos += 1
+            else:
+                num_missing_photos += 1
         else:
             num_missing_photos += 1
 
@@ -115,7 +124,7 @@ def map_hashes(
 
 def update_stored_filename_hashes(
     database: Database,
-    directory: Union[str, PathLike],
+    destination: Union[str, PathLike],
     verify: bool = True,
     dry_run: bool = False,
 ) -> dict[str, str]:  # pragma: no cover
@@ -130,7 +139,7 @@ def update_stored_filename_hashes(
     changes before they are performed. Use at your own risk.
 
     :param database: the Database
-    :param directory: the photo storage directory
+    :param destination: the photo storage directory
     :param verify: if True, verify that file checksums match
     :param dry_run: if True, perform a dry run and do not move photos
     :return: the mapping of files moved
@@ -138,7 +147,7 @@ def update_stored_filename_hashes(
     num_correct_photos = (
         num_skipped_photos
     ) = num_incorrect_photos = num_missing_photos = 0
-    directory = Path(directory).expanduser().resolve()
+    destination = Path(destination).expanduser().resolve()
     stored_photos = [
         photo for photos in database.photo_db.values() for photo in photos if photo.sto
     ]
@@ -148,9 +157,9 @@ def update_stored_filename_hashes(
     logger = logging.getLogger()
     file_map = {}
     for photo in tqdm(stored_photos):
-        abs_store_path = directory / photo.sto
+        abs_store_path = destination / photo.sto
         new_store_path = f"{photo.sto[:32]}{photo.chk[:7]}{photo.sto[39:]}"
-        new_abs_store_path = directory / new_store_path
+        new_abs_store_path = destination / new_store_path
         if new_abs_store_path.exists():
             num_skipped_photos += 1
         elif not abs_store_path.exists():

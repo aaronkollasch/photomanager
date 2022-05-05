@@ -4,7 +4,7 @@ import sys
 from os import PathLike
 from pathlib import Path
 from typing import Union, Optional
-from collections.abc import Iterable
+from collections.abc import Iterable, Container
 import logging
 import random
 
@@ -20,7 +20,17 @@ def index(
     priority: int = 10,
     timezone_default: Optional[str] = None,
     storage_type: str = "HDD",
-) -> dict[str, int]:
+) -> dict[str, Union[int, list[str]]]:
+    """
+    Index photo files and add them to the database.
+
+    :param database: the Database
+    :param files: an iterable of paths to the photos
+    :param priority: priority of indexed photos (lower is preferred)
+    :param timezone_default: timezone to use when indexing timezone-naive photos
+    :param storage_type: class of storage medium (HDD, SSD, RAID)
+    :return: the number of errors found
+    """
     logger = logging.getLogger(__name__)
     tz_default = (
         tz_str_to_tzinfo(timezone_default)
@@ -35,9 +45,12 @@ def index(
         tz_default=tz_default,
     )
     num_error_photos = sum(pf is None for pf in photos)
-    num_added_photos, num_merged_photos, num_skipped_photos = database.add_photos(
-        photos=(pf for pf in photos if pf is not None),
-    )
+    (
+        changed_uids,
+        num_added_photos,
+        num_merged_photos,
+        num_skipped_photos,
+    ) = database.add_photos(pf for pf in photos if pf is not None)
     logger.info(f"Indexed {num_added_photos+num_merged_photos}/{len(photos)} items")
     logger.info(
         f"Added {num_added_photos} new items and merged {num_merged_photos} items"
@@ -47,6 +60,7 @@ def index(
     if num_error_photos:  # pragma: no cover
         logger.info(f"Encountered an error on {num_error_photos} items")
     return dict(
+        changed_uids=changed_uids,
         num_added_photos=num_added_photos,
         num_merged_photos=num_merged_photos,
         num_skipped_photos=num_skipped_photos,
@@ -57,13 +71,23 @@ def index(
 def collect(
     database: Database,
     destination: Union[str, PathLike],
+    filter_uids: Optional[Container[str]] = None,
     dry_run: bool = False,
 ) -> dict[str, int]:
+    """
+    Collect the database's highest-priority photos to destination.
+
+    :param database: the Database
+    :param destination: the photo storage directory
+    :param filter_uids: optional, only collect the specified photo uids
+    :param dry_run: perform a dry run that makes no changes
+    :return: the number of errors found
+    """
     logger = logging.getLogger(__name__)
     (
         photos_to_copy,
         (num_copied_photos, num_added_photos, num_missed_photos, num_stored_photos),
-    ) = database.get_photos_to_collect(destination)
+    ) = database.get_photos_to_collect(destination, filter_uids=filter_uids)
     total_copied_photos, total_copy_size, num_error_photos = fileops.copy_photos(
         destination, photos_to_copy, dry_run=dry_run
     )

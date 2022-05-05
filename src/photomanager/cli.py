@@ -232,7 +232,10 @@ def _import(
         storage_type=storage_type,
     )
     collect_result = actions.collect(
-        database=database, destination=destination, dry_run=dry_run
+        database=database,
+        destination=destination,
+        dry_run=dry_run,
+        filter_uids=index_result["changed_uids"] if skip_existing else None,
     )
     if not dry_run:
         database.save(
