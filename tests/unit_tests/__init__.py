@@ -34,7 +34,7 @@ class NopProcess:
         self.stdin = NopProtocol()
         self.stdout = io.BytesIO(b"".join(stdout_messages))
 
-    def communicate(self, _=None):
+    def communicate(self, *_, **__):
         return self.final_stdout, self.final_stderr
 
 
@@ -102,7 +102,7 @@ class AsyncNopProcess:
         self.stdout_i += 1
         return message
 
-    async def communicate(self, _=None):
+    async def communicate(self, *_, **__):
         if self.final_delay:
             await asyncio.sleep(self.final_delay)
         return self.final_stdout, self.final_stderr
