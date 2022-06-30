@@ -23,6 +23,7 @@ def make_test_files(directory, n_folders=20, r_seed=42):
     random.seed(r_seed, version=2)
     # total file size = n_folders * 32 MiB
     for i_folder in range(n_folders):
+        print(f"Folder {i_folder}", file=sys.stderr)
         c = hex(i_folder)[2:]
         photo_directory = Path(directory) / c
         os.makedirs(photo_directory, exist_ok=True)
@@ -55,9 +56,12 @@ def main():
     parser.add_argument("-n", "--num-tests", type=int, default=3)
     args = parser.parse_args()
 
+    if not args.verbose:
+        sys.stderr = open(os.devnull, "w")
     if not args.test_files_dir:
         test_files_dir = Path(args.bench_dir) / "test_files"
         if not os.path.exists(test_files_dir):
+            print("Creating test files", file=sys.stderr)
             make_test_files(test_files_dir)
     else:
         test_files_dir = Path(args.test_files_dir)
@@ -73,8 +77,6 @@ def main():
         except FileNotFoundError:
             pass
 
-        if not args.verbose:
-            sys.stderr = open(os.devnull, "w")
         try:
             cli_main(
                 [

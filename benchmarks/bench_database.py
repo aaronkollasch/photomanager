@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import random
 import os
+import sys
 from pathlib import Path
 import argparse
 import time
@@ -59,6 +60,8 @@ def main():
 
     results = []
     for i_test in range(args.num_tests):
+        if args.verbose:
+            print(f"Test {i_test}", file=sys.stderr)
         database = generate_test_database(
             num_uids=args.num_uids, r_seed=args.r_seed + i_test
         )
