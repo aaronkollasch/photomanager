@@ -1,10 +1,13 @@
 import asyncio
-from asyncio import subprocess as subprocess_async
 import logging
+from asyncio import subprocess as subprocess_async
+
 import orjson
 import pytest
-from photomanager.pyexiftool import ExifTool, AsyncExifTool, ExifToolJob
-from . import NopProcess, AsyncNopProcess
+
+from photomanager.pyexiftool import AsyncExifTool, ExifTool, ExifToolJob
+
+from . import AsyncNopProcess, NopProcess
 
 
 class TestAsyncPyExifTool:

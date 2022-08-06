@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+import logging
 from os import PathLike, rename
 from os.path import exists
 from pathlib import Path
-from typing import Union, Optional
-import logging
+from typing import Optional, Union
 
 from tqdm import tqdm
 
-from photomanager.hasher import file_checksum, HashAlgorithm
 from photomanager.database import Database, sizeof_fmt
+from photomanager.hasher import HashAlgorithm, file_checksum
 
 
 def make_hash_map(

@@ -57,9 +57,10 @@ from __future__ import unicode_literals
 
 import logging
 import subprocess
-from os import fsencode
-import orjson
 import warnings
+from os import fsencode
+
+import orjson
 
 basestring = (bytes, str)
 

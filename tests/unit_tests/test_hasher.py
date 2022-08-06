@@ -1,15 +1,18 @@
 import asyncio
-from asyncio import subprocess as subprocess_async
 import logging
+from asyncio import subprocess as subprocess_async
 from io import BytesIO
+
 import pytest
+
 from photomanager.hasher import (
-    file_checksum,
     AsyncFileHasher,
-    HasherException,
     FileHasherJob,
     HashAlgorithm,
+    HasherException,
+    file_checksum,
 )
+
 from . import AsyncNopProcess
 
 checksum_expected_results = [

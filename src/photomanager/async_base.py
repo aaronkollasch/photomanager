@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+import logging
+import time
+import traceback
+from asyncio import Queue, Task, create_task, gather
+from collections.abc import Collection, Generator, Iterable
+from dataclasses import dataclass
 from os import cpu_count
 from typing import Optional, TypeVar
-from collections.abc import Collection, Iterable, Generator
-from dataclasses import dataclass
-import logging
-import traceback
-import time
-from asyncio import Queue, create_task, gather, Task
-from tqdm import tqdm
 
+from tqdm import tqdm
 
 T = TypeVar("T")
 

@@ -1,11 +1,13 @@
+import logging
 import os
 from pathlib import Path
-import logging
+
 import pytest
 from click.testing import CliRunner
-from photomanager.photofile import PhotoFile
+
+from photomanager.actions import actions, fileops
 from photomanager.database import Database
-from photomanager.actions import fileops, actions
+from photomanager.photofile import PhotoFile
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"
 

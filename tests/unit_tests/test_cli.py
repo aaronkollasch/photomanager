@@ -1,12 +1,14 @@
+import json
+import logging
 import os
 import sys
 from pathlib import Path
-import logging
-import json
-import pytest
 from typing import cast
+
+import pytest
 from click import Group
 from click.testing import CliRunner
+
 from photomanager import cli, database, version
 
 

@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
+import logging
 import sys
 from os import PathLike
-from typing import Union, Optional, Iterable
-import logging
-import click
-from photomanager.hasher import DEFAULT_HASH_ALGO, HASH_ALGORITHMS, HashAlgorithm
-from photomanager.database import Database, sizeof_fmt
-from photomanager.actions import fileops, actions
-from photomanager import version
+from typing import Iterable, Optional, Union
 
+import click
+
+from photomanager import version
+from photomanager.actions import actions, fileops
+from photomanager.database import Database, sizeof_fmt
+from photomanager.hasher import DEFAULT_HASH_ALGO, HASH_ALGORITHMS, HashAlgorithm
 
 DEFAULT_DB = "photos.json"
 

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-import random
-import os
-import sys
-from pathlib import Path
 import argparse
-import time
+import datetime
 import json
 import math
+import os
+import random
 import string
-import datetime
-from photomanager.photofile import PhotoFile
+import sys
+import time
+from pathlib import Path
+
 from photomanager.database import Database
+from photomanager.photofile import PhotoFile
 
 
 def generate_test_database(num_uids=10000, r_seed=42):
