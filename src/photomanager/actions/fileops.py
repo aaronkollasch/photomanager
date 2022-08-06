@@ -1,29 +1,24 @@
 from __future__ import annotations
 
-import sys
-from os import PathLike, cpu_count, makedirs, chmod, remove
-import stat
-from pathlib import Path
-from datetime import tzinfo
-import shutil
 import logging
-import traceback
-from typing import Union, Optional
-from collections.abc import Collection, Iterable
 import re
+import shutil
+import stat
+import sys
+import traceback
+from collections.abc import Collection, Iterable
+from datetime import tzinfo
+from os import PathLike, chmod, cpu_count, makedirs, remove
+from pathlib import Path
+from typing import Optional, Union
 
-from tqdm import tqdm
 import click
+from tqdm import tqdm
 
-from photomanager.hasher import (
-    AsyncFileHasher,
-    DEFAULT_HASH_ALGO,
-    HashAlgorithm,
-)
-from photomanager.photofile import PhotoFile, extensions
-from photomanager.pyexiftool import ExifTool, AsyncExifTool
 from photomanager.database import sizeof_fmt
-
+from photomanager.hasher import DEFAULT_HASH_ALGO, AsyncFileHasher, HashAlgorithm
+from photomanager.photofile import PhotoFile, extensions
+from photomanager.pyexiftool import AsyncExifTool, ExifTool
 
 STORAGE_TYPES = ("HDD", "SSD", "RAID")
 

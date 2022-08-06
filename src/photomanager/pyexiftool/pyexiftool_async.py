@@ -53,16 +53,20 @@ Example usage::
                                          d["EXIF:DateTimeOriginal"]))
 """
 
-from __future__ import unicode_literals, annotations
+from __future__ import annotations, unicode_literals
+
 import logging
 import os
-from collections.abc import Collection, Iterable, Generator
-from asyncio import subprocess, run
-import orjson
+from asyncio import run, subprocess
+from collections.abc import Collection, Generator, Iterable
 from dataclasses import dataclass, field
+
+import orjson
 from tqdm import tqdm
-from .pyexiftool import datetime_tags, best_datetime
-from photomanager.async_base import AsyncWorkerQueue, AsyncJob, make_chunks
+
+from photomanager.async_base import AsyncJob, AsyncWorkerQueue, make_chunks
+
+from .pyexiftool import best_datetime, datetime_tags
 
 basestring = (bytes, str)
 

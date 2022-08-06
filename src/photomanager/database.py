@@ -1,30 +1,26 @@
 from __future__ import annotations
 
-from os import PathLike, rename, cpu_count, makedirs
-from os.path import exists
-from math import log
-import random
-from pathlib import Path
-from datetime import datetime, tzinfo
 import gzip
 import logging
-from typing import Union, Optional, Type, TypeVar
-from collections.abc import Iterable, Container
+import random
 import shlex
+from collections.abc import Container, Iterable
+from datetime import datetime, tzinfo
+from math import log
+from os import PathLike, cpu_count, makedirs, rename
+from os.path import exists
+from pathlib import Path
+from typing import Optional, Type, TypeVar, Union
 
-from tqdm import tqdm
-import orjson
-import zstandard as zstd
-import xxhash
 import blake3
+import orjson
+import xxhash
+import zstandard as zstd
+from tqdm import tqdm
 
 from photomanager import PhotoManagerBaseException
-from photomanager.hasher import (
-    DEFAULT_HASH_ALGO,
-    HashAlgorithm,
-)
-from photomanager.photofile import PhotoFile, NAME_MAP_ENC
-
+from photomanager.hasher import DEFAULT_HASH_ALGO, HashAlgorithm
+from photomanager.photofile import NAME_MAP_ENC, PhotoFile
 
 unit_list = list(zip(["bytes", "kB", "MB", "GB", "TB", "PB"], [0, 0, 1, 2, 2, 2]))
 

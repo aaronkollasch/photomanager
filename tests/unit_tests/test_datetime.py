@@ -1,9 +1,10 @@
 import datetime
+
 import pytest
-from photomanager.pyexiftool import best_datetime
+
 from photomanager.database import Database
 from photomanager.photofile import datetime_str_to_object
-
+from photomanager.pyexiftool import best_datetime
 
 best_datetime_expected_results = [
     {

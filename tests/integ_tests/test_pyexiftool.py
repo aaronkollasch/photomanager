@@ -1,7 +1,9 @@
 import logging
 from pathlib import Path
+
 import pytest
-from photomanager.pyexiftool import ExifTool, AsyncExifTool
+
+from photomanager.pyexiftool import AsyncExifTool, ExifTool
 from photomanager.pyexiftool.pyexiftool import Singleton
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"

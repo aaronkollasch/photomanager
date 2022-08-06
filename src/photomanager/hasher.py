@@ -1,20 +1,22 @@
 from __future__ import annotations
 
-from enum import Enum
-from io import IOBase
 import hashlib
-from blake3 import blake3
-from dataclasses import dataclass, field
+import subprocess as subprocess_std
 from asyncio import run
 from asyncio import subprocess as subprocess_async
-import subprocess as subprocess_std
-from typing import Union, Optional, Generator
 from collections.abc import Iterable
+from dataclasses import dataclass, field
+from enum import Enum
+from io import IOBase
 from os import PathLike, cpu_count, fsencode
 from os.path import getsize
+from typing import Generator, Optional, Union
+
+from blake3 import blake3
 from tqdm import tqdm
+
 from photomanager import PhotoManagerBaseException
-from photomanager.async_base import AsyncWorkerQueue, AsyncJob, make_chunks
+from photomanager.async_base import AsyncJob, AsyncWorkerQueue, make_chunks
 
 BLOCK_SIZE = 65536
 

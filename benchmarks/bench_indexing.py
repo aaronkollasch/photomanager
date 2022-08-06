@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-import random
-import os
-import sys
-from pathlib import Path
 import argparse
-import time
 import json
-import shutil
 import math
+import os
+import random
+import shutil
+import sys
+import time
+from pathlib import Path
+
 from photomanager.actions.fileops import STORAGE_TYPES
 from photomanager.cli import main as cli_main
 from photomanager.hasher import DEFAULT_HASH_ALGO, HASH_ALGORITHMS

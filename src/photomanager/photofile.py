@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta, timezone, tzinfo
 from os import PathLike
 from os.path import getsize
-from datetime import datetime, tzinfo, timezone, timedelta
-from dataclasses import dataclass, asdict
-from typing import Union, Optional, Type, TypeVar
+from typing import Optional, Type, TypeVar, Union
 
+from photomanager.hasher import DEFAULT_HASH_ALGO, HashAlgorithm, file_checksum
 from photomanager.pyexiftool import ExifTool
-from photomanager.hasher import file_checksum, DEFAULT_HASH_ALGO, HashAlgorithm
 
 PF = TypeVar("PF", bound="PhotoFile")
 local_tzoffset = datetime.now().astimezone().utcoffset().total_seconds()

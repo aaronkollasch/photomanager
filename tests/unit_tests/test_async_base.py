@@ -1,4 +1,5 @@
 import pytest
+
 from photomanager.async_base import make_chunks
 
 chunker_expected_results = [

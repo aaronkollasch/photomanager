@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-import sys
-from os import PathLike
-from pathlib import Path
-from typing import Union, Optional
-from collections.abc import Iterable, Container
 import logging
 import random
+import sys
+from collections.abc import Container, Iterable
+from os import PathLike
+from pathlib import Path
+from typing import Optional, Union
 
 from tqdm import tqdm
 
-from photomanager.database import Database, tz_str_to_tzinfo, sizeof_fmt
 from photomanager.actions import fileops
+from photomanager.database import Database, sizeof_fmt, tz_str_to_tzinfo
 
 
 def index(

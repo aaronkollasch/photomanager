@@ -1,11 +1,13 @@
 import logging
 import os
 import subprocess
-from typing import cast
 from pathlib import Path
+from typing import cast
+
 import pytest
 from click import Group
 from click.testing import CliRunner
+
 from photomanager import cli, database, version
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"

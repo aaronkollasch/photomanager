@@ -1,9 +1,11 @@
 import logging
 import random
 from io import BytesIO
-from typing import Union, Dict
+from typing import Dict, Union
+
 import pytest
-from photomanager.hasher import AsyncFileHasher, file_checksum, HashAlgorithm
+
+from photomanager.hasher import AsyncFileHasher, HashAlgorithm, file_checksum
 
 checksums = [
     (b"", "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"),

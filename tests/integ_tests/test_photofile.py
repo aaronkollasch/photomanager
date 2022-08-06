@@ -1,8 +1,10 @@
+from datetime import timedelta, timezone
 from pathlib import Path
-from datetime import timezone, timedelta
+
 import pytest
-from photomanager.pyexiftool import ExifTool
+
 from photomanager.photofile import PhotoFile
+from photomanager.pyexiftool import ExifTool
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"
 ALL_IMG_DIRS = pytest.mark.datafiles(
