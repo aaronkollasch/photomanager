@@ -227,16 +227,20 @@ def test_datetime_to_timestamp_errors():
 
 
 expected_tzinfo = [
-    ("local", None),
-    ("-0400", datetime.timezone(datetime.timedelta(days=-1, seconds=72000))),
-    ("Z", datetime.timezone.utc),
-    ("+1000", datetime.timezone(datetime.timedelta(seconds=36000))),
-    ("wrong", None),
+    ("local", None, False),
+    ("-0400", datetime.timezone(datetime.timedelta(days=-1, seconds=72000)), False),
+    ("Z", datetime.timezone.utc, False),
+    ("+1000", datetime.timezone(datetime.timedelta(seconds=36000)), False),
+    ("wrong", None, True),
 ]
 
 
-@pytest.mark.parametrize("tz_str,tz_info", expected_tzinfo)
-def test_database_timezone_default(tz_str, tz_info):
+@pytest.mark.parametrize("tz_str,tz_info,error", expected_tzinfo)
+def test_database_timezone_default(tz_str, tz_info, error, caplog):
     db = Database()
     db._db["timezone_default"] = tz_str
     assert db.timezone_default == tz_info
+    if error:
+        assert caplog.messages
+    else:
+        assert not caplog.messages

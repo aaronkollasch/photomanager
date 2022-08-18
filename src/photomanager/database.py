@@ -62,7 +62,8 @@ def tz_str_to_tzinfo(tz: str):
     try:
         return datetime.strptime(tz, "%z").tzinfo
     except ValueError:
-        pass
+        logger = logging.getLogger(__name__)
+        logger.error(f"Could not parse timezone string: {tz}")
 
 
 class DatabaseException(PhotoManagerBaseException):
