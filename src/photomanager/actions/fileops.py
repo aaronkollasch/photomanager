@@ -67,8 +67,11 @@ def list_files(
     elif file:
         files[Path(file).expanduser().resolve()] = None
     for path in paths:
-        for p in path.glob("**/*.*"):
-            files[p] = None
+        if path.is_file():
+            files[path] = None
+        else:
+            for p in path.glob("**/*.*"):
+                files[p] = None
 
     exclude_files = {Path(f).expanduser().resolve() for f in exclude_files}
     filtered_files = {}
