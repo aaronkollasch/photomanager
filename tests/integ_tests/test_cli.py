@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import subprocess
@@ -10,6 +11,8 @@ from click.testing import CliRunner
 
 from photomanager import cli, database, version
 
+from .test_photofile import PHOTOFILE_EXPECTED_RESULTS
+
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "test_files"
 ALL_IMG_DIRS = pytest.mark.datafiles(
     FIXTURE_DIR / "A",
@@ -17,16 +20,7 @@ ALL_IMG_DIRS = pytest.mark.datafiles(
     FIXTURE_DIR / "C",
     keep_top_dir=True,
 )
-EXPECTED_HASHES = {
-    "A/img1.jpg": "d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb",
-    "A/img2.jpg": "3b39f47d51f63e54c76417ee6e04c34bd3ff5ac47696824426dca9e200f03666",
-    "A/img1.png": "1e10df2e3abe4c810551525b6cb2eb805886de240e04cc7c13c58ae208cabfb9",
-    "A/img4.jpg": "79ac4a89fb3d81ab1245b21b11ff7512495debca60f6abf9afbb1e1fbfe9d98c",
-    "B/img1.jpg": "d090ce7023b57925e7e94fc80372e3434fb1897e00b4452a25930dd1b83648fb",
-    "B/img2.jpg": "e9fec87008fd240309b81c997e7ec5491fee8da7eb1a76fc39b8fcafa76bb583",
-    "B/img4.jpg": "2b0f304f86655ebd04272cc5e7e886e400b79a53ecfdc789f75dd380cbcc8317",
-    "C/img3.tiff": "2aca4e78afbcebf2526ad8ac544d90b92991faae22499eec45831ef7be392391",
-}
+EXPECTED_HASHES = {name: pf.chk for name, pf in PHOTOFILE_EXPECTED_RESULTS.items()}
 
 
 def check_dir_empty(dir_path):
@@ -498,14 +492,16 @@ def test_cli_import_no_overwrite(datafiles, caplog):
         check_dir_empty(fs)
 
 
-@pytest.mark.datafiles(FIXTURE_DIR / "C", keep_top_dir=True)
-def test_cli_index_skip_existing(datafiles, caplog):
+@pytest.mark.datafiles(FIXTURE_DIR / "A", keep_top_dir=True)
+def test_cli_index_dump_skip_existing(datafiles, caplog):
     """
+    index --dump prints correct photofile json to stdout
     The --skip-existing flag prevents indexing existing source files
     """
     caplog.set_level(logging.DEBUG)
-    runner = CliRunner()
+    runner = CliRunner(mix_stderr=False)
     with runner.isolated_filesystem(temp_dir=datafiles) as fs:
+        print(os.listdir(datafiles / "A"))
         result = runner.invoke(
             cast(Group, cli.main),
             [
@@ -514,46 +510,21 @@ def test_cli_index_skip_existing(datafiles, caplog):
                 str(datafiles / "test.json"),
                 "--priority",
                 "10",
+                "--timezone-default",
+                "-0400",
                 "--debug",
-                str(datafiles / "C"),
+                "--dump",
+                str(datafiles / "A" / "img1.jpg"),
+                str(datafiles / "A" / "img1.png"),
             ],
         )
-        print("\nINDEX C")
-        print(result.output)
+        print("\nINDEX A")
+        print(result.stderr)
+        print(result.stdout)
         print(result)
         assert result.exit_code == 0
-        assert "Indexed 1/1 items" in caplog.messages
-        assert "Added 1 new items and merged 0 items" in caplog.messages
-
-        with open(datafiles / "test.json", "rb") as f:
-            s = f.read()
-            db = database.Database.from_json(s)
-        print(db.json)
-        assert sum(1 for _ in db.sources) == 1
-        assert set(db.sources) == {str(datafiles / "C" / "img3.tiff")}
-
-        with open(datafiles / "C" / "newphoto.jpg", "wb") as f:
-            f.write(b"contents")
-
-        result = runner.invoke(
-            cast(Group, cli.main),
-            [
-                "index",
-                "--db",
-                str(datafiles / "test.json"),
-                "--priority",
-                "10",
-                "--skip-existing",
-                "--debug",
-                str(datafiles / "C"),
-            ],
-        )
-        print("\nINDEX C skip-existing")
-        print(result.output)
-        print(result)
-        assert result.exit_code == 0
-        assert "Indexed 1/1 items" in caplog.messages
-        assert "Added 1 new items and merged 0 items" in caplog.messages
+        assert "Indexed 2/2 items" in caplog.messages
+        assert "Added 2 new items and merged 0 items" in caplog.messages
 
         with open(datafiles / "test.json", "rb") as f:
             s = f.read()
@@ -561,10 +532,136 @@ def test_cli_index_skip_existing(datafiles, caplog):
         print(db.json)
         assert sum(1 for _ in db.sources) == 2
         assert set(db.sources) == {
-            str(datafiles / "C" / "img3.tiff"),
-            str(datafiles / "C" / "newphoto.jpg"),
+            str(datafiles / "A" / "img1.jpg"),
+            str(datafiles / "A" / "img1.png"),
+        }
+        assert json.loads(result.stdout) == {
+            str(datafiles / "A" / "img1.jpg"): {
+                "chk": (
+                    "d090ce7023b57925e7e94fc80372e343"
+                    "4fb1897e00b4452a25930dd1b83648fb"
+                ),
+                "src": str(datafiles / "A" / "img1.jpg"),
+                "dt": "2015:08:01 18:28:36.90",
+                "ts": 1438468116.9,
+                "fsz": 771,
+                "sto": "",
+                "prio": 10,
+                "tzo": -14400.0,
+            },
+            str(datafiles / "A" / "img1.png"): {
+                "chk": (
+                    "1e10df2e3abe4c810551525b6cb2eb80"
+                    "5886de240e04cc7c13c58ae208cabfb9"
+                ),
+                "src": str(datafiles / "A" / "img1.png"),
+                "dt": "2015:08:01 18:28:36.90",
+                "ts": 1438468116.9,
+                "fsz": 382,
+                "sto": "",
+                "prio": 10,
+                "tzo": -14400.0,
+            },
         }
 
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "index",
+                "--db",
+                str(datafiles / "test.json"),
+                "--priority",
+                "10",
+                "--timezone-default",
+                "-0400",
+                "--skip-existing",
+                "--debug",
+                "--dry-run",
+                "--dump",
+                str(datafiles / "A"),
+            ],
+        )
+        print("\nINDEX A dump skip-existing")
+        print(result.stderr)
+        print(result.stdout)
+        print(result)
+        assert result.exit_code == 0
+        assert "Indexed 2/2 items" in caplog.messages
+        assert "Added 2 new items and merged 0 items" in caplog.messages
+        assert json.loads(result.stdout) == {
+            str(datafiles / "A" / "img4.jpg"): {
+                "chk": (
+                    "79ac4a89fb3d81ab1245b21b11ff7512"
+                    "495debca60f6abf9afbb1e1fbfe9d98c"
+                ),
+                "src": str(datafiles / "A" / "img4.jpg"),
+                "dt": "2018:08:01 20:28:36",
+                "ts": 1533169716.0,
+                "fsz": 759,
+                "sto": "",
+                "prio": 10,
+                "tzo": -14400.0,
+            },
+            str(datafiles / "A" / "img2.jpg"): {
+                "chk": (
+                    "3b39f47d51f63e54c76417ee6e04c34b"
+                    "d3ff5ac47696824426dca9e200f03666"
+                ),
+                "src": str(datafiles / "A" / "img2.jpg"),
+                "dt": "2015:08:01 18:28:36.99",
+                "ts": 1438468116.99,
+                "fsz": 771,
+                "sto": "",
+                "prio": 10,
+                "tzo": -14400.0,
+            },
+        }
+
+        check_dir_empty(fs)
+
+
+@pytest.mark.datafiles(FIXTURE_DIR / "C", keep_top_dir=True)
+def test_cli_index_dump_no_database(datafiles, caplog):
+    caplog.set_level(logging.DEBUG)
+    runner = CliRunner(mix_stderr=False)
+    with runner.isolated_filesystem(temp_dir=datafiles) as fs:
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "index",
+                "--priority",
+                "10",
+                "--timezone-default",
+                "+0100",
+                "--skip-existing",
+                "--debug",
+                "--dump",
+                str(datafiles / "C"),
+            ],
+        )
+        print("\nINDEX C")
+        print(result.stderr)
+        print(result.stdout)
+        print(result)
+        assert result.exit_code == 0
+        assert "Indexed 1/1 items" in caplog.messages
+        assert "Added 1 new items and merged 0 items" in caplog.messages
+        assert json.loads(result.stdout) == {
+            str(datafiles / "C" / "img3.tiff"): {
+                "chk": (
+                    "2aca4e78afbcebf2526ad8ac544d90b9"
+                    "2991faae22499eec45831ef7be392391"
+                ),
+                "src": str(datafiles / "C" / "img3.tiff"),
+                "dt": "2018:08:01 19:28:36",
+                "ts": 1533148116.0,
+                "fsz": 506,
+                "sto": "",
+                "prio": 10,
+                "tzo": 3600.0,
+            }
+        }
+        print("\n".join(str(p) for p in Path(datafiles).glob("**/*")))
         check_dir_empty(fs)
 
 
