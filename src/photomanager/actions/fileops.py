@@ -134,7 +134,7 @@ def index_photos(
     exiftool.start()
     for current_file in tqdm(files):
         if logger.isEnabledFor(logging.DEBUG):
-            tqdm.write(f"Indexing {current_file}")
+            tqdm.write(f"Indexing {current_file}", file=sys.stderr)
         try:
             pf = PhotoFile.from_file_cached(
                 current_file,
@@ -189,7 +189,8 @@ def copy_photos(
         if logger.isEnabledFor(logging.DEBUG):
             tqdm.write(
                 f"{'Would copy' if dry_run else 'Copying'}: {photo.src} "
-                f"to {abs_store_path}"
+                f"to {abs_store_path}",
+                file=sys.stderr,
             )
         try:
             if not dry_run:
@@ -234,7 +235,8 @@ def remove_photos(
         if abs_store_path.exists():
             if logger.isEnabledFor(logging.DEBUG):
                 tqdm.write(
-                    f"{'Would remove' if dry_run else 'Removing'}: {abs_store_path}"
+                    f"{'Would remove' if dry_run else 'Removing'}: {abs_store_path}",
+                    file=sys.stderr,
                 )
             if not dry_run:
                 remove(abs_store_path)
@@ -242,7 +244,7 @@ def remove_photos(
             num_removed_photos += 1
         else:
             if logger.isEnabledFor(logging.DEBUG):
-                tqdm.write(f"Missing photo: {abs_store_path}")
+                tqdm.write(f"Missing photo: {abs_store_path}", file=sys.stderr)
             num_missing_photos += 1
     return num_removed_photos, num_missing_photos
 
