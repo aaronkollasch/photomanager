@@ -39,6 +39,7 @@ def sizeof_fmt(num: int) -> str:
         return "0 bytes"
     if num == 1:
         return "1 byte"
+    return f"{num} bytes"
 
 
 def path_is_relative_to(
@@ -55,7 +56,7 @@ def path_is_relative_to(
 def tz_str_to_tzinfo(tz: str):
     """
     Convert a timezone string (e.g. -0400) to a tzinfo
-    If "local", return None
+    If "local" or could not convert, return None
     """
     if tz == "local":
         return None
@@ -64,6 +65,7 @@ def tz_str_to_tzinfo(tz: str):
     except ValueError:
         logger = logging.getLogger(__name__)
         logger.error(f"Could not parse timezone string: {tz}")
+    return None
 
 
 class DatabaseException(PhotoManagerBaseException):

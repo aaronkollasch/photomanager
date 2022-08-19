@@ -12,7 +12,7 @@ from photomanager.hasher import HashAlgorithm
 from photomanager.photofile import NAME_MAP_ENC, PhotoFile
 
 sizeof_fmt_expected_results = [
-    (-1, None),
+    (-1, "-1 bytes"),
     (0, "0 bytes"),
     (1, "1 byte"),
     (1023, "1023 bytes"),
