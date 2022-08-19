@@ -65,6 +65,7 @@ def index(
         num_merged_photos=num_merged_photos,
         num_skipped_photos=num_skipped_photos,
         num_error_photos=num_error_photos,
+        photos=photos,
     )
 
 

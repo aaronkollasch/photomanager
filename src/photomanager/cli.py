@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
+import json
 import logging
 import sys
 from os import PathLike
@@ -69,8 +70,7 @@ def _create(
 
 # fmt: off
 @click.command("index", help="Index and add items to database")
-@click.option("--db", type=click.Path(dir_okay=False), required=True,
-              default=DEFAULT_DB,
+@click.option("--db", type=click.Path(dir_okay=False),
               help="PhotoManager database filepath (.json). "
                    "Add extensions .zst or .gz to compress.")
 @click.option("--source", type=click.Path(file_okay=False),
@@ -86,16 +86,23 @@ def _create(
 @click.option("--timezone-default", type=str, default=None,
               help="Timezone to use when indexing timezone-naive photos "
                    "(example=\"-0400\", default=\"local\")")
+@click.option("--hash-algorithm",
+              type=click.Choice(HASH_ALGORITHMS),
+              default=DEFAULT_HASH_ALGO.value,
+              help=f"Hash algorithm to use if no database provided "
+                   f"(default={DEFAULT_HASH_ALGO.value})")
 @click.option("--storage-type", type=click.Choice(fileops.STORAGE_TYPES), default="HDD",
               help="Class of storage medium (HDD, SSD, RAID)")
 @click.option("--debug", default=False, is_flag=True,
               help="Run in debug mode")
+@click.option("--dump", default=False, is_flag=True,
+              help="Print photo info to stdout")
 @click.option("--dry-run", default=False, is_flag=True,
               help="Perform a dry run that makes no changes")
 @click.argument("paths", nargs=-1, type=click.Path())
 # fmt: on
 def _index(
-    db: Union[str, PathLike],
+    db: Union[str, PathLike] = None,
     source: Optional[Union[str, PathLike]] = None,
     file: Optional[Union[str, PathLike]] = None,
     paths: Iterable[Union[str, PathLike]] = tuple(),
@@ -103,8 +110,10 @@ def _index(
     skip_existing: bool = False,
     debug: bool = False,
     dry_run: bool = False,
+    dump: bool = False,
     priority: int = 10,
     timezone_default: Optional[str] = None,
+    hash_algorithm: str = DEFAULT_HASH_ALGO.value,
     storage_type: str = "HDD",
 ):
     if not source and not file and not paths:
@@ -112,8 +121,13 @@ def _index(
         print(click.get_current_context().get_help())
         click_exit(1)
     config_logging(debug=debug)
-    database = Database.from_file(db, create_new=True)
-    skip_existing = set(database.sources) if skip_existing else set()
+    if db is not None:
+        database = Database.from_file(db, create_new=True)
+        skip_existing = set(database.sources) if skip_existing else set()
+    else:
+        database = Database()
+        skip_existing = set()
+        database.hash_algorithm = HashAlgorithm(hash_algorithm)
     filtered_files = fileops.list_files(
         source=source,
         file=file,
@@ -128,7 +142,13 @@ def _index(
         timezone_default=timezone_default,
         storage_type=storage_type,
     )
-    if not dry_run:
+    if dump:
+        photos = index_result["photos"]
+        result = {}
+        for filename, photo in zip(filtered_files, photos):
+            result[filename] = photo.to_dict()
+        print(json.dumps(result, indent=2))
+    if db is not None and not dry_run:
         database.save(path=db, argv=sys.argv)
     click_exit(1 if index_result["num_error_photos"] else 0)
 

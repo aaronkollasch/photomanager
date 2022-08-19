@@ -126,9 +126,9 @@ def test_cli_index_nothing(tmpdir, caplog):
         check_dir_empty(fs)
 
 
-def test_cli_index_collect_no_db(tmpdir, caplog):
+def test_cli_create_collect_no_db(tmpdir, caplog):
     """
-    If index is run with no db argument, db is created at DEFAULT_DB
+    If create and is run with no db argument, db is created at DEFAULT_DB
     """
     caplog.set_level(logging.DEBUG)
     CliRunner.isolated_filesystem(tmpdir)
@@ -140,10 +140,7 @@ def test_cli_index_collect_no_db(tmpdir, caplog):
         result = runner.invoke(
             cast(Group, cli.main),
             [
-                "index",
-                "--priority",
-                "10",
-                str(tmpdir),
+                "create",
             ],
         )
         print("\nINDEX no-db")
@@ -278,6 +275,9 @@ def test_cli_import_no_changes(tmpdir, caplog):
 
 
 def test_cli_collect_no_db(tmpdir, caplog):
+    """
+    collect must be given a database to collect to
+    """
     caplog.set_level(logging.DEBUG)
     CliRunner.isolated_filesystem(tmpdir)
     runner = CliRunner()
@@ -298,6 +298,9 @@ def test_cli_collect_no_db(tmpdir, caplog):
 
 
 def test_cli_verify_wrong_storage_type(tmpdir, caplog):
+    """
+    verify does not accept a nonexistent storage-type
+    """
     caplog.set_level(logging.DEBUG)
     CliRunner.isolated_filesystem(tmpdir)
     runner = CliRunner()
@@ -316,6 +319,9 @@ def test_cli_verify_wrong_storage_type(tmpdir, caplog):
 
 
 def test_cli_verify_random_sample(tmpdir, caplog):
+    """
+    verify random-fraction checks a fraction of the database
+    """
     caplog.set_level(logging.DEBUG)
     CliRunner.isolated_filesystem(tmpdir)
     runner = CliRunner()
