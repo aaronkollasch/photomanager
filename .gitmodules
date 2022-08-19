@@ -1,0 +1,3 @@
+[submodule "check-media-integrity"]
+	path = src/photomanager/check_media_integrity
+	url = https://github.com/aaronkollasch/check-media-integrity/

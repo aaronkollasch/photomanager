@@ -65,7 +65,9 @@ class TestFileOps:
         The list_files exclude argument removes filenames matching the patterns
         """
         caplog.set_level(logging.DEBUG)
-        files = fileops.list_files(paths=[str(datafiles)], exclude=["img1", ".tiff"])
+        files = fileops.list_files(
+            paths=[str(datafiles)], exclude=["img1", ".tiff", "D"]
+        )
         print(files)
         assert set(files.keys()) == {
             str(datafiles / "A" / "img2.jpg"),
@@ -146,6 +148,15 @@ class TestFileOps:
         assert len(files) == 1
         assert next(iter(files)) == str(tmpdir / "not_a_file.jpg" / "test2.jpg")
         assert any("not a file" in m for m in caplog.messages)
+
+    def test_index_photos_empty_list(self, caplog):
+        """
+        async index_photos does not error if no files are given
+        """
+        caplog.set_level(logging.DEBUG)
+        photos = fileops.index_photos(files=[], storage_type="SSD")
+        print(photos)
+        assert len(photos) == 0
 
     @pytest.mark.datafiles(
         FIXTURE_DIR / "B",
