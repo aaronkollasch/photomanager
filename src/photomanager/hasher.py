@@ -100,7 +100,7 @@ def check_files(
         try:
             output_dict[path] = file_checksum(path, algorithm)
         except FileNotFoundError:
-            pass
+            pass  # missing entries in output_dict are handled elsewhere
         finally:
             if pbar_unit == "B":
                 p_bar.update(file_sizes[i])

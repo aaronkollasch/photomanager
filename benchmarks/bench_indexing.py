@@ -76,7 +76,7 @@ def main():
         try:
             shutil.rmtree(collect_dest_dir)
         except FileNotFoundError:
-            pass
+            pass  # collect_dest_dir already removed
 
         try:
             cli_main(
@@ -88,8 +88,8 @@ def main():
                     args.hash_algorithm,
                 ]
             )
-        except SystemExit:
-            pass
+        except SystemExit as e:
+            exit(e.code)
         time0 = time.perf_counter()
         try:
             cli_main(
@@ -103,15 +103,15 @@ def main():
                     args.storage_type,
                 ]
             )
-        except SystemExit:
-            pass
+        except SystemExit as e:
+            exit(e.code)
         time1 = time.perf_counter()
         try:
             cli_main(
                 ["collect", "--db", database_file, "--destination", collect_dest_dir]
             )
-        except SystemExit:
-            pass
+        except SystemExit as e:
+            exit(e.code)
         time2 = time.perf_counter()
         try:
             cli_main(
@@ -125,8 +125,8 @@ def main():
                     args.storage_type,
                 ]
             )
-        except SystemExit:
-            pass
+        except SystemExit as e:
+            exit(e.code)
         time3 = time.perf_counter()
         if not args.verbose:
             sys.stderr.close()

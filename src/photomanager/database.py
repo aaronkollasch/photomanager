@@ -311,7 +311,7 @@ class Database:
                             if version > max_version:
                                 max_version = version
                         except ValueError:
-                            pass
+                            pass  # no version detected, so max_version = 0
                     version = max_version
                     base_path = base_path.with_name(
                         base_path.name + "_" + str(version + 1)

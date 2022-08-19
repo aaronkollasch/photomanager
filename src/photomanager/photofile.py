@@ -166,7 +166,7 @@ def datetime_str_to_object(ts_str: str, tz_default: tzinfo = None) -> datetime:
             try:
                 dt = datetime.strptime(ts_str, fmt)
             except ValueError:
-                pass
+                pass  # failed parsing is handled below
     else:
         for fmt in (
             "%Y:%m:%d %H:%M:%S%z",
@@ -177,7 +177,7 @@ def datetime_str_to_object(ts_str: str, tz_default: tzinfo = None) -> datetime:
             try:
                 dt = datetime.strptime(ts_str, fmt)
             except ValueError:
-                pass
+                pass  # failed parsing is handled below
     if dt is not None:
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=tz_default)
