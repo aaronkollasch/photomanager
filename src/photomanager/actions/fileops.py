@@ -132,7 +132,7 @@ def index_photos(
     )
 
     logger.info("Indexing media")
-    photos = []
+    photos: list[Optional[PhotoFile]] = []
     exiftool = ExifTool()
     exiftool.start()
     for current_file in tqdm(files):

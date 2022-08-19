@@ -54,7 +54,7 @@ def click_exit(value: int = 0):
 # fmt: on
 def _create(
     db: Union[str, PathLike],
-    hash_algorithm: str = DEFAULT_HASH_ALGO,
+    hash_algorithm: str = DEFAULT_HASH_ALGO.value,
     timezone_default: str = "local",
     debug: bool = False,
 ):
