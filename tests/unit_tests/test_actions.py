@@ -130,6 +130,23 @@ class TestFileOps:
             str(datafiles / "A" / "img2.jpg"),
         }
 
+    def test_list_files_non_file(self, tmpdir, caplog):
+        """
+        list_files excludes paths that are not files
+        """
+        caplog.set_level(logging.DEBUG)
+        files = fileops.list_files(paths=[tmpdir])
+        print(files)
+        assert len(files) == 0
+        os.makedirs(tmpdir / "not_a_file.jpg/test1.jpg")
+        with open(tmpdir / "not_a_file.jpg" / "test2.jpg", "w") as f:
+            f.write("test")
+        files = fileops.list_files(paths=[tmpdir])
+        print(files)
+        assert len(files) == 1
+        assert next(iter(files)) == str(tmpdir / "not_a_file.jpg" / "test2.jpg")
+        assert any("not a file" in m for m in caplog.messages)
+
     @pytest.mark.datafiles(
         FIXTURE_DIR / "B",
         keep_top_dir=True,

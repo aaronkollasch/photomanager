@@ -80,6 +80,9 @@ def list_files(
     for p in files:
         if p in exclude_files:
             continue
+        if not p.is_file():
+            logger.debug(f"Skipped path {p}: not a file")
+            continue
         if p.suffix.lower().lstrip(".") not in extensions:
             skipped_extensions.add(p.suffix.lower().lstrip("."))
             continue
