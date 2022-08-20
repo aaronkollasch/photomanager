@@ -99,6 +99,11 @@ If the photos are stored on an SSD or RAID array, use
 ``--storage-type SSD`` or ``--storage-type RAID`` and
 checksum and EXIF checks will be performed by multiple workers.
 
+To check the integrity of media files before indexing them,
+use the ``--check-integrity`` flag.
+Integrity checking has optional dependencies; install them with
+``pip install .[check-mi]``
+
 Collect files into a storage folder
 -----------------------------------
 

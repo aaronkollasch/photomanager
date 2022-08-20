@@ -11,9 +11,17 @@ import click
 
 from photomanager import version
 from photomanager.actions import actions, fileops
-from photomanager.check_media_integrity.check_mi import check_files
 from photomanager.database import Database, sizeof_fmt
 from photomanager.hasher import DEFAULT_HASH_ALGO, HASH_ALGORITHMS, HashAlgorithm
+
+try:
+    from photomanager.check_media_integrity.check_mi import check_files
+except ImportError as e:
+    check_files_message = str(e)
+
+    def check_files(*_, **__):
+        raise Exception("check-media-integrity not available: " + check_files_message)
+
 
 DEFAULT_DB = "photos.json"
 
