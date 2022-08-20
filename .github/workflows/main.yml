@@ -26,11 +26,13 @@ jobs:
 
     steps:
       - uses: "actions/checkout@v2"
+        with:
+          submodules: 'true'
       - uses: "actions/setup-python@v2"
         with:
           python-version: "${{ matrix.python-version }}"
-      - name: Install exiftool
-        run: sudo apt-get install libimage-exiftool-perl
+      - name: Install exiftool and ffmpeg
+        run: sudo apt-get install libimage-exiftool-perl ffmpeg
       - name: "Install b3sum"
         run: |
           sudo wget https://github.com/BLAKE3-team/BLAKE3/releases/download/1.2.0/b3sum_linux_x64_bin -O /usr/local/bin/b3sum
@@ -67,6 +69,7 @@ jobs:
         with:
           # pulls all commits (needed for lerna / semantic release to correctly version)
           fetch-depth: "0"
+          submodules: 'true'
       - uses: "actions/setup-python@v2"
         with:
           python-version: "3.9"

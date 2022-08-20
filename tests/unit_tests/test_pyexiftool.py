@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from asyncio import subprocess as subprocess_async
 
 import orjson
 import pytest
@@ -28,7 +27,7 @@ class TestAsyncPyExifTool:
                 )
             )
 
-        monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+        monkeypatch.setattr(asyncio.subprocess, "create_subprocess_exec", nop_cse)
         caplog.set_level(logging.DEBUG)
         metadata = AsyncExifTool(batch_size=10).get_metadata_batch(["img1.jpg"])
         print([(r.levelname, r) for r in caplog.records])
@@ -52,7 +51,7 @@ class TestAsyncPyExifTool:
                 )
             )
 
-        monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+        monkeypatch.setattr(asyncio.subprocess, "create_subprocess_exec", nop_cse)
         caplog.set_level(logging.DEBUG)
         metadata = AsyncExifTool(batch_size=10).get_metadata_batch(["asdf.bin"])
         print([(r.levelname, r) for r in caplog.records])
@@ -78,7 +77,7 @@ class TestAsyncPyExifTool:
                 )
             )
 
-        monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+        monkeypatch.setattr(asyncio.subprocess, "create_subprocess_exec", nop_cse)
         caplog.set_level(logging.DEBUG)
         metadata = AsyncExifTool(batch_size=10).get_metadata_batch(["asdf.bin"])
         print([(r.levelname, r) for r in caplog.records])
@@ -101,7 +100,7 @@ class TestAsyncPyExifTool:
                 )
             )
 
-        monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+        monkeypatch.setattr(asyncio.subprocess, "create_subprocess_exec", nop_cse)
         caplog.set_level(logging.DEBUG)
         metadata = AsyncExifTool(batch_size=10).get_metadata_batch(["asdf.bin"])
         print([(r.levelname, r) for r in caplog.records])
@@ -126,7 +125,7 @@ class TestAsyncPyExifTool:
                 )
             )
 
-        monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+        monkeypatch.setattr(asyncio.subprocess, "create_subprocess_exec", nop_cse)
         caplog.set_level(logging.DEBUG)
         metadata = AsyncExifTool(batch_size=10).get_metadata_batch(["asdf.bin"])
         print([(r.levelname, r) for r in caplog.records])
@@ -152,7 +151,7 @@ class TestAsyncPyExifTool:
                 message_delay=5,
             )
 
-        monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+        monkeypatch.setattr(asyncio.subprocess, "create_subprocess_exec", nop_cse)
         tool = AsyncExifTool(batch_size=10)
 
         queue_join = asyncio.Queue.join

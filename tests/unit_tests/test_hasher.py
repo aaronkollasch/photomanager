@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from asyncio import subprocess as subprocess_async
 from io import BytesIO
 
 import pytest
@@ -98,7 +97,7 @@ def test_async_file_hasher_img(monkeypatch, caplog):
         loop.set_debug(True)
         return AsyncNopProcess(b"ba4f25bf16ba4be6bc7d3276fafeba img1.jpg\n", b"")
 
-    monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+    monkeypatch.setattr(asyncio.subprocess, "create_subprocess_exec", nop_cse)
     caplog.set_level(logging.DEBUG)
     checksum_cache = AsyncFileHasher(
         algorithm=HashAlgorithm.BLAKE2B_256,
@@ -119,7 +118,7 @@ def test_async_file_hasher_empty(monkeypatch, caplog):
         loop.set_debug(True)
         return AsyncNopProcess(b"\n", b"")
 
-    monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+    monkeypatch.setattr(asyncio.subprocess, "create_subprocess_exec", nop_cse)
     caplog.set_level(logging.DEBUG)
     checksum_cache = AsyncFileHasher(
         algorithm=HashAlgorithm.BLAKE2B_256,
@@ -138,7 +137,7 @@ def test_async_file_hasher_unicode_error(monkeypatch, caplog):
         loop.set_debug(True)
         return AsyncNopProcess(b"f/\x9c file.txt\n", b"")
 
-    monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+    monkeypatch.setattr(asyncio.subprocess, "create_subprocess_exec", nop_cse)
     caplog.set_level(logging.DEBUG)
     checksum_cache = AsyncFileHasher(
         algorithm=HashAlgorithm.BLAKE2B_256,
@@ -158,7 +157,7 @@ def test_async_file_hasher_interrupt(monkeypatch):
         loop.set_debug(True)
         return AsyncNopProcess(b"checksum img.jpg\n", b"", final_delay=5)
 
-    monkeypatch.setattr(subprocess_async, "create_subprocess_exec", nop_cse)
+    monkeypatch.setattr(asyncio.subprocess, "create_subprocess_exec", nop_cse)
     hasher = AsyncFileHasher(
         algorithm=HashAlgorithm.BLAKE2B_256,
         use_async=True,

@@ -665,6 +665,38 @@ def test_cli_index_dump_no_database(datafiles, caplog):
         check_dir_empty(fs)
 
 
+@pytest.mark.datafiles(FIXTURE_DIR / "D", keep_top_dir=True)
+def test_cli_index_check_integrity(datafiles, caplog):
+    caplog.set_level(logging.DEBUG)
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=datafiles) as fs:
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "index",
+                "--check-integrity",
+                "--debug",
+                "--dump",
+                str(datafiles / "D"),
+            ],
+        )
+        print("\nINDEX D")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 1
+        assert "Indexed 3/3 items" in caplog.messages
+        assert "Added 3 new items and merged 0 items" in caplog.messages
+        assert "D/fake_movie_text.mp4" in result.output
+        assert "D/fake_movie_magic.mp4" in result.output
+        assert "D/img1_trunc.jpg" in result.output
+        assert "D/img1_trunc.png" in result.output
+        assert "D/img1_trunc.mp4" in result.output
+        assert "D/empty.nef" in result.output
+        assert "D/wrong_type.jpg" in result.output
+        print("\n".join(str(p) for p in Path(datafiles).glob("**/*")))
+        check_dir_empty(fs)
+
+
 @pytest.mark.datafiles(FIXTURE_DIR / "C", keep_top_dir=True)
 def test_cli_import_skip_existing(datafiles, caplog):
     """
@@ -747,6 +779,45 @@ def test_cli_import_skip_existing(datafiles, caplog):
             str(datafiles / "C" / "newphoto.jpg"),
         }
 
+        check_dir_empty(fs)
+
+
+@pytest.mark.datafiles(FIXTURE_DIR / "D", keep_top_dir=True)
+def test_cli_import_check_integrity(datafiles, caplog):
+    caplog.set_level(logging.DEBUG)
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=datafiles) as fs:
+        os.makedirs(datafiles / "dest")
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "import",
+                "--check-integrity",
+                "--db",
+                str(datafiles / "test.json"),
+                "--destination",
+                str(datafiles / "dest"),
+                "--priority",
+                "10",
+                "--debug",
+                str(datafiles / "D"),
+            ],
+        )
+        print("\nIMPORT D")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 1
+        assert "Indexed 3/3 items" in caplog.messages
+        assert "Added 3 new items and merged 0 items" in caplog.messages
+        assert any("Copied 3 items" in m for m in caplog.messages)
+        assert "D/fake_movie_text.mp4" in result.output
+        assert "D/fake_movie_magic.mp4" in result.output
+        assert "D/img1_trunc.jpg" in result.output
+        assert "D/img1_trunc.png" in result.output
+        assert "D/img1_trunc.mp4" in result.output
+        assert "D/empty.nef" in result.output
+        assert "D/wrong_type.jpg" in result.output
+        print("\n".join(str(p) for p in Path(datafiles).glob("**/*")))
         check_dir_empty(fs)
 
 

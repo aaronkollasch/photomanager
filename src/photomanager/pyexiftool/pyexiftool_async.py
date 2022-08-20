@@ -125,7 +125,7 @@ class AsyncExifTool(AsyncWorkerQueue):
         self.queue = None
         self.batch_size = batch_size
         self.pbar = None
-        self.processes: dict[int, subprocess] = {}
+        self.processes: dict[int, subprocess.Process] = {}
 
     async def do_job(self, worker_id: int, job: ExifToolJob):
         outputs = [b"None"]
@@ -177,7 +177,7 @@ class AsyncExifTool(AsyncWorkerQueue):
     async def close_worker(self, worker_id: int):
         process = self.processes[worker_id]
         await process.communicate(b"-stay_open\nFalse\n")
-        del process[worker_id]
+        del self.processes[worker_id]
 
     def make_pbar(self, all_jobs: list[ExifToolJob]):
         self.pbar = tqdm(total=sum(job.size for job in all_jobs))

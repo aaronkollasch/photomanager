@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 from photomanager.actions import fileops
 from photomanager.database import Database, sizeof_fmt, tz_str_to_tzinfo
+from photomanager.photofile import PhotoFile
 
 
 def index(
@@ -20,7 +21,7 @@ def index(
     priority: int = 10,
     timezone_default: Optional[str] = None,
     storage_type: str = "HDD",
-) -> dict[str, Union[int, list[str]]]:
+) -> dict[str, Union[int, set[str], list[PhotoFile]]]:
     """
     Index photo files and add them to the database.
 

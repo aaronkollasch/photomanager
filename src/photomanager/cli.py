@@ -4,13 +4,14 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from os import PathLike
+from os import PathLike, cpu_count
 from typing import Iterable, Optional, Union
 
 import click
 
 from photomanager import version
 from photomanager.actions import actions, fileops
+from photomanager.check_media_integrity.check_mi import check_files
 from photomanager.database import Database, sizeof_fmt
 from photomanager.hasher import DEFAULT_HASH_ALGO, HASH_ALGORITHMS, HashAlgorithm
 
@@ -54,7 +55,7 @@ def click_exit(value: int = 0):
 # fmt: on
 def _create(
     db: Union[str, PathLike],
-    hash_algorithm: str = DEFAULT_HASH_ALGO,
+    hash_algorithm: str = DEFAULT_HASH_ALGO.value,
     timezone_default: str = "local",
     debug: bool = False,
 ):
@@ -81,6 +82,8 @@ def _create(
               help="Name patterns to exclude")
 @click.option("--skip-existing", default=False, is_flag=True,
               help="Don't index files that are already in the database")
+@click.option("--check-integrity", default=False, is_flag=True,
+              help="Check media integrity and don't index bad files")
 @click.option("--priority", type=int, default=10,
               help="Priority of indexed photos (lower is preferred, default=10)")
 @click.option("--timezone-default", type=str, default=None,
@@ -108,6 +111,7 @@ def _index(
     paths: Iterable[Union[str, PathLike]] = tuple(),
     exclude: Iterable[str] = tuple(),
     skip_existing: bool = False,
+    check_integrity: bool = False,
     debug: bool = False,
     dry_run: bool = False,
     dump: bool = False,
@@ -135,6 +139,11 @@ def _index(
         exclude_files=skip_existing,
         paths=paths,
     )
+    bad_files = None
+    if check_integrity:
+        bad_files = check_files(filtered_files, timeout=None, threads=cpu_count())
+        for filename in bad_files:
+            del filtered_files[filename]
     index_result = actions.index(
         database=database,
         files=filtered_files,
@@ -150,7 +159,7 @@ def _index(
         print(json.dumps(result, indent=2))
     if db is not None and not dry_run:
         database.save(path=db, argv=sys.argv)
-    click_exit(1 if index_result["num_error_photos"] else 0)
+    click_exit(1 if bad_files or index_result["num_error_photos"] else 0)
 
 
 # fmt: off
@@ -205,6 +214,8 @@ def _collect(
               help="Name patterns to exclude")
 @click.option("--skip-existing", default=False, is_flag=True,
               help="Don't index files that are already in the database")
+@click.option("--check-integrity", default=False, is_flag=True,
+              help="Check media integrity and don't index bad files")
 @click.option("--priority", type=int, default=10,
               help="Priority of indexed photos (lower is preferred, default=10)")
 @click.option("--timezone-default", type=str, default=None,
@@ -228,6 +239,7 @@ def _import(
     paths: Iterable[Union[str, PathLike]] = tuple(),
     exclude: Iterable[str] = tuple(),
     skip_existing: bool = False,
+    check_integrity: bool = False,
     debug: bool = False,
     dry_run: bool = False,
     priority: int = 10,
@@ -245,6 +257,13 @@ def _import(
         exclude_files=skip_existing,
         paths=paths,
     )
+    bad_files = None
+    if check_integrity:
+        bad_files = check_files(
+            filtered_files, error_detect="strict", timeout=None, threads=cpu_count()
+        )
+        for filename in bad_files:
+            del filtered_files[filename]
     index_result = actions.index(
         database=database,
         files=filtered_files,
@@ -267,6 +286,7 @@ def _import(
         if index_result["num_error_photos"]
         or collect_result["num_missed_photos"]
         or collect_result["num_error_photos"]
+        or bad_files
         else 0
     )
 
