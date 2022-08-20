@@ -35,7 +35,7 @@ jobs:
         run: sudo apt-get install libimage-exiftool-perl ffmpeg
       - name: "Install b3sum"
         run: |
-          sudo wget https://github.com/BLAKE3-team/BLAKE3/releases/download/1.2.0/b3sum_linux_x64_bin -O /usr/local/bin/b3sum
+          sudo wget https://github.com/BLAKE3-team/BLAKE3/releases/latest/download/b3sum_linux_x64_bin -O /usr/local/bin/b3sum
           sudo chmod +x /usr/local/bin/b3sum
       - name: "Install dependencies"
         run: |
@@ -86,3 +86,25 @@ jobs:
         run: "ls -l dist"
       - name: "Check long_description"
         run: "python -m twine check dist/*"
+
+  install:
+    strategy:
+      matrix:
+        os: [ "ubuntu-latest", "windows-latest", "macos-latest" ]
+
+    name: "Verify installation"
+    runs-on: "${{ matrix.os }}"
+
+    steps:
+      - uses: "actions/checkout@v2"
+        with:
+          submodules: 'true'
+      - uses: "actions/setup-python@v2"
+        with:
+          python-version: "3.8"
+      - name: "install package"
+        run: "python -m pip install -e ."
+      - name: "import package"
+        run: "python -c 'import photomanager; print(photomanager.__version__)'"
+      - name: "run photomanager"
+        run: "photomanager -h"
