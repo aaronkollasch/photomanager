@@ -16,18 +16,19 @@ PhotoManager
 
 A manager for photos and other media files.
 
-Indexes photos, adds them to a database, and 
+Indexes photos, adds them to a database, and
 collects them in a specified directory.
 Verifies stored photos against bitrot or modification
 based on their checksum.
 Database is stored in a non-proprietary, human-readable JSON format.
 PhotoManager is inspired by `elodie <https://github.com/jmathai/elodie>`_,
-but it is intended for archiving and will not modify any file contents.
+but it is intended for archiving and will not modify any file contents,
+including metadata.
 
 Photos are organized by the best available date
 obtained from metadata or file information.
 They can be prioritized so that only the best available version
-will be collected. Alternate and derived versions of photos
+will be collected. Alternate copies of photos
 are identified by matching filenames and timestamps.
 
 Installation
@@ -48,7 +49,7 @@ Clone the repository
 Install ExifTool
 ----------------
 
-ExifTool is required to index, 
+ExifTool is required to index,
 but not to collect or verify photos.
 
 .. code-block:: bash
@@ -73,6 +74,9 @@ e.g. ``brew install zstd``.
 Filenames ending in ``.gz`` will be read as gzip archives and
 names ending in ``.zst`` will be read as zstd archives.
 
+To enable photo integrity checking, additional dependencies
+must be installed with ``pip install .[check-mi]``.
+
 Usage
 =====
 
@@ -81,7 +85,7 @@ Add photos to the database
 
 .. code-block:: bash
 
-    photomanager index --debug --db db.json /path/to/directory /path/to/photo.jpg
+    photomanager index --db db.json /path/to/directory /path/to/photo.jpg
 
 PhotoManager will search for media files in any supplied directories
 and also index single files supplied directly as arguments.
@@ -101,7 +105,7 @@ checksum and EXIF checks will be performed by multiple workers.
 
 To check the integrity of media files before indexing them,
 use the ``--check-integrity`` flag.
-Integrity checking has optional dependencies; install them with
+Integrity checking has additional dependencies; install them with
 ``pip install .[check-mi]``
 
 Collect files into a storage folder
@@ -112,7 +116,7 @@ collect them into a storage folder:
 
 .. code-block:: bash
 
-    photomanager collect --debug --db db.json --destination /path/to/destination
+    photomanager collect --db db.json --destination /path/to/destination
 
 This will copy the highest-priority versions of photos
 not already stored into the destination folder and
@@ -136,12 +140,17 @@ timestamps, checksums, and original names.
     │   │   ├── 2017-12-25_20-32-41-589c151-DSC_8705.JPG
     │   │   └── 2017-12-25_20-32-41-4bb6987-DSC_8705.NEF
 
-Stored photo paths in the database are relative to ``destination``,
+Stored photo paths in the database are relative to the ``destination`` folder,
 so the library is portable, and the same database can be shared across
 library copies. Recommended syncing tools are ``rsync`` and ``rclone``.
 
 Indexing and collection can be repeated
 as new sources of photos are found and collected.
+The ``import`` command performs both these actions in a single command:
+
+.. code-block:: bash
+
+    photomanager import --db db.json --destination /path/to/destination /path/to/source/directory
 
 Verify stored photos against bit rot or modification
 ----------------------------------------------------
@@ -156,8 +165,8 @@ multiple files will be verified in parallel.
 
 Note that this can only detect unexpected modifications;
 it cannot undo changes it detects.
-Therefore, backing up the storage directory to at least one
-external backup is recommended.
+Therefore, backing up the storage directory to multiple locations
+(such as with a `3-2-1 backup <https://github.com/geerlingguy/my-backup-plan>`_) is recommended.
 
 Usage instructions
 ==================
@@ -196,15 +205,18 @@ and less CPU usage on slow storage.
 
     Usage: photomanager create [OPTIONS]
 
-      Create an empty database
+      Create a database. Save a new version if it already exists.
 
     Options:
-      --db FILE                PhotoManager database path (.json). Add
-                               extensions .zst or .gz to compress.  [required]
-      --hash-algorithm TEXT    Hash algorithm (default=blake2b-256)
-      --timezone-default TEXT  Timezone to use when indexing timezone-naive photos
-                               (example="-0400", default="local")
-      --help                   Show this message and exit.
+      --db FILE                       PhotoManager database filepath (.json). Add
+                                      extensions .zst or .gz to compress.
+                                      [required]
+      --hash-algorithm [sha256|blake2b-256|blake3]
+                                      Hash algorithm (default=blake2b-256)
+      --timezone-default TEXT         Timezone to use when indexing timezone-naive
+                                      photos (example="-0400", default="local")
+      --debug                         Run in debug mode
+      -h, --help                      Show this message and exit.
 
 Index photos
 ------------
@@ -213,19 +225,30 @@ Index photos
 
     Usage: photomanager index [OPTIONS] [PATHS]...
 
-      Find and add items to database
+      Index and add items to database
 
     Options:
-      --db FILE            PhotoManager database filepath (.json). Add extensions
-                           .zst or .gz to compress.  [required]
-      --source DIRECTORY   Directory to index
-      --file FILE          File to index
-      --exclude TEXT       Name patterns to exclude
-      --priority INTEGER   Priority of indexed photos (lower is preferred,
-                           default=10)
-      --storage-type TEXT  Class of storage medium (HDD, SSD, RAID)
-      --debug              Run in debug mode
-      --help               Show this message and exit.
+      --db FILE                       PhotoManager database filepath (.json). Add
+                                      extensions .zst or .gz to compress.
+      --source DIRECTORY              Directory to index
+      --file FILE                     File to index
+      --exclude TEXT                  Name patterns to exclude
+      --skip-existing                 Don't index files that are already in the
+                                      database
+      --check-integrity               Check media integrity and don't index bad
+                                      files
+      --priority INTEGER              Priority of indexed photos (lower is
+                                      preferred, default=10)
+      --timezone-default TEXT         Timezone to use when indexing timezone-naive
+                                      photos (example="-0400", default="local")
+      --hash-algorithm [sha256|blake2b-256|blake3]
+                                      Hash algorithm to use if no database
+                                      provided (default=blake2b-256)
+      --storage-type [HDD|SSD|RAID]   Class of storage medium (HDD, SSD, RAID)
+      --debug                         Run in debug mode
+      --dump                          Print photo info to stdout
+      --dry-run                       Perform a dry run that makes no changes
+      -h, --help                      Show this message and exit.
 
 Collect photos
 --------------
@@ -240,8 +263,9 @@ Collect photos
       --db FILE                PhotoManager database path  [required]
       --destination DIRECTORY  Photo storage base directory  [required]
       --debug                  Run in debug mode
+      --dry-run                Perform a dry run that makes no changes
       --collect-db             Also save the database within destination
-      --help                   Show this message and exit.
+      -h, --help               Show this message and exit.
 
 Verify photos
 -------------
@@ -253,11 +277,14 @@ Verify photos
       Verify checksums of stored items
 
     Options:
-      --db FILE                PhotoManager database path  [required]
-      --destination DIRECTORY  Photo storage base directory  [required]
-      --subdir TEXT            Verify only items within subdirectory
-      --storage-type TEXT      Class of storage medium (HDD, SSD, RAID)
-      --help                   Show this message and exit.
+      --db FILE                      PhotoManager database path  [required]
+      --destination DIRECTORY        Photo storage base directory  [required]
+      --subdir TEXT                  Verify only items within subdirectory
+      --storage-type [HDD|SSD|RAID]  Class of storage medium (HDD, SSD, RAID)
+      --random-fraction FLOAT        Verify a randomly sampled fraction of the
+                                     photos
+      --debug                        Run in debug mode
+      -h, --help                     Show this message and exit.
 
 Remove unnecessary duplicates
 -----------------------------
@@ -274,7 +301,7 @@ Remove unnecessary duplicates
       --subdir TEXT            Remove only items within subdirectory
       --debug                  Run in debug mode
       --dry-run                Perform a dry run that makes no changes
-      --help                   Show this message and exit.
+      -h, --help               Show this message and exit.
 
 Database file format
 ====================
@@ -285,7 +312,7 @@ It takes this form:
 .. code-block:: json
 
     {
-      "version": 1,
+      "version": 3,
       "hash_algorithm": "blake2b-256",
       "timezone_default": "local",
       "photo_db": {
@@ -317,11 +344,12 @@ where an example photo has the form:
 
 Attributes:
 
-:chk (str):   checksum of photo file
+:chk (str):   Checksum of photo file
 :src (str):   Absolute path where photo was found
 :dt (str):    Datetime string for best estimated creation date (original)
 :ts (float):  POSIX timestamp of best estimated creation date (derived)
 :fsz (int):   Photo file size, in bytes
 :sto (str):   Relative path where photo is stored, empty if not stored
 :prio (int):  Photo priority (lower is preferred)
-:tzo (float): local time zone offset (optional)
+:tzo (float): Local time zone offset (optional)
+
