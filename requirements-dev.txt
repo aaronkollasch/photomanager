@@ -15,3 +15,7 @@ flake8-black
 coverage
 twine
 build
+mypy
+types-pillow
+types-tqdm
+types-xxhash

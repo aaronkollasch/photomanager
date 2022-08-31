@@ -194,4 +194,4 @@ def datetime_str_to_object(ts_str: str, tz_default: tzinfo = None) -> datetime:
 
 def get_media_datetime(path: Union[str, PathLike]) -> str:
     """Gets the best known datetime string for a file"""
-    return ExifTool().get_best_datetime(path)
+    return ExifTool().get_best_datetime(path) or "no datetime found"

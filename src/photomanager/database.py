@@ -10,7 +10,7 @@ from math import log
 from os import PathLike, cpu_count, makedirs, rename
 from os.path import exists
 from pathlib import Path
-from typing import Optional, Type, TypeVar, Union
+from typing import Optional, Type, TypedDict, TypeVar, Union, cast
 
 import blake3
 import orjson
@@ -53,7 +53,7 @@ def path_is_relative_to(
         return path in subpath.parents
 
 
-def tz_str_to_tzinfo(tz: str):
+def tz_str_to_tzinfo(tz: str) -> Optional[tzinfo]:
     """
     Convert a timezone string (e.g. -0400) to a tzinfo
     If "local" or could not convert, return None
@@ -75,6 +75,14 @@ class DatabaseException(PhotoManagerBaseException):
 DB = TypeVar("DB", bound="Database")
 
 
+class DatabaseDict(TypedDict):
+    version: int
+    hash_algorithm: HashAlgorithm
+    timezone_default: str
+    photo_db: dict[str, list[PhotoFile]]
+    command_history: dict[str, str]
+
+
 class Database:
     VERSION = 3
     """
@@ -91,7 +99,7 @@ class Database:
     )
 
     def __init__(self):
-        self._db: dict = {
+        self._db: DatabaseDict = {
             "version": self.VERSION,
             "hash_algorithm": DEFAULT_HASH_ALGO,
             "timezone_default": "local",
@@ -157,7 +165,7 @@ class Database:
                 yield photo.src
 
     @property
-    def db(self) -> dict:
+    def db(self) -> DatabaseDict:
         """Get the Database parameters as a dict."""
         return self._db
 
@@ -185,7 +193,7 @@ class Database:
             db["photo_db"][uid] = [PhotoFile.from_dict(d) for d in db["photo_db"][uid]]
 
         db["version"] = self.VERSION
-        self._db = db
+        self._db = cast(DatabaseDict, db)
 
         for uid, photos in self.photo_db.items():
             for photo in photos:
@@ -201,7 +209,7 @@ class Database:
     def from_dict(cls: Type[DB], db_dict: dict) -> DB:
         """Load a Database from a dictionary. Warning: can modify the dictionary."""
         db = cls()
-        db.db = db_dict
+        db.db = cast(DatabaseDict, db_dict)
         return db
 
     @property
@@ -262,9 +270,9 @@ class Database:
             with open(path, "rb") as f:
                 s = f.read()
 
-        db = orjson.loads(s)
+        db_dict = orjson.loads(s)
         del s
-        db = cls.from_dict(db)
+        db = cls.from_dict(db_dict)
         return db
 
     def to_file(self, path: Union[str, PathLike], overwrite: bool = False) -> None:

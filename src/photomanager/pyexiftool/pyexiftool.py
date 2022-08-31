@@ -53,12 +53,13 @@ Example usage::
                                          d["EXIF:DateTimeOriginal"]))
 """
 
-from __future__ import unicode_literals
+from __future__ import annotations, unicode_literals
 
 import logging
 import subprocess
 import warnings
 from os import fsencode
+from typing import Optional
 
 import orjson
 
@@ -389,14 +390,14 @@ class ExifTool(object, metaclass=Singleton):
         else:
             return None
 
-    def get_best_datetime_batch(self, filenames):
+    def get_best_datetime_batch(self, filenames) -> list[str]:
         data = self.get_tags_batch(datetime_tags, filenames)
         result = []
         for d in data:
             result.append(best_datetime(d))
         return result
 
-    def get_best_datetime(self, filename):
+    def get_best_datetime(self, filename) -> Optional[str]:
         if response := self.get_best_datetime_batch([filename]):
             return response[0]
         else:

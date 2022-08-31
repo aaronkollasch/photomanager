@@ -46,7 +46,7 @@ class HashAlgorithm(Enum):
 
 
 class HashAlgorithmDefinition(TypedDict):
-    factory: Callable
+    factory: Callable[..., hashlib._Hash]
     command: tuple[str, ...]
     block_size: int
 
