@@ -401,3 +401,67 @@ def test_cli_verify_random_sample(tmpdir, caplog):
         assert "Verifying 2 items" in caplog.messages
         assert "Checked 2 items" in caplog.messages
         assert "Found 0 incorrect and 2 missing items" in caplog.messages
+
+
+def test_cli_stats_no_arguments(tmpdir, caplog):
+    """
+    stats with no arguments raises an error
+    """
+    caplog.set_level(logging.DEBUG)
+    CliRunner.isolated_filesystem(tmpdir)
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmpdir):
+        result = runner.invoke(
+            cast(Group, cli.main),
+            [
+                "stats",
+            ],
+        )
+        print("\nSTATS no-db")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 2
+        assert "not provided" in result.output
+
+
+@pytest.mark.parametrize("use_db", [False, True])
+def test_cli_stats_db_option(use_db, tmpdir, caplog):
+    """
+    stats uses database path with or without --db argument
+    """
+    caplog.set_level(logging.DEBUG)
+    CliRunner.isolated_filesystem(tmpdir)
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmpdir):
+        example_database = {
+            "version": 1,
+            "hash_algorithm": "sha256",
+            "photo_db": {
+                "uid1": [
+                    {
+                        "checksum": "deadbeef",
+                        "source_path": str(tmpdir / "source1" / "a.jpg"),
+                        "datetime": "2015:08:27 04:09:36.50",
+                        "timestamp": 1440662976.5,
+                        "file_size": 1024,
+                        "store_path": "a.jpg",
+                        "priority": 11,
+                    },
+                ]
+            },
+            "command_history": {
+                "2021-03-08_23-56-00Z": "photomanager create --db test.json"
+            },
+        }
+        with open(tmpdir / "db.json", "w") as f:
+            f.write(json.dumps(example_database))
+        commands = ["stats", str(tmpdir / "db.json")]
+        if use_db:
+            commands.insert(1, "--db")
+        result = runner.invoke(cast(Group, cli.main), commands)
+        print("\nSTATS")
+        print(result.output)
+        print(result)
+        assert result.exit_code == 0
+        assert "Total items:        1" in result.output
+        assert "Total unique items: 1" in result.output

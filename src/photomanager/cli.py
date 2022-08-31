@@ -371,13 +371,24 @@ def _verify(
 
 # fmt: off
 @click.command("stats", help="Get database statistics")
-@click.option("--db", type=click.Path(dir_okay=False, exists=True), required=True,
-              default=DEFAULT_DB, help="PhotoManager database path")
+@click.argument("database", type=click.Path(dir_okay=False, exists=True),
+                required=False, default=None)
+@click.option("--db", type=click.Path(dir_okay=False, exists=True), required=False,
+              default=None, help="PhotoManager database path")
 # fmt: on
-def _stats(db: Union[str, PathLike]):
+def _stats(
+    database: Optional[Union[str, PathLike]],
+    db: Optional[Union[str, PathLike]],
+):
     config_logging()
-    database = Database.from_file(db)
-    num_uids, num_photos, num_stored_photos, total_file_size = database.get_stats()
+    if database is not None:
+        db_path = database
+    elif db is not None:
+        db_path = db
+    else:
+        raise click.BadArgumentUsage("Database path not provided.")
+    my_db = Database.from_file(db_path)
+    num_uids, num_photos, num_stored_photos, total_file_size = my_db.get_stats()
     print(f"Total items:        {num_photos}")
     print(f"Total unique items: {num_uids}")
     print(f"Total stored items: {num_stored_photos}")
