@@ -63,7 +63,6 @@ from dataclasses import dataclass, field
 from typing import Union
 
 import orjson
-from tqdm import tqdm
 
 from photomanager.async_base import AsyncJob, AsyncWorkerQueue, make_chunks
 
@@ -125,10 +124,11 @@ class AsyncExifTool(AsyncWorkerQueue):
         self.running = False
         self.queue = None
         self.batch_size = batch_size
-        self.pbar = None
         self.processes: dict[int, subprocess.Process] = {}
 
-    async def do_job(self, worker_id: int, job: ExifToolJob):
+    async def do_job(self, worker_id: int, job: AsyncJob):
+        if not isinstance(job, ExifToolJob):
+            raise NotImplementedError
         outputs = [b"None"]
         try:
             if worker_id in self.processes:
@@ -181,12 +181,6 @@ class AsyncExifTool(AsyncWorkerQueue):
         process = self.processes[worker_id]
         await process.communicate(b"-stay_open\nFalse\n")
         del self.processes[worker_id]
-
-    def make_pbar(self, all_jobs: Collection[ExifToolJob]):
-        self.pbar = tqdm(total=sum(job.size for job in all_jobs))
-
-    def update_pbar(self, job: ExifToolJob):
-        self.pbar.update(n=job.size) if self.pbar else None
 
     def get_metadata_batch(
         self, filenames: Collection[str]

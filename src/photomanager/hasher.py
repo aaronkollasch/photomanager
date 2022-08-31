@@ -4,13 +4,13 @@ import hashlib
 import subprocess as subprocess_std
 from asyncio import run
 from asyncio import subprocess as subprocess_async
-from collections.abc import Iterable
+from collections.abc import Callable, Collection, Generator, Iterable
 from dataclasses import dataclass, field
 from enum import Enum
 from io import IOBase
 from os import PathLike, cpu_count, fsencode
 from os.path import getsize
-from typing import Callable, Generator, Optional, TypedDict, TypeVar, Union
+from typing import Optional, TypedDict, TypeVar, Union
 
 from blake3 import blake3
 from tqdm import tqdm
@@ -139,6 +139,7 @@ def check_files(
 @dataclass
 class FileHasherJob(AsyncJob):
     file_paths: list[bytes] = field(default_factory=list)
+    size_mode: str = "B"
     known_total_size: Optional[int] = None
 
     @staticmethod
@@ -151,7 +152,12 @@ class FileHasherJob(AsyncJob):
     @property
     def size(self) -> int:
         if self.known_total_size is None:
-            self.known_total_size = sum(self._getsize(path) for path in self.file_paths)
+            if self.size_mode == "B":
+                self.known_total_size = sum(
+                    self._getsize(path) for path in self.file_paths
+                )
+            else:
+                self.known_total_size = len(self.file_paths)
         return self.known_total_size
 
 
@@ -190,7 +196,9 @@ class AsyncFileHasher(AsyncWorkerQueue):
         except FileNotFoundError:
             return False
 
-    async def do_job(self, worker_id: int, job: FileHasherJob):
+    async def do_job(self, worker_id: int, job: AsyncJob):
+        if not isinstance(job, FileHasherJob):
+            raise NotImplementedError
         stdout = None
         try:
             process = await subprocess_async.create_subprocess_exec(
@@ -208,7 +216,7 @@ class AsyncFileHasher(AsyncWorkerQueue):
             print("hasher output:", stdout)
             raise e
 
-    def make_pbar(self, all_jobs: list[FileHasherJob]):
+    def make_pbar(self, all_jobs: Collection[AsyncJob]):
         if self.pbar_unit == "B":
             self.pbar = tqdm(
                 total=sum(job.size for job in all_jobs),
@@ -217,13 +225,7 @@ class AsyncFileHasher(AsyncWorkerQueue):
                 unit_divisor=1024,
             )
         else:
-            self.pbar = tqdm(total=sum(len(job.file_paths) for job in all_jobs))
-
-    def update_pbar(self, job: FileHasherJob):
-        if self.pbar_unit == "B":
-            self.pbar.update(job.size) if self.pbar else None
-        else:
-            self.pbar.update(len(job.file_paths)) if self.pbar else None
+            self.pbar = tqdm(total=sum(job.size for job in all_jobs))
 
     @staticmethod
     def encode(it: Iterable[PathType]) -> Generator[bytes, None, None]:
@@ -250,12 +252,13 @@ class AsyncFileHasher(AsyncWorkerQueue):
         all_paths = list(make_chunks(self.encode(file_paths), self.batch_size))
         all_sizes = (
             list(make_chunks(file_sizes, self.batch_size))
-            if file_sizes is not None
+            if pbar_unit == "B" and file_sizes is not None
             else None
         )
         for i, paths in enumerate(all_paths):
             job = FileHasherJob(
                 file_paths=paths,
+                size_mode=pbar_unit,
                 known_total_size=sum(all_sizes[i]) if all_sizes is not None else None,
             )
             all_jobs.append(job)

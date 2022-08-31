@@ -61,10 +61,10 @@ class AsyncWorkerQueue:
         raise NotImplementedError
 
     def make_pbar(self, all_jobs: Collection[AsyncJob]):
-        raise NotImplementedError
+        self.pbar = tqdm(total=sum(job.size for job in all_jobs))
 
     def update_pbar(self, job: AsyncJob):
-        raise NotImplementedError
+        self.pbar.update(n=job.size) if self.pbar else None
 
     def close_pbar(self):
         if self.pbar is not None:
