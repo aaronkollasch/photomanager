@@ -1,6 +1,24 @@
 Changelog for PhotoManager
 ==========================
 
+0.0.9 - 2022-08-30
+------------------
+
+Added
+^^^^^
+- Optional check for media integrity before index/import with ``--check-integrity`` (#24, #26)
+- Github Action for CodeQL analysis (#25)
+
+0.0.8 - 2022-08-18
+------------------
+
+Added
+^^^^^
+- Argument to filter uids in the collect action (#20)
+- Python 3.10 support (#21)
+- Sort import statments with isort (#22)
+- ``index --dump`` option to print indexed photo to stdout (#23)
+
 0.0.7 - 2021-12-07
 ------------------
 
