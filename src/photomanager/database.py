@@ -4,7 +4,7 @@ import gzip
 import logging
 import random
 import shlex
-from collections.abc import Container, Iterable
+from collections.abc import Container, Generator, Iterable
 from datetime import datetime, tzinfo
 from math import log
 from os import PathLike, cpu_count, makedirs, rename
@@ -102,7 +102,9 @@ class Database:
         self.timestamp_to_uids: dict[float, dict[str, None]] = {}
         self._hash: int = hash(self)
 
-    def __eq__(self, other: DB) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Database):
+            return NotImplemented
         return self.db == other.db
 
     def __hash__(self) -> int:
@@ -149,7 +151,7 @@ class Database:
         return self.db["command_history"]
 
     @property
-    def sources(self) -> str:
+    def sources(self) -> Generator[str, None, None]:
         for photos in self.photo_db.values():
             for photo in photos:
                 yield photo.src
@@ -294,8 +296,8 @@ class Database:
                     f"{type(e).__name__} {e}"
                 )
                 try:
-                    name, version = base_path.name.rsplit("_", 1)
-                    version = int(version)
+                    name, version_string = base_path.name.rsplit("_", 1)
+                    version = int(version_string)
                     base_path = base_path.with_name(name + "_" + str(version + 1))
                 except ValueError:
                     new_paths = list(
@@ -330,7 +332,7 @@ class Database:
                 cctx = zstd.ZstdCompressor(
                     level=7,
                     write_checksum=True,
-                    threads=cpu_count(),
+                    threads=cpu_count() or 1,
                 )
                 f.write(cctx.compress(save_bytes))
         else:
@@ -453,9 +455,9 @@ class Database:
                 return None
         if uid is None:
             if photo.chk in self.hash_to_uid:
-                uid: str = self.hash_to_uid[photo.chk]
+                uid = self.hash_to_uid[photo.chk]
             else:
-                uid: str = self.generate_uuid()
+                uid = self.generate_uuid()
         if uid in self.photo_db:
             photos = self.photo_db[uid]
             assert not any(photo.chk == p.chk and photo.src == p.src for p in photos)

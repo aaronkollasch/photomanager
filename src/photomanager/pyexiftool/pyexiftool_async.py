@@ -60,6 +60,7 @@ import os
 from asyncio import run, subprocess
 from collections.abc import Collection, Generator, Iterable
 from dataclasses import dataclass, field
+from typing import Union
 
 import orjson
 from tqdm import tqdm
@@ -95,11 +96,11 @@ class ExifToolJob(AsyncJob):
 
 
 def make_chunk_jobs(
-    filenames: Iterable[str],
+    filenames: Iterable[Union[str, os.PathLike]],
     size: int,
     init: Collection[str] = (),
     mode: str = "default",
-) -> Generator[ExifToolJob]:
+) -> Generator[ExifToolJob, None, None]:
     init = ("-j",) + tuple(init)
     for chunk in make_chunks(filenames, size, init=init):
         yield ExifToolJob(
@@ -112,8 +113,8 @@ def make_chunk_jobs(
 class AsyncExifTool(AsyncWorkerQueue):
     def __init__(
         self,
-        executable_=None,
-        num_workers=os.cpu_count(),
+        executable_: str = None,
+        num_workers: int = os.cpu_count() or 1,
         show_progress: bool = True,
         batch_size: int = 20,
     ):
@@ -147,20 +148,22 @@ class AsyncExifTool(AsyncWorkerQueue):
                     stderr=subprocess.DEVNULL,
                 )
                 self.processes[worker_id] = process
+            assert process.stdin is not None
+            assert process.stdout is not None
             process.stdin.write(b"\n".join(job.params))
             process.stdin.write(b"\n-execute\n")
             await process.stdin.drain()
             outputs = [b""]
             while not outputs[-1][-32:].strip().endswith(sentinel):
                 outputs.append(await process.stdout.read(block_size))
-            output = b"".join(outputs).strip()[: -len(sentinel)]
-            if len(output.strip()) == 0:
+            output_bytes = b"".join(outputs).strip()[: -len(sentinel)]
+            if len(output_bytes.strip()) == 0:
                 logging.warning(
                     f"exiftool returned an empty string for params {job.params}"
                 )
-                output = ()
+                output = {}
             else:
-                output = orjson.loads(output)
+                output = orjson.loads(output_bytes)
             for d in output:
                 if "SourceFile" not in d:
                     logging.warning(
@@ -171,7 +174,7 @@ class AsyncExifTool(AsyncWorkerQueue):
                 else:
                     self.output_dict[d["SourceFile"]] = d
         except Exception as e:
-            print(f"exiftool output: {b''.join(outputs)}\n")
+            print(f"exiftool output: {b''.join(outputs)!r}\n")
             raise e
 
     async def close_worker(self, worker_id: int):
@@ -179,11 +182,11 @@ class AsyncExifTool(AsyncWorkerQueue):
         await process.communicate(b"-stay_open\nFalse\n")
         del self.processes[worker_id]
 
-    def make_pbar(self, all_jobs: list[ExifToolJob]):
+    def make_pbar(self, all_jobs: Collection[ExifToolJob]):
         self.pbar = tqdm(total=sum(job.size for job in all_jobs))
 
     def update_pbar(self, job: ExifToolJob):
-        self.pbar.update(n=job.size)
+        self.pbar.update(n=job.size) if self.pbar else None
 
     def get_metadata_batch(
         self, filenames: Collection[str]
@@ -211,7 +214,9 @@ class AsyncExifTool(AsyncWorkerQueue):
         all_jobs = tuple(make_chunk_jobs(filenames, self.batch_size, init=params))
         return run(self.execute_queue(all_jobs))
 
-    def get_best_datetime_batch(self, filenames: Iterable[str]) -> dict[str, str]:
+    def get_best_datetime_batch(
+        self, filenames: Iterable[Union[str, os.PathLike]]
+    ) -> dict[str, str]:
         params = tuple("-" + t for t in datetime_tags)
         all_jobs = tuple(
             make_chunk_jobs(

@@ -10,7 +10,8 @@ from photomanager.hasher import DEFAULT_HASH_ALGO, HashAlgorithm, file_checksum
 from photomanager.pyexiftool import ExifTool
 
 PF = TypeVar("PF", bound="PhotoFile")
-local_tzoffset = datetime.now().astimezone().utcoffset().total_seconds()
+local_utcoffset = datetime.now().astimezone().utcoffset()
+local_tz_offset = local_utcoffset.total_seconds() if local_utcoffset is not None else 0
 NAME_MAP_ENC: dict[str, str] = {
     "checksum": "chk",
     "source_path": "src",
@@ -88,7 +89,12 @@ class PhotoFile:
         photo_hash = file_checksum(source_path, algorithm)
         dt_str = get_media_datetime(source_path)
         dt = datetime_str_to_object(dt_str, tz_default=tz_default)
-        tz = dt.utcoffset().total_seconds() if dt.tzinfo is not None else local_tzoffset
+        dt_utcoffset = dt.utcoffset()
+        tz = (
+            dt_utcoffset.total_seconds()
+            if dt_utcoffset is not None
+            else local_tz_offset
+        )
         timestamp = dt.timestamp()
         file_size = getsize(source_path)
         return cls(
@@ -136,7 +142,8 @@ class PhotoFile:
             else get_media_datetime(source_path)
         )
         dt = datetime_str_to_object(dt_str, tz_default=tz_default)
-        tz = dt.utcoffset().total_seconds() if dt.tzinfo else None
+        dt_utcoffset = dt.utcoffset()
+        tz = dt_utcoffset.total_seconds() if dt_utcoffset is not None else None
         timestamp = dt.timestamp()
         file_size = getsize(source_path)
         return cls(

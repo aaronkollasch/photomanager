@@ -16,7 +16,7 @@ T = TypeVar("T")
 
 def make_chunks(
     it: Iterable[T], size: int, init: Collection[T] = ()
-) -> Generator[list[T]]:
+) -> Generator[list[T], None, None]:
     chunk = list(init)
     for item in it:
         chunk.append(item)
@@ -37,7 +37,7 @@ class AsyncJob:
 class AsyncWorkerQueue:
     def __init__(
         self,
-        num_workers: int = cpu_count(),
+        num_workers: int = cpu_count() or 1,
         show_progress: bool = False,
     ):
         self.num_workers: int = num_workers
@@ -73,6 +73,8 @@ class AsyncWorkerQueue:
     async def worker(self, worker_id: int):
         try:
             while True:
+                if self.queue is None:  # pragma: no cover
+                    break
                 job: AsyncJob = await self.queue.get()
                 try:
                     await self.do_job(worker_id, job)

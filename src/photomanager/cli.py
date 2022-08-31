@@ -19,7 +19,7 @@ try:
 except ImportError as e:
     check_files_message = str(e)
 
-    def check_files(*_, **__):
+    def check_files(*_, **__):  # type: ignore
         raise Exception("check-media-integrity not available: " + check_files_message)
 
 
@@ -135,16 +135,16 @@ def _index(
     config_logging(debug=debug)
     if db is not None:
         database = Database.from_file(db, create_new=True)
-        skip_existing = set(database.sources) if skip_existing else set()
+        exclude_files = set(database.sources) if skip_existing else set()
     else:
         database = Database()
-        skip_existing = set()
+        exclude_files = set()
         database.hash_algorithm = HashAlgorithm(hash_algorithm)
     filtered_files = fileops.list_files(
         source=source,
         file=file,
         exclude=exclude,
-        exclude_files=skip_existing,
+        exclude_files=exclude_files,
         paths=paths,
     )
     bad_files = None
@@ -163,7 +163,7 @@ def _index(
         photos = index_result["photos"]
         result = {}
         for filename, photo in zip(filtered_files, photos):
-            result[filename] = photo.to_dict()
+            result[filename] = photo.to_dict() if photo is not None else None
         print(json.dumps(result, indent=2))
     if db is not None and not dry_run:
         database.save(path=db, argv=sys.argv)
@@ -257,12 +257,12 @@ def _import(
 ):
     config_logging(debug=debug)
     database = Database.from_file(db, create_new=True)
-    skip_existing = set(database.sources) if skip_existing else set()
+    exclude_files = set(database.sources) if skip_existing else set()
     filtered_files = fileops.list_files(
         source=source,
         file=file,
         exclude=exclude,
-        exclude_files=skip_existing,
+        exclude_files=exclude_files,
         paths=paths,
     )
     bad_files = None

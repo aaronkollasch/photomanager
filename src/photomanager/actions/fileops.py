@@ -41,23 +41,23 @@ def list_files(
     :return: A dictionary with paths as keys.
     """
     logger = logging.getLogger(__name__)
-    paths = {Path(p).expanduser().resolve(): None for p in paths}
+    paths_resolved = {Path(p).expanduser().resolve(): None for p in paths}
     if source == "-":
         with click.open_file("-", "r") as f:
-            sources: str = f.read()
-        paths.update(
+            sources = f.read()
+        paths_resolved.update(
             {
                 Path(p).expanduser().resolve(): None
                 for p in sources.splitlines(keepends=False)
             }
         )
     elif source:
-        paths[Path(source).expanduser().resolve()] = None
+        paths_resolved[Path(source).expanduser().resolve()] = None
 
-    files = {}
+    files: dict[Path, None] = {}
     if file == "-":
         with click.open_file("-", "r") as f:
-            sources: str = f.read()
+            sources = f.read()
         files.update(
             {
                 Path(p).expanduser().resolve(): None
@@ -66,7 +66,7 @@ def list_files(
         )
     elif file:
         files[Path(file).expanduser().resolve()] = None
-    for path in paths:
+    for path in paths_resolved:
         if path.is_file():
             files[path] = None
         else:
@@ -74,7 +74,7 @@ def list_files(
                 files[p] = None
 
     exclude_files = {Path(f).expanduser().resolve() for f in exclude_files}
-    filtered_files = {}
+    filtered_files: dict[str, None] = {}
     exclude_patterns = [re.compile(pat) for pat in set(exclude)]
     skipped_extensions = set()
     for p in files:
@@ -116,26 +116,27 @@ def index_photos(
     logger = logging.getLogger(__name__)
     if storage_type in ("SSD", "RAID"):
         async_hashes = True
-        async_exif = cpu_count()
+        async_exif = cpu_count() or 1
     else:
         # concurrent reads of sequential files can lead to thrashing
         async_hashes = False
         # exiftool is partially CPU-bound and benefits from async
-        async_exif = min(4, cpu_count())
+        async_exif = min(4, cpu_count() or 1)
     logger.info("Collecting media hashes")
+    files_normalized = [str(f) for f in files]
     checksum_cache = AsyncFileHasher(
         algorithm=hash_algorithm, use_async=async_hashes
-    ).check_files(files, pbar_unit="B")
+    ).check_files(files_normalized, pbar_unit="B")
     logger.info("Collecting media dates and times")
     datetime_cache = AsyncExifTool(num_workers=async_exif).get_best_datetime_batch(
-        files
+        files_normalized
     )
 
     logger.info("Indexing media")
     photos: list[Optional[PhotoFile]] = []
     exiftool = ExifTool()
     exiftool.start()
-    for current_file in tqdm(files):
+    for current_file in tqdm(files_normalized):
         if logger.isEnabledFor(logging.DEBUG):
             tqdm.write(f"Indexing {current_file}", file=sys.stderr)
         try:

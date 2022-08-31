@@ -6,7 +6,7 @@ import sys
 from collections.abc import Container, Iterable
 from os import PathLike
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, TypedDict, Union
 
 from tqdm import tqdm
 
@@ -15,13 +15,22 @@ from photomanager.database import Database, sizeof_fmt, tz_str_to_tzinfo
 from photomanager.photofile import PhotoFile
 
 
+class IndexResult(TypedDict):
+    changed_uids: set[str]
+    num_added_photos: int
+    num_merged_photos: int
+    num_skipped_photos: int
+    num_error_photos: int
+    photos: list[Optional[PhotoFile]]
+
+
 def index(
     database: Database,
     files: Iterable[Union[str, PathLike]],
     priority: int = 10,
     timezone_default: Optional[str] = None,
     storage_type: str = "HDD",
-) -> dict[str, Union[int, set[str], list[PhotoFile]]]:
+) -> IndexResult:
     """
     Index photo files and add them to the database.
 

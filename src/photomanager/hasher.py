@@ -10,7 +10,7 @@ from enum import Enum
 from io import IOBase
 from os import PathLike, cpu_count, fsencode
 from os.path import getsize
-from typing import Generator, Optional, Union
+from typing import Callable, Generator, Optional, TypedDict, TypeVar, Union
 
 from blake3 import blake3
 from tqdm import tqdm
@@ -19,6 +19,24 @@ from photomanager import PhotoManagerBaseException
 from photomanager.async_base import AsyncJob, AsyncWorkerQueue, make_chunks
 
 BLOCK_SIZE = 65536
+PathType = TypeVar(
+    "PathType",
+    bytes,
+    str,
+    PathLike,
+    Union[str, PathLike],
+    Union[bytes, str, PathLike],
+)
+PathTypeWithIOBase = TypeVar(
+    "PathTypeWithIOBase",
+    bytes,
+    str,
+    PathLike,
+    IOBase,
+    Union[str, PathLike],
+    Union[bytes, str, PathLike],
+    Union[bytes, str, PathLike, IOBase],
+)
 
 
 class HashAlgorithm(Enum):
@@ -27,9 +45,15 @@ class HashAlgorithm(Enum):
     BLAKE3 = "blake3"
 
 
+class HashAlgorithmDefinition(TypedDict):
+    factory: Callable
+    command: tuple[str, ...]
+    block_size: int
+
+
 DEFAULT_HASH_ALGO = HashAlgorithm.BLAKE2B_256  # b2sum -l 256
 HASH_ALGORITHMS = tuple(v.value for v in HashAlgorithm.__members__.values())
-HASH_ALGO_DEFINITIONS = {
+HASH_ALGO_DEFINITIONS: dict[HashAlgorithm, HashAlgorithmDefinition] = {
     HashAlgorithm.SHA256: {
         "factory": lambda: hashlib.sha256(),
         "command": ("sha256sum",),
@@ -58,7 +82,7 @@ def _update_hash_obj(hash_obj, fd, s=BLOCK_SIZE):
 
 
 def file_checksum(
-    file: Union[bytes, str, PathLike, IOBase],
+    file: PathTypeWithIOBase,
     algorithm: HashAlgorithm = DEFAULT_HASH_ALGO,
 ) -> str:
     if algorithm in HASH_ALGO_DEFINITIONS:
@@ -78,14 +102,14 @@ def file_checksum(
 
 
 def check_files(
-    file_paths: Iterable[Union[bytes, str, PathLike, IOBase]],
+    file_paths: Iterable[PathTypeWithIOBase],
     algorithm: HashAlgorithm = DEFAULT_HASH_ALGO,
     pbar_unit: str = "it",
     file_sizes: Optional[Iterable[int]] = None,
-) -> dict[str, str]:
+) -> dict[PathTypeWithIOBase, str]:
     file_paths = list(file_paths)
     if pbar_unit == "B" and file_sizes is not None:
-        file_sizes = list(file_sizes)
+        file_sizes_collected = list(file_sizes)
         p_bar = tqdm(
             total=sum(file_sizes),
             unit="B",
@@ -93,6 +117,7 @@ def check_files(
             unit_divisor=1024,
         )
     else:
+        file_sizes_collected = None
         pbar_unit = "it"
         p_bar = tqdm(total=len(file_paths))
     output_dict = {}
@@ -103,7 +128,8 @@ def check_files(
             pass  # missing entries in output_dict are handled elsewhere
         finally:
             if pbar_unit == "B":
-                p_bar.update(file_sizes[i])
+                assert file_sizes_collected is not None
+                p_bar.update(file_sizes_collected[i])
             else:
                 p_bar.update(1)
     p_bar.close()
@@ -132,7 +158,7 @@ class FileHasherJob(AsyncJob):
 class AsyncFileHasher(AsyncWorkerQueue):
     def __init__(
         self,
-        num_workers: int = cpu_count(),
+        num_workers: int = cpu_count() or 1,
         show_progress: bool = True,
         batch_size: int = 50,
         algorithm: HashAlgorithm = DEFAULT_HASH_ALGO,
@@ -195,21 +221,21 @@ class AsyncFileHasher(AsyncWorkerQueue):
 
     def update_pbar(self, job: FileHasherJob):
         if self.pbar_unit == "B":
-            self.pbar.update(job.size)
+            self.pbar.update(job.size) if self.pbar else None
         else:
-            self.pbar.update(len(job.file_paths))
+            self.pbar.update(len(job.file_paths)) if self.pbar else None
 
     @staticmethod
-    def encode(it: Iterable[Union[str, PathLike]]) -> Generator[bytes]:
+    def encode(it: Iterable[PathType]) -> Generator[bytes, None, None]:
         for item in it:
             yield fsencode(item)
 
     def check_files(
         self,
-        file_paths: Iterable[Union[str, PathLike]],
+        file_paths: Iterable[PathType],
         pbar_unit: str = "it",
         file_sizes: Optional[Iterable[int]] = None,
-    ) -> dict[str, str]:
+    ) -> dict[PathType, str]:
         if not self.use_async:
             return check_files(
                 file_paths=file_paths,
@@ -230,7 +256,7 @@ class AsyncFileHasher(AsyncWorkerQueue):
         for i, paths in enumerate(all_paths):
             job = FileHasherJob(
                 file_paths=paths,
-                known_total_size=sum(all_sizes[i]) if file_sizes is not None else None,
+                known_total_size=sum(all_sizes[i]) if all_sizes is not None else None,
             )
             all_jobs.append(job)
         return run(self.execute_queue(all_jobs))
