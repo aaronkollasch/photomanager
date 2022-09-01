@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-# PyExifTool <http://github.com/smarnach/pyexiftool>
+# PyExifTool <https://github.com/smarnach/pyexiftool>
 # Copyright 2012 Sven Marnach
+# Modified work copyright 2022 Aaron Kollasch
 
 # This file is part of PyExifTool.
 #
@@ -26,7 +27,7 @@ single instance needs to be launched and can be reused for many
 queries.  This is much more efficient than launching a separate
 process for every single query.
 
-.. _ExifTool: http://www.sno.phy.queensu.ca/~phil/exiftool/
+.. _ExifTool: https://exiftool.org/
 
 The source code can be checked out from the github repository with
 
