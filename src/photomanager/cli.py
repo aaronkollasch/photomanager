@@ -19,7 +19,7 @@ try:
 except ImportError as e:
     check_files_message = str(e)
 
-    def check_files(*_, **__):
+    def check_files(*_, **__):  # type: ignore
         raise Exception("check-media-integrity not available: " + check_files_message)
 
 
@@ -113,7 +113,7 @@ def _create(
 @click.argument("paths", nargs=-1, type=click.Path())
 # fmt: on
 def _index(
-    db: Union[str, PathLike] = None,
+    db: Optional[Union[str, PathLike]] = None,
     source: Optional[Union[str, PathLike]] = None,
     file: Optional[Union[str, PathLike]] = None,
     paths: Iterable[Union[str, PathLike]] = tuple(),
@@ -135,16 +135,16 @@ def _index(
     config_logging(debug=debug)
     if db is not None:
         database = Database.from_file(db, create_new=True)
-        skip_existing = set(database.sources) if skip_existing else set()
+        exclude_files = set(database.sources) if skip_existing else set()
     else:
         database = Database()
-        skip_existing = set()
+        exclude_files = set()
         database.hash_algorithm = HashAlgorithm(hash_algorithm)
     filtered_files = fileops.list_files(
         source=source,
         file=file,
         exclude=exclude,
-        exclude_files=skip_existing,
+        exclude_files=exclude_files,
         paths=paths,
     )
     bad_files = None
@@ -163,7 +163,7 @@ def _index(
         photos = index_result["photos"]
         result = {}
         for filename, photo in zip(filtered_files, photos):
-            result[filename] = photo.to_dict()
+            result[filename] = photo.to_dict() if photo is not None else None
         print(json.dumps(result, indent=2))
     if db is not None and not dry_run:
         database.save(path=db, argv=sys.argv)
@@ -257,12 +257,12 @@ def _import(
 ):
     config_logging(debug=debug)
     database = Database.from_file(db, create_new=True)
-    skip_existing = set(database.sources) if skip_existing else set()
+    exclude_files = set(database.sources) if skip_existing else set()
     filtered_files = fileops.list_files(
         source=source,
         file=file,
         exclude=exclude,
-        exclude_files=skip_existing,
+        exclude_files=exclude_files,
         paths=paths,
     )
     bad_files = None
@@ -371,13 +371,24 @@ def _verify(
 
 # fmt: off
 @click.command("stats", help="Get database statistics")
-@click.option("--db", type=click.Path(dir_okay=False, exists=True), required=True,
-              default=DEFAULT_DB, help="PhotoManager database path")
+@click.argument("database", type=click.Path(dir_okay=False, exists=True),
+                required=False, default=None)
+@click.option("--db", type=click.Path(dir_okay=False, exists=True), required=False,
+              default=None, help="PhotoManager database path")
 # fmt: on
-def _stats(db: Union[str, PathLike]):
+def _stats(
+    database: Optional[Union[str, PathLike]],
+    db: Optional[Union[str, PathLike]],
+):
     config_logging()
-    database = Database.from_file(db)
-    num_uids, num_photos, num_stored_photos, total_file_size = database.get_stats()
+    if database is not None:
+        db_path = database
+    elif db is not None:
+        db_path = db
+    else:
+        raise click.BadArgumentUsage("Database path not provided.")
+    my_db = Database.from_file(db_path)
+    num_uids, num_photos, num_stored_photos, total_file_size = my_db.get_stats()
     print(f"Total items:        {num_photos}")
     print(f"Total unique items: {num_uids}")
     print(f"Total stored items: {num_stored_photos}")

@@ -4,13 +4,13 @@ import gzip
 import logging
 import random
 import shlex
-from collections.abc import Container, Iterable
+from collections.abc import Container, Generator, Iterable
 from datetime import datetime, tzinfo
 from math import log
 from os import PathLike, cpu_count, makedirs, rename
 from os.path import exists
 from pathlib import Path
-from typing import Optional, Type, TypeVar, Union
+from typing import Optional, Type, TypedDict, TypeVar, Union, cast
 
 import blake3
 import orjson
@@ -53,7 +53,7 @@ def path_is_relative_to(
         return path in subpath.parents
 
 
-def tz_str_to_tzinfo(tz: str):
+def tz_str_to_tzinfo(tz: str) -> Optional[tzinfo]:
     """
     Convert a timezone string (e.g. -0400) to a tzinfo
     If "local" or could not convert, return None
@@ -75,6 +75,14 @@ class DatabaseException(PhotoManagerBaseException):
 DB = TypeVar("DB", bound="Database")
 
 
+class DatabaseDict(TypedDict):
+    version: int
+    hash_algorithm: HashAlgorithm
+    timezone_default: str
+    photo_db: dict[str, list[PhotoFile]]
+    command_history: dict[str, str]
+
+
 class Database:
     VERSION = 3
     """
@@ -91,7 +99,7 @@ class Database:
     )
 
     def __init__(self):
-        self._db: dict = {
+        self._db: DatabaseDict = {
             "version": self.VERSION,
             "hash_algorithm": DEFAULT_HASH_ALGO,
             "timezone_default": "local",
@@ -102,7 +110,9 @@ class Database:
         self.timestamp_to_uids: dict[float, dict[str, None]] = {}
         self._hash: int = hash(self)
 
-    def __eq__(self, other: DB) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Database):
+            return NotImplemented
         return self.db == other.db
 
     def __hash__(self) -> int:
@@ -149,13 +159,13 @@ class Database:
         return self.db["command_history"]
 
     @property
-    def sources(self) -> str:
+    def sources(self) -> Generator[str, None, None]:
         for photos in self.photo_db.values():
             for photo in photos:
                 yield photo.src
 
     @property
-    def db(self) -> dict:
+    def db(self) -> DatabaseDict:
         """Get the Database parameters as a dict."""
         return self._db
 
@@ -183,7 +193,7 @@ class Database:
             db["photo_db"][uid] = [PhotoFile.from_dict(d) for d in db["photo_db"][uid]]
 
         db["version"] = self.VERSION
-        self._db = db
+        self._db = cast(DatabaseDict, db)
 
         for uid, photos in self.photo_db.items():
             for photo in photos:
@@ -199,7 +209,7 @@ class Database:
     def from_dict(cls: Type[DB], db_dict: dict) -> DB:
         """Load a Database from a dictionary. Warning: can modify the dictionary."""
         db = cls()
-        db.db = db_dict
+        db.db = cast(DatabaseDict, db_dict)
         return db
 
     @property
@@ -260,9 +270,9 @@ class Database:
             with open(path, "rb") as f:
                 s = f.read()
 
-        db = orjson.loads(s)
+        db_dict = orjson.loads(s)
         del s
-        db = cls.from_dict(db)
+        db = cls.from_dict(db_dict)
         return db
 
     def to_file(self, path: Union[str, PathLike], overwrite: bool = False) -> None:
@@ -294,8 +304,8 @@ class Database:
                     f"{type(e).__name__} {e}"
                 )
                 try:
-                    name, version = base_path.name.rsplit("_", 1)
-                    version = int(version)
+                    name, version_string = base_path.name.rsplit("_", 1)
+                    version = int(version_string)
                     base_path = base_path.with_name(name + "_" + str(version + 1))
                 except ValueError:
                     new_paths = list(
@@ -330,7 +340,7 @@ class Database:
                 cctx = zstd.ZstdCompressor(
                     level=7,
                     write_checksum=True,
-                    threads=cpu_count(),
+                    threads=cpu_count() or 1,
                 )
                 f.write(cctx.compress(save_bytes))
         else:
@@ -453,9 +463,9 @@ class Database:
                 return None
         if uid is None:
             if photo.chk in self.hash_to_uid:
-                uid: str = self.hash_to_uid[photo.chk]
+                uid = self.hash_to_uid[photo.chk]
             else:
-                uid: str = self.generate_uuid()
+                uid = self.generate_uuid()
         if uid in self.photo_db:
             photos = self.photo_db[uid]
             assert not any(photo.chk == p.chk and photo.src == p.src for p in photos)

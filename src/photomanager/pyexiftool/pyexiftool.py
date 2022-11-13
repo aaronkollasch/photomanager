@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-# PyExifTool <http://github.com/smarnach/pyexiftool>
+# PyExifTool <https://github.com/smarnach/pyexiftool>
 # Copyright 2012 Sven Marnach
+# Modified work copyright 2022 Aaron Kollasch
 
 # This file is part of PyExifTool.
 #
@@ -26,7 +27,7 @@ single instance needs to be launched and can be reused for many
 queries.  This is much more efficient than launching a separate
 process for every single query.
 
-.. _ExifTool: http://www.sno.phy.queensu.ca/~phil/exiftool/
+.. _ExifTool: https://exiftool.org/
 
 The source code can be checked out from the github repository with
 
@@ -53,12 +54,13 @@ Example usage::
                                          d["EXIF:DateTimeOriginal"]))
 """
 
-from __future__ import unicode_literals
+from __future__ import annotations, unicode_literals
 
 import logging
 import subprocess
 import warnings
 from os import fsencode
+from typing import Optional
 
 import orjson
 
@@ -389,14 +391,14 @@ class ExifTool(object, metaclass=Singleton):
         else:
             return None
 
-    def get_best_datetime_batch(self, filenames):
+    def get_best_datetime_batch(self, filenames) -> list[str]:
         data = self.get_tags_batch(datetime_tags, filenames)
         result = []
         for d in data:
             result.append(best_datetime(d))
         return result
 
-    def get_best_datetime(self, filename):
+    def get_best_datetime(self, filename) -> Optional[str]:
         if response := self.get_best_datetime_batch([filename]):
             return response[0]
         else:

@@ -76,7 +76,10 @@ def make_hash_map(
 
 
 def map_hashes(
-    database: Database, new_algo: str, hash_map: dict[str, str], map_all: bool = False
+    database: Database,
+    new_algo: HashAlgorithm,
+    hash_map: dict[str, str],
+    map_all: bool = False,
 ) -> Optional[int]:  # pragma: no cover
     """Map the database's checksums to a new algorithm.
 

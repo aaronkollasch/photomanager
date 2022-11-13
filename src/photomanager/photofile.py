@@ -10,7 +10,8 @@ from photomanager.hasher import DEFAULT_HASH_ALGO, HashAlgorithm, file_checksum
 from photomanager.pyexiftool import ExifTool
 
 PF = TypeVar("PF", bound="PhotoFile")
-local_tzoffset = datetime.now().astimezone().utcoffset().total_seconds()
+local_utcoffset = datetime.now().astimezone().utcoffset()
+local_tz_offset = local_utcoffset.total_seconds() if local_utcoffset is not None else 0
 NAME_MAP_ENC: dict[str, str] = {
     "checksum": "chk",
     "source_path": "src",
@@ -88,7 +89,12 @@ class PhotoFile:
         photo_hash = file_checksum(source_path, algorithm)
         dt_str = get_media_datetime(source_path)
         dt = datetime_str_to_object(dt_str, tz_default=tz_default)
-        tz = dt.utcoffset().total_seconds() if dt.tzinfo is not None else local_tzoffset
+        dt_utcoffset = dt.utcoffset()
+        tz = (
+            dt_utcoffset.total_seconds()
+            if dt_utcoffset is not None
+            else local_tz_offset
+        )
         timestamp = dt.timestamp()
         file_size = getsize(source_path)
         return cls(
@@ -136,7 +142,8 @@ class PhotoFile:
             else get_media_datetime(source_path)
         )
         dt = datetime_str_to_object(dt_str, tz_default=tz_default)
-        tz = dt.utcoffset().total_seconds() if dt.tzinfo else None
+        dt_utcoffset = dt.utcoffset()
+        tz = dt_utcoffset.total_seconds() if dt_utcoffset is not None else None
         timestamp = dt.timestamp()
         file_size = getsize(source_path)
         return cls(
@@ -158,7 +165,10 @@ class PhotoFile:
         return asdict(self)
 
 
-def datetime_str_to_object(ts_str: str, tz_default: tzinfo = None) -> datetime:
+def datetime_str_to_object(
+    ts_str: str,
+    tz_default: Optional[tzinfo] = None,
+) -> datetime:
     """Parses a datetime string into a datetime object"""
     dt = None
     if "." in ts_str:
@@ -179,7 +189,7 @@ def datetime_str_to_object(ts_str: str, tz_default: tzinfo = None) -> datetime:
             except ValueError:
                 pass  # failed parsing is handled below
     if dt is not None:
-        if dt.tzinfo is None:
+        if dt.tzinfo is None and tz_default is not None:
             dt = dt.replace(tzinfo=tz_default)
         return dt
     raise ValueError(f"Could not parse datetime str: {repr(ts_str)}")
@@ -187,4 +197,4 @@ def datetime_str_to_object(ts_str: str, tz_default: tzinfo = None) -> datetime:
 
 def get_media_datetime(path: Union[str, PathLike]) -> str:
     """Gets the best known datetime string for a file"""
-    return ExifTool().get_best_datetime(path)
+    return ExifTool().get_best_datetime(path) or "no datetime found"

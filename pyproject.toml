@@ -14,7 +14,7 @@ write_to_template = '''version = "{version}"
 [tool.black]
 line-length = 88
 target-version = ['py38']
-include = '^/(src|tests|benchmarks)/.*\.pyi?$'
+include = '^/(src|tests|benchmarks|stubs)/.*\.pyi?$'
 extend-exclude = '''
 # A regex preceded with ^/ will apply only to files and directories
 # in the root of the project.
@@ -42,4 +42,15 @@ markers = [
 ]
 filterwarnings = [
     "ignore:.*the imp module is deprecated.*:DeprecationWarning",
+]
+
+[tool.mypy]
+ignore_missing_imports = true
+warn_return_any = true
+mypy_path = [
+    "src",
+    "stubs",
+]
+exclude = [
+    "photomanager/check_media_integrity/test_damage[.]py$",
 ]
