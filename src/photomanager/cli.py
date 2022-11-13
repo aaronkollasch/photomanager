@@ -113,7 +113,7 @@ def _create(
 @click.argument("paths", nargs=-1, type=click.Path())
 # fmt: on
 def _index(
-    db: Union[str, PathLike] = None,
+    db: Optional[Union[str, PathLike]] = None,
     source: Optional[Union[str, PathLike]] = None,
     file: Optional[Union[str, PathLike]] = None,
     paths: Iterable[Union[str, PathLike]] = tuple(),

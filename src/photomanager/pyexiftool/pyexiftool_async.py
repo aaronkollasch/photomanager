@@ -112,7 +112,7 @@ def make_chunk_jobs(
 class AsyncExifTool(AsyncWorkerQueue):
     def __init__(
         self,
-        executable_: str = None,
+        executable_: str = "",
         num_workers: int = os.cpu_count() or 1,
         show_progress: bool = True,
         batch_size: int = 20,
@@ -120,7 +120,7 @@ class AsyncExifTool(AsyncWorkerQueue):
         super(AsyncExifTool, self).__init__(
             num_workers=num_workers, show_progress=show_progress
         )
-        self.executable = executable if executable_ is None else executable_
+        self.executable = executable if not executable_ else executable_
         self.running = False
         self.queue = None
         self.batch_size = batch_size
