@@ -260,8 +260,11 @@ class Database:
                 )
                 s = zstd.decompress(c)
                 del c
-                s_hash = xxhash.xxh64_digest(s)
-                if has_checksum and checksum != s_hash[-4:][::-1]:
+                if (
+                    has_checksum
+                    and (s_hash := xxhash.xxh64_digest(s))
+                    and checksum != s_hash[-4:][::-1]
+                ):
                     raise DatabaseException(
                         f"zstd content checksum verification failed: "
                         f"{checksum.hex()} != {s_hash.hex()}"
@@ -280,7 +283,7 @@ class Database:
 
         :param path: the destination path
         :param overwrite: if false, do not overwrite an existing database at `path`
-            and instead rename the it based on its last modified timestamp.
+            and instead rename it based on its last modified timestamp.
         """
         logger = logging.getLogger(__name__)
         logger.debug(f"Saving database to {path}")
