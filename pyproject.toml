@@ -54,3 +54,18 @@ mypy_path = [
 exclude = [
     "photomanager/check_media_integrity/test_damage[.]py$",
 ]
+
+[tool.pyright]
+include = ["src"]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "src/typestubs"
+]
+defineConstant = { DEBUG = true }
+stubPath = "stubs"
+venv = "venv"
+venvPath = "./"
+
+reportMissingImports = true
+reportMissingTypeStubs = false
