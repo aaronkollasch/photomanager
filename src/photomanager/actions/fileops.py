@@ -4,7 +4,6 @@ import logging
 import re
 import shutil
 import stat
-import sys
 import traceback
 from collections.abc import Collection, Iterable
 from datetime import tzinfo
@@ -14,6 +13,7 @@ from typing import Optional, Union
 
 import click
 from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from photomanager.database import sizeof_fmt
 from photomanager.hasher import DEFAULT_HASH_ALGO, AsyncFileHasher, HashAlgorithm
@@ -136,24 +136,23 @@ def index_photos(
     photos: list[Optional[PhotoFile]] = []
     exiftool = ExifTool()
     exiftool.start()
-    for current_file in tqdm(files_normalized):
-        if logger.isEnabledFor(logging.DEBUG):
-            tqdm.write(f"Indexing {current_file}", file=sys.stderr)
-        try:
-            pf = PhotoFile.from_file_cached(
-                current_file,
-                checksum_cache=checksum_cache,
-                datetime_cache=datetime_cache,
-                algorithm=hash_algorithm,
-                tz_default=tz_default,
-                priority=priority,
-            )
-            photos.append(pf)
-        except Exception:
-            tqdm.write(f"Error indexing {current_file}", file=sys.stderr)
-            tb_str = "".join(traceback.format_exc())
-            tqdm.write(tb_str, file=sys.stderr)
-            photos.append(None)
+    with logging_redirect_tqdm():
+        for current_file in tqdm(files_normalized):
+            logger.debug(f"Indexing {current_file}")
+            try:
+                pf = PhotoFile.from_file_cached(
+                    current_file,
+                    checksum_cache=checksum_cache,
+                    datetime_cache=datetime_cache,
+                    algorithm=hash_algorithm,
+                    tz_default=tz_default,
+                    priority=priority,
+                )
+                photos.append(pf)
+            except Exception:
+                tb_str = "".join(traceback.format_exc())
+                logger.error(f"Error indexing {current_file}\n{tb_str}")
+                photos.append(None)
     exiftool.terminate()
     return photos
 
@@ -182,39 +181,35 @@ def copy_photos(
         f"{'Would copy' if dry_run else 'Copying'} {len(photos)} items, "
         f"estimated size: {sizeof_fmt(estimated_copy_size)}"
     )
-    p_bar = tqdm(
-        total=estimated_copy_size, unit="B", unit_scale=True, unit_divisor=1024
-    )
-    for photo, rel_store_path in photos:
-        if rel_store_path is None:
-            abs_store_path = directory / photo.sto
-        else:
-            abs_store_path = directory / rel_store_path
-        if logger.isEnabledFor(logging.DEBUG):
-            tqdm.write(
+    with logging_redirect_tqdm():
+        p_bar = tqdm(
+            total=estimated_copy_size, unit="B", unit_scale=True, unit_divisor=1024
+        )
+        for photo, rel_store_path in photos:
+            if rel_store_path is None:
+                abs_store_path = directory / photo.sto
+            else:
+                abs_store_path = directory / rel_store_path
+            logger.debug(
                 f"{'Would copy' if dry_run else 'Copying'}: {photo.src} "
-                f"to {abs_store_path}",
-                file=sys.stderr,
+                f"to {abs_store_path}"
             )
-        try:
-            if not dry_run:
-                makedirs(abs_store_path.parent, exist_ok=True)
-                shutil.copy2(photo.src, abs_store_path)
-                chmod(abs_store_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
-                if rel_store_path is not None:
-                    photo.sto = rel_store_path
-        except Exception:
-            tqdm.write(
-                f"Error copying {photo.src} to {abs_store_path}", file=sys.stderr
-            )
-            tb_str = "".join(traceback.format_exc())
-            tqdm.write(tb_str, file=sys.stderr)
-            num_error_photos += 1
-        else:
-            num_copied_photos += 1
-            total_copy_size += photo.fsz
-        p_bar.update(photo.fsz)
-    p_bar.close()
+            try:
+                if not dry_run:
+                    makedirs(abs_store_path.parent, exist_ok=True)
+                    shutil.copy2(photo.src, abs_store_path)
+                    chmod(abs_store_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+                    if rel_store_path is not None:
+                        photo.sto = rel_store_path
+            except Exception:
+                tb_str = "".join(traceback.format_exc())
+                logger.error(f"Error copying {photo.src} to {abs_store_path}\n{tb_str}")
+                num_error_photos += 1
+            else:
+                num_copied_photos += 1
+                total_copy_size += photo.fsz
+            p_bar.update(photo.fsz)
+        p_bar.close()
     return num_copied_photos, total_copy_size, num_error_photos
 
 
@@ -234,22 +229,20 @@ def remove_photos(
     logger = logging.getLogger(__name__)
     directory = Path(directory).expanduser().resolve()
     num_removed_photos = num_missing_photos = 0
-    for photo in tqdm(photos):
-        abs_store_path = directory / photo.sto
-        if abs_store_path.exists():
-            if logger.isEnabledFor(logging.DEBUG):
-                tqdm.write(
-                    f"{'Would remove' if dry_run else 'Removing'}: {abs_store_path}",
-                    file=sys.stderr,
+    with logging_redirect_tqdm():
+        for photo in tqdm(photos):
+            abs_store_path = directory / photo.sto
+            if abs_store_path.exists():
+                logger.debug(
+                    f"{'Would remove' if dry_run else 'Removing'}: {abs_store_path}"
                 )
-            if not dry_run:
-                remove(abs_store_path)
-                photo.sto = ""
-            num_removed_photos += 1
-        else:
-            if logger.isEnabledFor(logging.DEBUG):
-                tqdm.write(f"Missing photo: {abs_store_path}", file=sys.stderr)
-            num_missing_photos += 1
+                if not dry_run:
+                    remove(abs_store_path)
+                    photo.sto = ""
+                num_removed_photos += 1
+            else:
+                logger.debug(f"Missing photo: {abs_store_path}")
+                num_missing_photos += 1
     return num_removed_photos, num_missing_photos
 
 

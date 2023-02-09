@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import logging
 import random
-import sys
 from collections.abc import Container, Iterable
 from os import PathLike
 from pathlib import Path
 from typing import Optional, TypedDict, Union
 
 from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from photomanager.actions import fileops
 from photomanager.database import Database, sizeof_fmt, tz_str_to_tzinfo
@@ -191,16 +191,17 @@ def verify(
         storage_type=storage_type,
     )
 
-    for photo in tqdm(stored_photos):
-        abs_store_path = str(destination / photo.sto)
-        if abs_store_path not in checksum_cache:
-            tqdm.write(f"Missing photo: {abs_store_path}", file=sys.stderr)
-            num_missing_photos += 1
-        elif checksum_cache[abs_store_path] == photo.chk:
-            num_correct_photos += 1
-        else:
-            tqdm.write(f"Incorrect checksum: {abs_store_path}", file=sys.stderr)
-            num_incorrect_photos += 1
+    with logging_redirect_tqdm():
+        for photo in tqdm(stored_photos):
+            abs_store_path = str(destination / photo.sto)
+            if abs_store_path not in checksum_cache:
+                logger.warning(f"Missing photo: {abs_store_path}")
+                num_missing_photos += 1
+            elif checksum_cache[abs_store_path] == photo.chk:
+                num_correct_photos += 1
+            else:
+                logger.warning(f"Incorrect checksum: {abs_store_path}")
+                num_incorrect_photos += 1
 
     logger.info(
         f"Checked "

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from photomanager.database import Database, sizeof_fmt
 from photomanager.hasher import HashAlgorithm, file_checksum
@@ -39,30 +40,32 @@ def make_hash_map(
         hash_map = {}
     old_algo = database.hash_algorithm
     print(f"Converting {old_algo} to {new_algo}")
+    logger = logging.getLogger()
     num_correct_photos = (
         num_incorrect_photos
     ) = num_missing_photos = num_skipped_photos = 0
     all_photos = [photo for photos in database.photo_db.values() for photo in photos]
-    for photo in tqdm(all_photos):
-        if photo.chk in hash_map:
-            num_skipped_photos += 1
-        elif exists(photo.src):
-            if photo.chk == file_checksum(photo.src, old_algo):
-                hash_map[photo.chk] = file_checksum(photo.src, new_algo)
-                num_correct_photos += 1
-            else:
-                tqdm.write(f"Incorrect checksum: {photo.src}")
-                hash_map[photo.chk] = photo.chk + f":{old_algo}"
-                num_incorrect_photos += 1
-        elif destination:
-            sto_path = Path(destination).expanduser().resolve() / photo.sto
-            if exists(sto_path) and photo.chk == file_checksum(sto_path, old_algo):
-                hash_map[photo.chk] = file_checksum(sto_path, new_algo)
-                num_correct_photos += 1
+    with logging_redirect_tqdm():
+        for photo in tqdm(all_photos):
+            if photo.chk in hash_map:
+                num_skipped_photos += 1
+            elif exists(photo.src):
+                if photo.chk == file_checksum(photo.src, old_algo):
+                    hash_map[photo.chk] = file_checksum(photo.src, new_algo)
+                    num_correct_photos += 1
+                else:
+                    logger.warning(f"Incorrect checksum: {photo.src}")
+                    hash_map[photo.chk] = photo.chk + f":{old_algo}"
+                    num_incorrect_photos += 1
+            elif destination:
+                sto_path = Path(destination).expanduser().resolve() / photo.sto
+                if exists(sto_path) and photo.chk == file_checksum(sto_path, old_algo):
+                    hash_map[photo.chk] = file_checksum(sto_path, new_algo)
+                    num_correct_photos += 1
+                else:
+                    num_missing_photos += 1
             else:
                 num_missing_photos += 1
-        else:
-            num_missing_photos += 1
 
     print(f"Mapped {num_correct_photos} items")
     if num_skipped_photos:
@@ -159,34 +162,34 @@ def update_stored_filename_hashes(
     print(f"Total file size: {sizeof_fmt(total_file_size)}")
     logger = logging.getLogger()
     file_map = {}
-    for photo in tqdm(stored_photos):
-        abs_store_path = destination / photo.sto
-        new_store_path = f"{photo.sto[:32]}{photo.chk[:7]}{photo.sto[39:]}"
-        new_abs_store_path = destination / new_store_path
-        if new_abs_store_path.exists():
-            num_skipped_photos += 1
-        elif not abs_store_path.exists():
-            tqdm.write(f"Missing photo: {abs_store_path}")
-            num_missing_photos += 1
-        elif photo.sto[32:39] == photo.chk[:7]:
-            num_skipped_photos += 1
-        elif (
-            not verify
-            or file_checksum(abs_store_path, database.hash_algorithm) == photo.chk
-        ):
-            if logger.isEnabledFor(logging.DEBUG):
-                tqdm.write(
+    with logging_redirect_tqdm():
+        for photo in tqdm(stored_photos):
+            abs_store_path = destination / photo.sto
+            new_store_path = f"{photo.sto[:32]}{photo.chk[:7]}{photo.sto[39:]}"
+            new_abs_store_path = destination / new_store_path
+            if new_abs_store_path.exists():
+                num_skipped_photos += 1
+            elif not abs_store_path.exists():
+                logger.warning(f"Missing photo: {abs_store_path}")
+                num_missing_photos += 1
+            elif photo.sto[32:39] == photo.chk[:7]:
+                num_skipped_photos += 1
+            elif (
+                not verify
+                or file_checksum(abs_store_path, database.hash_algorithm) == photo.chk
+            ):
+                logger.debug(
                     f"{'Will move' if dry_run else 'Moving'} {abs_store_path} "
                     f"to {new_abs_store_path}"
                 )
-            file_map[str(abs_store_path)] = str(new_abs_store_path)
-            if not dry_run:
-                rename(abs_store_path, new_abs_store_path)
-                photo.sto = new_store_path
-            num_correct_photos += 1
-        else:
-            tqdm.write(f"Incorrect checksum: {abs_store_path}")
-            num_incorrect_photos += 1
+                file_map[str(abs_store_path)] = str(new_abs_store_path)
+                if not dry_run:
+                    rename(abs_store_path, new_abs_store_path)
+                    photo.sto = new_store_path
+                num_correct_photos += 1
+            else:
+                logger.warning(f"Incorrect checksum: {abs_store_path}")
+                num_incorrect_photos += 1
     print(f"{'Would move' if dry_run else 'Moved'} {num_correct_photos} items")
     if num_skipped_photos:
         print(f"Skipped {num_skipped_photos} items")
