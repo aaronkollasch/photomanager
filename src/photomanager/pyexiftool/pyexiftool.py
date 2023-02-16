@@ -59,6 +59,7 @@ from __future__ import annotations, unicode_literals
 import logging
 import subprocess
 import warnings
+from io import BufferedIOBase
 from os import fsencode
 from typing import Optional
 
@@ -189,7 +190,7 @@ class ExifTool(object, metaclass=Singleton):
     def __init__(self, executable_=None):
         self.executable = executable if executable_ is None else executable_
         self.running = False
-        self._process = None
+        self._process: Optional[subprocess.Popen] = None
 
     def start(self):
         """Start an ``exiftool`` process in batch mode for this instance.
@@ -224,8 +225,9 @@ class ExifTool(object, metaclass=Singleton):
 
         If the subprocess isn't running, this method will do nothing.
         """
-        if not self.running:
+        if not self.running or self._process is None:
             return
+        assert self._process.stdin is not None and self._process.stdout is not None
         self._process.stdin.write(b"-stay_open\nFalse\n")
         self._process.stdin.flush()
         try:
@@ -265,8 +267,10 @@ class ExifTool(object, metaclass=Singleton):
         .. note:: This is considered a low-level method, and should
            rarely be needed by application developers.
         """
-        if not self.running:
+        if not self.running or self._process is None:
             raise ValueError("ExifTool instance not running.")
+        assert self._process.stdin is not None and self._process.stdout is not None
+        assert isinstance(self._process.stdout, BufferedIOBase)
         self._process.stdin.write(b"\n".join(params + (b"-execute\n",)))
         self._process.stdin.flush()
         output = b""

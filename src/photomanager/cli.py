@@ -15,7 +15,7 @@ from photomanager.database import Database, sizeof_fmt
 from photomanager.hasher import DEFAULT_HASH_ALGO, HASH_ALGORITHMS, HashAlgorithm
 
 try:
-    from photomanager.check_media_integrity.check_mi import check_files
+    from photomanager.check_media_integrity.check_mi import check_files  # type: ignore
 except ImportError as e:
     check_files_message = str(e)
 

@@ -209,7 +209,7 @@ class Database:
     def from_dict(cls: Type[DB], db_dict: dict) -> DB:
         """Load a Database from a dictionary. Warning: can modify the dictionary."""
         db = cls()
-        db.db = cast(DatabaseDict, db_dict)
+        db.db = cast(DatabaseDict, db_dict)  # type: ignore
         return db
 
     @property
@@ -541,7 +541,7 @@ class Database:
             }
         else:
             photo_db = self.photo_db
-        for uid, photos in tqdm(photo_db.items()):
+        for photos in tqdm(photo_db.values()):
             highest_priority = min(photo.prio for photo in photos)
             stored_checksums: dict[str, int] = {}
             photos_marked_as_stored = [photo for photo in photos if photo.sto]

@@ -60,7 +60,8 @@ include = ["src"]
 exclude = [
     "**/node_modules",
     "**/__pycache__",
-    "src/typestubs"
+    "src/typestubs",
+    "src/photomanager/check_media_integrity/test_damage.py",
 ]
 defineConstant = { DEBUG = true }
 stubPath = "stubs"

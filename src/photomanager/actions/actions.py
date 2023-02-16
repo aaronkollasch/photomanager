@@ -69,7 +69,7 @@ def index(
         logger.info(f"Skipped {num_skipped_photos} items")
     if num_error_photos:  # pragma: no cover
         logger.info(f"Encountered an error on {num_error_photos} items")
-    return dict(
+    return IndexResult(
         changed_uids=changed_uids,
         num_added_photos=num_added_photos,
         num_merged_photos=num_merged_photos,
