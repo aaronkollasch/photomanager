@@ -35,7 +35,7 @@ expected_tags = [
 @pytest.mark.parametrize("tag", expected_tags)
 def test_pyexiftool_get_tag(datafiles, tag, caplog):
     caplog.set_level(logging.DEBUG)
-    print(datafiles.listdir())
+    print(list(datafiles.iterdir()))
     with ExifTool() as exiftool:
         filename = str(datafiles / tag["filename"])
         new_tag = exiftool.get_tag(tag=tag["tag"], filename=filename)
