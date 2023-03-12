@@ -1,7 +1,5 @@
 from hashlib import _Hash
-from typing import Any, ClassVar
-
-from _typeshed import ReadableBuffer, Self
+from typing import ClassVar
 
 class blake3(_Hash):
     AUTO: ClassVar[int] = ...

@@ -19,3 +19,4 @@ mypy
 types-pillow
 types-tqdm
 types-xxhash
+ruff
