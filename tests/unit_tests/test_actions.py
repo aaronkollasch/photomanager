@@ -336,6 +336,9 @@ def test_verify_random_sample(tmpdir, caplog):
     assert result["num_correct_photos"] == 0
     assert result["num_incorrect_photos"] == 0
     assert result["num_missing_photos"] == 1
+    assert any("Missing photo" in m for m in caplog.messages)
+    assert not any("Incorrect checksum" in m for m in caplog.messages)
+    caplog.clear()
 
     Path(tmpdir / "store" / "a.jpg").touch()
     Path(tmpdir / "store" / "b.jpg").touch()
@@ -351,3 +354,6 @@ def test_verify_random_sample(tmpdir, caplog):
     assert result["num_correct_photos"] == 0
     assert result["num_incorrect_photos"] == 2
     assert result["num_missing_photos"] == 0
+    assert not any("Missing photo" in m for m in caplog.messages)
+    assert any("Incorrect checksum" in m for m in caplog.messages)
+    caplog.clear()

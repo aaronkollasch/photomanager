@@ -209,7 +209,7 @@ class Database:
     def from_dict(cls: Type[DB], db_dict: dict) -> DB:
         """Load a Database from a dictionary. Warning: can modify the dictionary."""
         db = cls()
-        db.db = cast(DatabaseDict, db_dict)
+        db.db = cast(DatabaseDict, db_dict)  # type: ignore
         return db
 
     @property
@@ -260,8 +260,11 @@ class Database:
                 )
                 s = zstd.decompress(c)
                 del c
-                s_hash = xxhash.xxh64_digest(s)
-                if has_checksum and checksum != s_hash[-4:][::-1]:
+                if (
+                    has_checksum
+                    and (s_hash := xxhash.xxh64_digest(s))
+                    and checksum != s_hash[-4:][::-1]
+                ):
                     raise DatabaseException(
                         f"zstd content checksum verification failed: "
                         f"{checksum.hex()} != {s_hash.hex()}"
@@ -280,7 +283,7 @@ class Database:
 
         :param path: the destination path
         :param overwrite: if false, do not overwrite an existing database at `path`
-            and instead rename the it based on its last modified timestamp.
+            and instead rename it based on its last modified timestamp.
         """
         logger = logging.getLogger(__name__)
         logger.debug(f"Saving database to {path}")
@@ -538,7 +541,7 @@ class Database:
             }
         else:
             photo_db = self.photo_db
-        for uid, photos in tqdm(photo_db.items()):
+        for photos in tqdm(photo_db.values()):
             highest_priority = min(photo.prio for photo in photos)
             stored_checksums: dict[str, int] = {}
             photos_marked_as_stored = [photo for photo in photos if photo.sto]
