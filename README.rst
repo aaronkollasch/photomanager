@@ -42,7 +42,7 @@ are identified by matching filenames and timestamps.
 Installation
 ============
 
-Requires Python 3.8, 3.9, or 3.10.
+Requires Python 3.10, 3.11, or 3.12.
 
 Clone the repository
 --------------------
