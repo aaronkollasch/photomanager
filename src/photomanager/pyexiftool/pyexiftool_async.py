@@ -154,7 +154,7 @@ class AsyncExifTool(AsyncWorkerQueue):
             process.stdin.write(b"\n-execute\n")
             await process.stdin.drain()
             outputs = [b""]
-            while not outputs[-1][-32:].strip().endswith(sentinel):
+            while not b"".join(outputs[-2:]).strip()[-32:].endswith(sentinel):
                 outputs.append(await process.stdout.read(block_size))
             output_bytes = b"".join(outputs).strip()[: -len(sentinel)]
             if len(output_bytes.strip()) == 0:
