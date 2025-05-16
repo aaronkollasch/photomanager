@@ -61,7 +61,7 @@ def index(
         num_merged_photos,
         num_skipped_photos,
     ) = database.add_photos(pf for pf in photos if pf is not None)
-    logger.info(f"Indexed {num_added_photos+num_merged_photos}/{len(photos)} items")
+    logger.info(f"Indexed {num_added_photos + num_merged_photos}/{len(photos)} items")
     logger.info(
         f"Added {num_added_photos} new items and merged {num_merged_photos} items"
     )
@@ -205,7 +205,7 @@ def verify(
 
     logger.info(
         f"Checked "
-        f"{num_correct_photos+num_incorrect_photos+num_missing_photos} "
+        f"{num_correct_photos + num_incorrect_photos + num_missing_photos} "
         f"items"
     )
     if num_incorrect_photos or num_missing_photos:
