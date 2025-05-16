@@ -499,7 +499,7 @@ def test_cli_index_dump_skip_existing(datafiles, caplog):
     The --skip-existing flag prevents indexing existing source files
     """
     caplog.set_level(logging.DEBUG)
-    runner = CliRunner(mix_stderr=False)
+    runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=datafiles) as fs:
         print(os.listdir(datafiles / "A"))
         result = runner.invoke(
@@ -623,7 +623,7 @@ def test_cli_index_dump_skip_existing(datafiles, caplog):
 @pytest.mark.datafiles(FIXTURE_DIR / "C", keep_top_dir=True)
 def test_cli_index_dump_no_database(datafiles, caplog):
     caplog.set_level(logging.DEBUG)
-    runner = CliRunner(mix_stderr=False)
+    runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=datafiles) as fs:
         result = runner.invoke(
             cast(Group, cli.main),
