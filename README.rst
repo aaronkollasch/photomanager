@@ -6,10 +6,6 @@ PhotoManager
      :target: https://github.com/aaronkollasch/photomanager/actions?workflow=CI
      :alt: CI Status
 
-.. image:: https://codecov.io/gh/aaronkollasch/photomanager/branch/main/graph/badge.svg?token=QLC34GSAMR
-     :target: https://codecov.io/gh/aaronkollasch/photomanager
-     :alt: Test Coverage
-
 .. image:: http://www.mypy-lang.org/static/mypy_badge.svg
      :target: http://mypy-lang.org/
      :alt: Checked with mypy
