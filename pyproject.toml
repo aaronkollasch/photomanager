@@ -13,7 +13,7 @@ write_to_template = '''version = "{version}"
 
 [tool.black]
 line-length = 88
-target-version = ['py38']
+target-version = ['py310']
 include = '^/(src|tests|benchmarks|stubs)/.*\.pyi?$'
 extend-exclude = '''
 # A regex preceded with ^/ will apply only to files and directories

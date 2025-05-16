@@ -6,10 +6,6 @@ PhotoManager
      :target: https://github.com/aaronkollasch/photomanager/actions?workflow=CI
      :alt: CI Status
 
-.. image:: https://codecov.io/gh/aaronkollasch/photomanager/branch/main/graph/badge.svg?token=QLC34GSAMR
-     :target: https://codecov.io/gh/aaronkollasch/photomanager
-     :alt: Test Coverage
-
 .. image:: http://www.mypy-lang.org/static/mypy_badge.svg
      :target: http://mypy-lang.org/
      :alt: Checked with mypy
@@ -42,7 +38,7 @@ are identified by matching filenames and timestamps.
 Installation
 ============
 
-Requires Python 3.8, 3.9, or 3.10.
+Requires Python 3.10, 3.11, or 3.12.
 
 Clone the repository
 --------------------

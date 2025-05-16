@@ -41,9 +41,9 @@ def make_hash_map(
     old_algo = database.hash_algorithm
     print(f"Converting {old_algo} to {new_algo}")
     logger = logging.getLogger()
-    num_correct_photos = (
-        num_incorrect_photos
-    ) = num_missing_photos = num_skipped_photos = 0
+    num_correct_photos = num_incorrect_photos = num_missing_photos = (
+        num_skipped_photos
+    ) = 0
     all_photos = [photo for photos in database.photo_db.values() for photo in photos]
     with logging_redirect_tqdm():
         for photo in tqdm(all_photos):
@@ -150,9 +150,9 @@ def update_stored_filename_hashes(
     :param dry_run: if True, perform a dry run and do not move photos
     :return: the mapping of files moved
     """
-    num_correct_photos = (
-        num_skipped_photos
-    ) = num_incorrect_photos = num_missing_photos = 0
+    num_correct_photos = num_skipped_photos = num_incorrect_photos = (
+        num_missing_photos
+    ) = 0
     destination = Path(destination).expanduser().resolve()
     stored_photos = [
         photo for photos in database.photo_db.values() for photo in photos if photo.sto
