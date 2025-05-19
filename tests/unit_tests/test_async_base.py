@@ -1,6 +1,10 @@
+import logging
+from asyncio import run, sleep
+from dataclasses import dataclass
+
 import pytest
 
-from photomanager.async_base import make_chunks
+from photomanager.async_base import AsyncJob, AsyncWorkerQueue, make_chunks
 
 chunker_expected_results = [
     {
@@ -68,3 +72,40 @@ def test_make_chunks(chunks_test):
     )
     print(chunks)
     assert chunks == chunks_test["result"]
+
+
+@dataclass
+class TimeoutJob(AsyncJob):
+    time: float = 1.0
+
+
+class AsyncTimeoutWorker(AsyncWorkerQueue):
+    def __init__(
+        self,
+        num_workers: int = 1,
+        job_timeout: int | float | None = None,
+    ):
+        super(AsyncTimeoutWorker, self).__init__(
+            num_workers=num_workers,
+            show_progress=False,
+            job_timeout=job_timeout,
+        )
+
+    async def do_job(self, worker_id: int, job: AsyncJob):
+        if not isinstance(job, TimeoutJob):
+            raise NotImplementedError
+        await sleep(job.time)
+
+
+def test_async_execute_queue():
+    worker = AsyncTimeoutWorker(num_workers=2, job_timeout=0.0002)
+    all_jobs = [TimeoutJob(t) for t in (0.0001, 0.00005, 0.00015)]
+    assert run(worker.execute_queue(all_jobs)) == {}
+
+
+def test_async_execute_queue_timeout_error(caplog):
+    caplog.set_level(logging.DEBUG)
+    worker = AsyncTimeoutWorker(num_workers=2, job_timeout=0.00012)
+    all_jobs = [TimeoutJob(t) for t in (0.0001, 0.00005, 0.00015)]
+    print(run(worker.execute_queue(all_jobs)))
+    assert any("TimeoutError" in m for m in caplog.messages)
