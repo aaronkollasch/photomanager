@@ -169,9 +169,12 @@ class AsyncFileHasher(AsyncWorkerQueue):
         batch_size: int = 50,
         algorithm: HashAlgorithm = DEFAULT_HASH_ALGO,
         use_async: bool = True,
+        job_timeout: int | float | None = None,
     ):
         super(AsyncFileHasher, self).__init__(
-            num_workers=num_workers, show_progress=show_progress
+            num_workers=num_workers,
+            show_progress=show_progress,
+            job_timeout=job_timeout,
         )
         self.batch_size: int = batch_size
         self.algorithm = algorithm

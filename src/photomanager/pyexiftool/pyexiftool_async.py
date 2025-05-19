@@ -115,10 +115,13 @@ class AsyncExifTool(AsyncWorkerQueue):
         executable_: str = "",
         num_workers: int = os.cpu_count() or 1,
         show_progress: bool = True,
+        job_timeout: int | float | None = 360,
         batch_size: int = 20,
     ):
         super(AsyncExifTool, self).__init__(
-            num_workers=num_workers, show_progress=show_progress
+            num_workers=num_workers,
+            show_progress=show_progress,
+            job_timeout=job_timeout,
         )
         self.executable = executable if not executable_ else executable_
         self.running = False
