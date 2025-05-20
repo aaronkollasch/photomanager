@@ -101,12 +101,13 @@ class AsyncTimeoutWorker(AsyncWorkerQueue):
         if not isinstance(job, TimeoutJob):
             raise NotImplementedError
         await sleep(job.time)
+        self.output_dict[worker_id] = job.time
 
 
 def test_async_execute_queue():
     worker = AsyncTimeoutWorker(num_workers=2, job_timeout=0.0002)
     all_jobs = [TimeoutJob(t) for t in (0.0001, 0.00005, 0.00015)]
-    assert run(worker.execute_queue(all_jobs)) == {}
+    assert run(worker.execute_queue(all_jobs)) == {0: 0.0001, 1: 0.00015}
 
 
 def test_async_execute_queue_multiple_workers():
@@ -117,7 +118,7 @@ def test_async_execute_queue_multiple_workers():
         async with timeout(0.002):
             return await worker.execute_queue(all_jobs)
 
-    assert run(run_timeout()) == {}
+    assert run(run_timeout()) == {i: 0.001 for i in range(8)}
 
 
 def test_async_execute_queue_timeout_error(caplog):
