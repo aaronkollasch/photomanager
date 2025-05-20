@@ -1,6 +1,6 @@
 import logging
 import sys
-from asyncio import run, sleep
+from asyncio import get_event_loop, run, sleep
 from dataclasses import dataclass
 
 if sys.version_info >= (3, 11):
@@ -82,6 +82,7 @@ def test_make_chunks(chunks_test):
 
 @dataclass
 class TimeoutJob(AsyncJob):
+    id: int = 0
     time: float = 1.0
 
 
@@ -100,30 +101,45 @@ class AsyncTimeoutWorker(AsyncWorkerQueue):
     async def do_job(self, worker_id: int, job: AsyncJob):
         if not isinstance(job, TimeoutJob):
             raise NotImplementedError
+        loop = get_event_loop()
+        print(job.time, self.queue._queue, loop.time())
         await sleep(job.time)
-        self.output_dict[worker_id] = job.time
+        self.output_dict[job.id] = job.time
 
 
-def test_async_execute_queue():
-    worker = AsyncTimeoutWorker(num_workers=2, job_timeout=0.0002)
-    all_jobs = [TimeoutJob(t) for t in (0.0001, 0.00005, 0.00015)]
-    assert run(worker.execute_queue(all_jobs)) == {0: 0.0001, 1: 0.00015}
+def test_async_execute_queue(caplog):
+    caplog.set_level(logging.DEBUG)
+    worker = AsyncTimeoutWorker(num_workers=2, job_timeout=0.02)
+    result_dict = {i: t for i, t in enumerate((0.01, 0.005, 0.015))}
+    all_jobs = [TimeoutJob(i, t) for i, t in result_dict.items()]
+    result = run(worker.execute_queue(all_jobs), debug=True)
+    assert result == result_dict
 
 
-def test_async_execute_queue_multiple_workers():
-    worker = AsyncTimeoutWorker(num_workers=8, job_timeout=0.002)
-    all_jobs = [TimeoutJob(0.001) for _ in range(8)]
+def test_async_execute_queue_multiple_workers(caplog):
+    caplog.set_level(logging.DEBUG)
+    worker = AsyncTimeoutWorker(num_workers=8, job_timeout=0.02)
+    result_dict = {i: 0.01 for i in range(8)}
+    all_jobs = [TimeoutJob(i, t) for i, t in result_dict.items()]
 
     async def run_timeout():
-        async with timeout(0.002):
-            return await worker.execute_queue(all_jobs)
+        try:
+            async with timeout(0.02):
+                print(get_event_loop().time())
+                return await worker.execute_queue(all_jobs)
+        except TimeoutError:
+            print(get_event_loop().time())
+            raise
 
-    assert run(run_timeout()) == {i: 0.001 for i in range(8)}
+    result = run(run_timeout())
+    assert result == result_dict
 
 
 def test_async_execute_queue_timeout_error(caplog):
     caplog.set_level(logging.DEBUG)
-    worker = AsyncTimeoutWorker(num_workers=2, job_timeout=0.00012)
-    all_jobs = [TimeoutJob(t) for t in (0.0001, 0.00005, 0.00015)]
-    print(run(worker.execute_queue(all_jobs)))
+    worker = AsyncTimeoutWorker(num_workers=2, job_timeout=0.012)
+    result_dict = {i: t for i, t in enumerate((0.01, 0.005, 0.015))}
+    all_jobs = [TimeoutJob(i, t) for i, t in result_dict.items()]
+    result = run(worker.execute_queue(all_jobs))
     assert any("TimeoutError" in m for m in caplog.messages)
+    assert result != result_dict
