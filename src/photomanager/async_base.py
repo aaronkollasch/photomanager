@@ -95,9 +95,9 @@ class AsyncWorkerQueue:
                         f"{traceback.format_exc()}",
                     )
                 finally:
-                    self.queue.task_done()
                     if self.show_progress:
                         self.update_pbar(job)
+                    self.queue.task_done()
         finally:
             await self.close_worker(worker_id)
 
