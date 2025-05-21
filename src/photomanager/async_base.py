@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import logging
+import sys
 import time
 import traceback
-from asyncio import Queue, Task, create_task, gather
+from asyncio import Queue, Task, create_task, gather, get_event_loop
+
+if sys.version_info >= (3, 11):
+    from asyncio import timeout
+else:
+    from async_timeout import timeout
+
 from collections.abc import Collection, Generator, Iterable
 from dataclasses import dataclass
 from os import cpu_count
@@ -39,9 +46,11 @@ class AsyncWorkerQueue:
         self,
         num_workers: int = cpu_count() or 1,
         show_progress: bool = False,
+        job_timeout: int | float | None = None,
     ):
         self.num_workers: int = num_workers
         self.show_progress: bool = show_progress
+        self.job_timeout: int | float | None = job_timeout
         self.queue: Optional[Queue[AsyncJob]] = None
         self.workers: list[Task] = []
         self.output_dict: dict = {}
@@ -77,16 +86,18 @@ class AsyncWorkerQueue:
                     break
                 job: AsyncJob = await self.queue.get()
                 try:
-                    await self.do_job(worker_id, job)
-                    if self.show_progress:
-                        self.update_pbar(job)
+                    async with timeout(self.job_timeout):
+                        await self.do_job(worker_id, job)
                 except (Exception,):
                     logging.getLogger(__name__).warning(
                         f"{self.__class__.__name__} worker encountered an exception!\n"
                         f"hasher job: {job}\n"
+                        f"loop time:  {get_event_loop().time()}\n"
                         f"{traceback.format_exc()}",
                     )
                 finally:
+                    if self.show_progress:
+                        self.update_pbar(job)
                     self.queue.task_done()
         finally:
             await self.close_worker(worker_id)
