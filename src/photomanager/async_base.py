@@ -89,10 +89,10 @@ class AsyncWorkerQueue:
                     async with timeout(self.job_timeout):
                         await self.do_job(worker_id, job)
                 except (Exception,):
-                    print(get_event_loop().time())
                     logging.getLogger(__name__).warning(
                         f"{self.__class__.__name__} worker encountered an exception!\n"
                         f"hasher job: {job}\n"
+                        f"loop time:  {get_event_loop().time()}\n"
                         f"{traceback.format_exc()}",
                     )
                 finally:

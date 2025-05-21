@@ -82,7 +82,7 @@ def test_make_chunks(chunks_test):
 
 @dataclass
 class TimeoutJob(AsyncJob):
-    id: int = 0
+    index: int = 0
     time: float = 1.0
 
 
@@ -102,9 +102,10 @@ class AsyncTimeoutWorker(AsyncWorkerQueue):
         if not isinstance(job, TimeoutJob):
             raise NotImplementedError
         loop = get_event_loop()
-        print(job.time, self.queue._queue, loop.time())
+        print(job, "started", loop.time(), sep="\t")
         await sleep(job.time)
-        self.output_dict[job.id] = job.time
+        self.output_dict[job.index] = job.time
+        print(job, "ended  ", loop.time(), sep="\t")
 
 
 def test_async_execute_queue(caplog):
@@ -127,11 +128,13 @@ def test_async_execute_queue_multiple_workers(caplog):
     async def run_timeout():
         try:
             async with timeout(job_timeout):
-                print(get_event_loop().time())
+                print("Execute queue", get_event_loop().time())
                 return await worker.execute_queue(all_jobs)
         except TimeoutError:
-            print(get_event_loop().time())
+            print("Timeout at", get_event_loop().time())
             raise
+        finally:
+            print("Queue finished", get_event_loop().time())
 
     result = run(run_timeout())
     assert result == result_dict
@@ -141,7 +144,7 @@ def test_async_execute_queue_timeout_error(caplog):
     caplog.set_level(logging.DEBUG)
     job_timeout = 0.012
     worker = AsyncTimeoutWorker(num_workers=2, job_timeout=job_timeout)
-    result_dict = {i: job_timeout * t for i, t in enumerate((0.8, 0.5, 1.25))}
+    result_dict = {i: job_timeout * t for i, t in enumerate((0.9, 0.6, 1.2))}
     all_jobs = [TimeoutJob(i, t) for i, t in result_dict.items()]
     result = run(worker.execute_queue(all_jobs))
     assert any("TimeoutError" in m for m in caplog.messages)
