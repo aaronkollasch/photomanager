@@ -109,8 +109,9 @@ class AsyncTimeoutWorker(AsyncWorkerQueue):
 
 def test_async_execute_queue(caplog):
     caplog.set_level(logging.DEBUG)
-    worker = AsyncTimeoutWorker(num_workers=2, job_timeout=0.02)
-    result_dict = {i: t for i, t in enumerate((0.01, 0.005, 0.015))}
+    job_timeout = 0.02
+    worker = AsyncTimeoutWorker(num_workers=2, job_timeout=job_timeout)
+    result_dict = {i: job_timeout * t for i, t in enumerate((0.5, 0.25, 0.75))}
     all_jobs = [TimeoutJob(i, t) for i, t in result_dict.items()]
     result = run(worker.execute_queue(all_jobs), debug=True)
     assert result == result_dict
@@ -118,13 +119,14 @@ def test_async_execute_queue(caplog):
 
 def test_async_execute_queue_multiple_workers(caplog):
     caplog.set_level(logging.DEBUG)
-    worker = AsyncTimeoutWorker(num_workers=8, job_timeout=0.02)
-    result_dict = {i: 0.01 for i in range(8)}
+    job_timeout = 0.02
+    worker = AsyncTimeoutWorker(num_workers=8, job_timeout=job_timeout)
+    result_dict = {i: job_timeout / 2 for i in range(8)}
     all_jobs = [TimeoutJob(i, t) for i, t in result_dict.items()]
 
     async def run_timeout():
         try:
-            async with timeout(0.02):
+            async with timeout(job_timeout):
                 print(get_event_loop().time())
                 return await worker.execute_queue(all_jobs)
         except TimeoutError:
@@ -137,8 +139,9 @@ def test_async_execute_queue_multiple_workers(caplog):
 
 def test_async_execute_queue_timeout_error(caplog):
     caplog.set_level(logging.DEBUG)
-    worker = AsyncTimeoutWorker(num_workers=2, job_timeout=0.012)
-    result_dict = {i: t for i, t in enumerate((0.01, 0.005, 0.015))}
+    job_timeout = 0.012
+    worker = AsyncTimeoutWorker(num_workers=2, job_timeout=job_timeout)
+    result_dict = {i: job_timeout * t for i, t in enumerate((0.8, 0.5, 1.25))}
     all_jobs = [TimeoutJob(i, t) for i, t in result_dict.items()]
     result = run(worker.execute_queue(all_jobs))
     assert any("TimeoutError" in m for m in caplog.messages)
