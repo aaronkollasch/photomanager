@@ -136,13 +136,13 @@ timestamps, checksums, and original names.
     │   └── 02-Feb
     │       └── 2015-02-30_02-40-43-9637179-AWK_0060.jpg
     ├── 2016
-    │   ├── 05-May
-    │   │   ├── 2018-05-24_00-31-08-bf3ed29-IMG_8213.JPG
-    │   │   └── 2018-05-29_20-13-16-39a4187-IMG_8591.MOV
+    │   └── 05-May
+    │       ├── 2018-05-24_00-31-08-bf3ed29-IMG_8213.JPG
+    │       └── 2018-05-29_20-13-16-39a4187-IMG_8591.MOV
     ├── 2017
-    │   ├── 12-Dec
-    │   │   ├── 2017-12-25_20-32-41-589c151-DSC_8705.JPG
-    │   │   └── 2017-12-25_20-32-41-4bb6987-DSC_8705.NEF
+    │   └── 12-Dec
+    │       ├── 2017-12-25_20-32-41-589c151-DSC_8705.JPG
+    │       └── 2017-12-25_20-32-41-4bb6987-DSC_8705.NEF
 
 Stored photo paths in the database are relative to the ``destination`` folder,
 so the library is portable, and the same database can be shared across
